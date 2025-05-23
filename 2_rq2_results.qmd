@@ -1,0 +1,317 @@
+---
+b---
+title: "RQ2: artificialy attritioned datasets"
+format: 
+  html:
+    fig-width: 8
+    fig-height: 8
+    code-link: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    toc: true
+    grid:
+      body-width: 900px
+editor: visual
+---
+
+```{r}
+
+source("0_load_data.R")
+
+rq1y = rq1y[-1] # Remove year 2 time point from comparison list 
+
+```
+
+# Descriptive Statistics
+
+```{r}
+df %>%
+  select(all_of(rq2y)) %>%
+  # select(where(is.numeric)) %>%
+  # mutate(across(everything(), as.character)) %>%
+  pivot_longer(cols = everything()) %>%
+  ggplot(aes(x=value)) +
+  geom_histogram() +
+  facet_wrap(~name, ncol = 4, scales = "free")
+
+
+df %>%
+  select(all_of(rq2y)) %>%
+  apply(.,2,function(x) length(unique(x)))
+
+```
+
+# Create Attritioned Datasets
+
+To remove participants, I've set the rows to NA rather than remove the rows, so all the datasets should have the same length.
+
+```{r}
+
+attritioned_datasets = list()
+
+for (i in seq_along(rq1y)){
+  
+  filter = as.numeric(df[[rq1y[i]]])==0
+  
+  attritioned_datasets[[i]] = df %>% 
+    select(all_of(rq2y))
+  
+  attritioned_datasets[[i]][filter,] = NA
+  
+}
+
+original_dataset = df %>%
+  select(all_of(rq2y))
+
+
+```
+
+# Analyses
+
+## Comparisons of individual variables
+
+```{r}
+
+variable_comparisons = list()
+
+ta = Sys.time()
+for (i in 1:length(attritioned_datasets)){
+  variable_comparisons[[i]] = compare_df(
+    attritioned_datasets[[i]],
+    original_dataset,
+    B = 10
+    )
+}
+
+tb = Sys.time()
+
+tb-ta
+
+# Clean data into a sigle dataframe
+
+names(variable_comparisons) = rq1y
+
+variable_comparisons_df = lapply(variable_comparisons, function(x) x$bootstrap_summary)
+
+for(i in 1:length(variable_comparisons_df)){
+  for (j in 1:3){ # only first three sets of results relate to specific variables in rq2y
+    variable_comparisons_df[[i]] = variable_comparisons_df[[i]][1:3]
+    variable_comparisons_df[[i]][[j]] = do.call(
+      rbind,
+      variable_comparisons_df[[i]][[j]]
+    )
+    variable_comparisons_df[[i]][[j]]$dataset  = rq1y[i]
+    variable_comparisons_df[[i]][[j]]$stat = c("md","smd","h")[j]
+    variable_comparisons_df[[i]][[j]]$variable = rq2y_labels
+    rownames(variable_comparisons_df[[i]][[j]]) = NULL
+  }
+  
+  variable_comparisons_df[[i]] = do.call(rbind.data.frame, variable_comparisons_df[[i]])
+}
+
+variable_comparisons_df = do.call(rbind.data.frame, variable_comparisons_df)
+
+
+```
+
+Plot Results
+
+```{r}
+
+ranked_variables = variable_comparisons_df %>%
+  filter(stat == "smd") %>%
+  group_by(variable) %>%
+  summarise(
+    mean_bias = mean(y)
+  ) %>%
+  arrange(abs(mean_bias)) %>%
+  pull(variable)
+
+variable_comparisons_df %>%
+  mutate(stat = factor(stat, levels = c("h","md","smd"), labels = c("Hellingers","Mean Difference", "SMD"))) %>%
+  # mutate(variable = factor(variable, levels = ranked_variables)) %>%
+  filter(stat != "Mean Difference") %>%
+  mutate(variable = factor(
+    variable, 
+    levels = ranked_variables,
+    ordered = TRUE)
+  ) %>%
+  arrange(variable) %>%
+  ggplot(aes(x = y, xmax = ymax, xmin = ymin, y = variable, col = dataset)) + 
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  geom_path(aes(group = dataset)) +
+  # geom_line(aes(x=y, y=variable, group = dataset, col = dataset), inherit.aes = FALSE) +
+  # geom_errorbar() + 
+  facet_grid(~stat, scale = "free")
+
+```
+
+### Plot data distributions
+
+```{r}
+
+attritioned_datasets_long = attritioned_datasets
+
+for (i in seq_along(attritioned_datasets_long)){
+  attritioned_datasets_long[[i]] = gather(as.data.frame(as.matrix(attritioned_datasets[[i]])))
+  attritioned_datasets_long[[i]]$dataset = rq1y[i]
+}
+
+x = original_dataset %>%
+    as.matrix() %>% as.data.frame() %>%
+    gather() %>%
+    mutate(dataset = "original")
+
+
+attritioned_datasets_long = c(attritioned_datasets_long, list(x))
+
+attritioned_datasets_long = do.call(rbind.data.frame,attritioned_datasets_long)
+
+attritioned_datasets_long = attritioned_datasets_long %>%
+  filter(!is.na(value))
+
+attritioned_datasets_long %>%
+  mutate(dataset = factor(dataset)) %>%
+  ggplot(aes(x = value, group = dataset, col = dataset)) + 
+  geom_density() + 
+  facet_wrap(~key, scales = "free")
+
+```
+
+## Compare Correlation Structure
+
+Re-establish the matrix positions:
+
+```{r}
+test_correlation_matrix = matrix(
+  nrow = length(rq2y),
+  ncol = length(rq2y)
+  )
+
+for(i in seq_along(rq2y)){
+  for(j in seq_along(rq2y)){
+    test_correlation_matrix[i,j] = paste(rq2y[i], rq2y[j], collapse = " ")
+  }
+}
+
+x = test_correlation_matrix[lower.tri(test_correlation_matrix)]
+
+x_var = str_extract(x, "^\\S+")
+y_var = str_extract(x, "\\S+$")
+
+rm(test_correlation_matrix,x)
+```
+
+```{r}
+
+correlation_comparisons = lapply(variable_comparisons, function(x) x$bootstrap_summary$cor_resid)
+
+correlation_comparisons = lapply(correlation_comparisons, function(x) do.call(rbind.data.frame, x))
+
+x = correlation_comparisons[[9]]
+
+data=x
+
+```
+
+```{r}
+
+
+
+```
+
+# Random / Code Checks
+
+```{r}
+#| eval: false 
+
+# Hellingers distances
+
+# Small
+
+statip::hellinger(rnorm(100000,1,1),rnorm(100000,1.2,1))*sqrt(2)
+
+# Medium
+
+statip::hellinger(rnorm(100000,1,1),rnorm(100000,1.5,1))*sqrt(2)
+
+# Large
+
+statip::hellinger(rnorm(100000,1,1),rnorm(100000,2,1))*sqrt(2)
+
+# Huge
+
+statip::hellinger(rnorm(100000,1,1),rnorm(100000,1,10))*sqrt(2)
+
+# More tests
+
+distrEx::HellingerDist(rnorm(1000,1,1),rnorm(1000,3,1), asis.smooth.discretize = "smooth")
+
+
+HellingerDist(c(.3,.5,.2),c(.3,.6,.3))
+
+statip::hellinger(rnorm(100000,1,1),rnorm(100000,3,1))*sqrt(2)
+
+HellingerDist(rbinom(50, size = 20, prob = 0.5), Binom(size = 20, prob = 0.5))
+
+apply(attritioned_datasets[[1]],2, function(x) length(which(!is.na(x))))
+
+
+# rq2y
+# rq1y[10]
+# 
+# calc_smd(
+# cleanvar(original_dataset$bvocab1),
+# cleanvar(attritioned_datasets[[9]]$bvocab1)
+# )
+# 
+# calc_md(
+# cleanvar(original_dataset$bvocab1),
+# cleanvar(attritioned_datasets[[9]]$bvocab1)
+# )
+# 
+# calc_smd(
+# cleanvar(original_dataset$bvocab1),
+# cleanvar(attritioned_datasets[[9]]$bvocab1)
+# )
+# 
+# calc_smd(
+# cleanvar(original_dataset$bvocab1),
+# cleanvar(attritioned_datasets[[4]]$bvocab1)
+# )
+# 
+# x=compare_df(
+#   attritioned_datasets[[9]],
+#   original_dataset
+# )
+# 
+# x=compare_smd(
+#   attritioned_datasets[[9]],
+#   original_dataset
+# )
+
+# compare_smd(
+#   attritioned_datasets[[9]],
+#   original_dataset
+# )
+
+calc_smd(
+   cleanvar(attritioned_datasets[[9]]$brawg1),
+   cleanvar(original_dataset$brawg1)
+)
+
+statip::hellinger(
+   cleanvar(attritioned_datasets[[9]]$brawg1),
+   cleanvar(original_dataset$brawg1)
+)
+
+
+
+variable_comparisons_df %>%
+  filter(dataset == "rcqdata") %>%
+  filter(stat != "md") 
+
+rq1y[9]
+```

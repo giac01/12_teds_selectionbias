@@ -1,0 +1,447 @@
+---
+title: "RQ1: Y2 predictors of attrition"
+format: 
+  html:
+    fig-width: 8
+    fig-height: 8
+    code-link: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    toc: true
+    grid:
+      body-width: 900px
+editor: visual
+---
+
+# Load Data
+
+```{r}
+
+source("0_load_data.R")
+options(width = 900)
+
+```
+
+## Impute Missing Predictor Data
+
+```{r}
+
+daddy_issues = df_rq1 %>%
+  select(adadagetw, afasoc2, afahqual)
+
+df_rq1_imputed = df_rq1 %>%
+  select(-adadagetw, -afasoc2, -afahqual) %>%
+  mice(method = "pmm", m =1)
+
+df_rq1_imputed = mice(df_rq1, method = "pmm", m = 1)
+
+df_rq1_imputed$loggedEvents
+
+df_rq1_imputed = complete(df_rq1_imputed)
+
+```
+
+## How concordant is participation between twins?
+
+```{r}
+
+df %>% 
+  select(randomfamid,twin,all_of(rq1y)) %>% 
+  pivot_wider(
+    id_cols = randomfamid,
+    names_from = twin,
+    values_from = all_of(rq1y),
+    names_sep = "_twin"
+  ) %>%
+  gbtoolbox::plot_correlations(
+    sample_size = FALSE,
+    confidence_interval = FALSE
+  )
+
+
+```
+
+# Family-Level Logistic Regressions on each outcome
+
+### caret approach
+
+```{r}
+
+library(caret)
+
+i = 1
+formula <- as.formula(paste(rq1y[i], "~", paste(rq1x, collapse = "+")))
+df_rq1_imputed[[rq1y[i]]] <- as.factor(df_rq1_imputed[[rq1y[i]]])
+model = train(
+  # x = df_rq1_imputed[rq1x],
+  # y = df_rq1_imputed[rq1y[i]],
+  formula,
+  data = df_rq1_imputed,
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "none")
+)
+
+importance <- varImp(model, scale = FALSE)
+```
+
+### rms::lrm approach
+
+```{r}
+
+lrm_models = list()
+
+for (i in seq_along(rq1y)){
+  
+  cat(i, "/", length(rq1y),"\n")
+  formula <- as.formula(paste(rq1y[i], "~", paste(rq1x, collapse = "+")))
+  lrm_models[[i]] = rms::lrm(formula, data = df_rq1_imputed)
+
+  }
+
+lapply(lrm_models, function(x) x$stats[6])
+
+lrm_models[[1]]$stats[6]
+
+```
+
+### stats::glm approach
+
+```{r}
+
+models = list()
+
+for (i in seq_along(rq1y)){
+  cat(i, "/", length(rq1y),"\n")
+  formula <- as.formula(paste(rq1y[i], "~", paste(rq1x, collapse = "+")))
+  models[[i]] = glm(formula, data = df_rq1_imputed, family = binomial)
+}
+
+lapply(models, summary)
+lapply(models, performance::r2)
+lapply(models, performance::model_performance)
+lapply(models, function(x) as.numeric(calc_auc(x)))
+
+
+# x=calc_auc(models[[1]])
+# 
+# predict(x, type = "response") %>% hist()
+
+lin_pred = sapply(models, function(x) predict.glm(x, type = "link"))
+
+colnames(lin_pred) = colnames(df_rq1y)
+
+lin_pred %>%
+  `colnames<-`(colnames(df_rq1y)) %>%
+gbtoolbox::plot_correlations(
+  confidence_interval = FALSE,
+  sample_size = FALSE
+  ) + 
+  labs(title = "Correlation Between Linear Predictors")
+
+x=models[[12]]
+# all.vars(formula(x))[1]
+
+explainer = DALEX::explain(
+  x,
+  y = as.numeric(df_rq1_imputed[[all.vars(formula(x))[1]]]),
+  label = "GLM"
+  )
+
+importance <- DALEX::model_parts(explainer, 
+                         # loss_function = DALEX::loss_auc,
+                         type = "difference")
+
+plot(importance)
+
+```
+
+# Descriptive Information
+
+Total number of families in dataset: `r length(unique(df0$randomfamid))`
+
+Total number of families with no predictor information (and are just completely removed from the analysis): `r length(which(apply(df[rq1x], 1, function(x) length(which(!is.na(x))))==0))`
+
+Participation rates at each timepoint
+
+```{r}
+
+df_rq1y %>%
+  sapply(., function(x) length(which(x==1))/length(which(x>=0)))
+
+```
+
+Other descriptive stuff
+
+```{r}
+
+
+df_rq1y %>%
+  mutate(across(everything(), as.character)) %>%
+  # rename_from_labels() %>%
+  pivot_longer(cols = everything()) %>%
+  group_by(name) %>%
+  count(value) %>%
+  # mutate(name_count = n()) %>%
+  # filter(name_count < 10) %>%
+  # select(-name_count) %>%
+  knitr::kable()
+
+df_rq1y %>%
+  # select(where(is.numeric)) %>%
+  mutate(across(everything(), as.character)) %>%
+  mutate(across(everything(), ~as.character(replace_na(., "NA")))) %>%
+  pivot_longer(cols = everything()) %>%
+  ggplot(aes(x=value)) +
+  geom_bar() +
+  facet_wrap(~name, ncol = 4, scales = "free")
+
+df_rq1x %>%
+  select(where(is.numeric)) %>%
+  # mutate(across(everything(), as.character)) %>%
+  pivot_longer(cols = everything()) %>%
+  ggplot(aes(x=value)) +
+  geom_histogram() +
+  facet_wrap(~name, ncol = 4, scales = "free")
+
+df_rq1x %>%
+  select(!where(is.numeric)) %>%
+  rename_from_labels() %>%
+  mutate(across(everything(), as.character)) %>%
+  pivot_longer(cols = everything()) %>%
+  ggplot(aes(x=value)) +
+  geom_bar() +
+  facet_wrap(~name, ncol = 4, scales = "free") +
+    theme(
+    axis.text.x = element_text(
+      angle = 20, 
+      hjust = 1, 
+      vjust = 1,     # Middle vertical alignment
+      size = 8         # Adjust text size if needed
+    ))
+
+table(df$afasoc, df$afajob, useNA = "always")
+
+df_rq1x %>%
+  select(!where(is.numeric)) %>%
+  # rename_from_labels() %>%
+  mutate(across(everything(), as.character)) %>%
+  pivot_longer(cols = everything()) %>%
+  ggplot(aes(x=value)) +
+  geom_bar() +
+  facet_wrap(~name, ncol = 4, scales = "free") +
+    theme(
+    axis.text.x = element_text(
+      angle = 20, 
+      hjust = 1, 
+      vjust = 1,     # Middle vertical alignment
+      size = 8         # Adjust text size if needed
+    ))
+
+
+```
+
+## Missing Data Patterns
+
+```{r}
+
+
+df_rq1x %>%
+  `colnames<-`((rq1x_labels)) %>%
+  as_tibble() %>%
+  ggmice::plot_pattern(., rotate = TRUE)
+
+ggsave(file.path("plots","1_rq1_misssing_data_pattern.pdf"), width = 12, height = 30)
+
+df_rq1_imputed %>%
+  select(rq1x) %>%
+  data.frame() %>%
+  `colnames<-`((rq1x_labels)) %>%
+  as_tibble() %>%
+  ggmice::plot_pattern(., rotate = TRUE)
+
+ggsave(file.path("plots","1_rq1_misssing_data_pattern_imputed.pdf"), width = 12, height = 30)
+
+```
+
+# Predicting missingness of SDQ/MFQ data
+
+## Data Prep
+
+1 = Not missing
+
+[Note that at Yr16,](https://datadictionary.teds.ac.uk/studies/derived_variables/16yr_derived_variables.htm#pbhsdq) the emotion subtest was not administered to parents, so the conduct one is used instead.
+
+```{r}
+#| eval: true
+
+list_of_sdq_var = c(
+  # "bsdqcemot1", 
+  # "csdqcemot1", 
+  # "dsdqemot1", 
+  # "gpsdqemot1", 
+  # "icsdqemot1", "ipsdqemot1", 
+  "lcsdqemot1", "lpsdqemot1", 
+  "pcbhsdqemot1", "ppbhsdqcont1", 
+  "u1csdqemot1", "ucv1sdqemot1", "u1psdqemot1", 
+  "zmhsdqemot1"
+)
+
+rq1m = c(
+  "lcsdqemot1", "lpsdqemot1", "lcmfqt1", "lpmfqt1",
+  "pcbhsdqemot1", "ppbhsdqcont1", "pcbhmfqt1", "ppbhmfqt1", 
+  "u1csdqemot1", "ucv1sdqemot1", "u1psdqemot1", "u1cmfqt1", "ucv1mfqt1", 
+  
+  "zmhsdqemot1", "zmhmfqt1"
+)
+
+rq1m_childmeasures = c(
+  "lcsdqemot1", "lcmfqt1", 
+  "pcbhsdqemot1", "pcbhmfqt1", 
+  "u1csdqemot1", "ucv1sdqemot1",  "u1cmfqt1", "ucv1mfqt1", 
+  "zmhsdqemot1", "zmhmfqt1"
+)
+
+rq1m_parentmeasures = c(
+  "lpsdqemot1",  "lpmfqt1",
+  "ppbhsdqcont1","ppbhmfqt1", 
+  "u1psdqemot1"
+)
+
+missing_outcomes = df %>% 
+  filter(acontact == 1) %>%
+  select(all_of(rq1m)) %>%
+  sapply(.,function(x) as.numeric(!is.na(x)))
+
+# missing_outcomes = sapply(xx,function(x) as.numeric(is.na(x)))
+```
+
+## Descriptives
+
+```{r}
+
+data.frame(
+  var = rq1m,
+  labels = var_to_label(rq1m),
+  p_notmissing = apply(missing_outcomes, 2, function(x) length(which(x==1))/length(x)*100) %>% round()
+)
+
+# Check how concordant missingness is between twins
+
+df %>% 
+  filter(acontact == 1) %>%
+  select("randomfamid", "twin", all_of(rq1m)) %>%
+  # rename_from_labels() %>%
+  pivot_wider(id_cols = randomfamid, values_from = rq1m, names_from = twin) %>%
+  mutate(
+    across(
+      ends_with("1") | ends_with("2"), 
+      ~as.numeric(!is.na(.))
+    )
+  ) %>%
+  select(-randomfamid) %>%
+  gbtoolbox::plot_correlations(
+    confidence_interval = FALSE,
+    sample_size = FALSE
+  )
+
+df %>% 
+  filter(acontact == 1) %>%
+  select("randomfamid", "twin", all_of(rq1m_childmeasures)) %>%
+  # rename_from_labels() %>%
+  pivot_wider(id_cols = randomfamid, values_from = rq1m_childmeasures, names_from = twin) %>%
+  mutate(
+    across(
+      ends_with("1") | ends_with("2"), 
+      ~as.numeric(!is.na(.))
+    )
+  ) %>%
+  gbtoolbox::plot_correlations(
+    confidence_interval = FALSE,
+    sample_size = FALSE
+  ) + 
+  labs(title = "Child Measures Only")
+
+
+
+  # cor(., use = "pairwise.complete.obs") %>%
+  # round(., 3)
+  # 
+  
+  
+cbind.data.frame(df)
+
+```
+
+```{r}
+df_predictors = df %>%
+  filter(acontact == 1) %>%
+  select(all_of(randomfamid,rq1x)) 
+
+df_predictors = mice(df_predictors, method = "pmm", m = 1) 
+df_predictors = complete(df_predictors) # simple approach - should be refined
+
+df2 = cbind.data.frame(missing_outcomes, df_predictors)
+
+models = list()
+
+for (i in seq_along(list_of_sdq_var)){
+  cat(i, "/", length(list_of_sdq_var),"\n")
+  formula <- as.formula(paste(list_of_sdq_var[i], "~", paste(rq1x, collapse = "+"), "  ( 1 | ) "))
+  models[[i]] = lme4::lmer(formula, data = df2, family = binomial)
+}
+
+lapply(models, summary)
+lapply(models, performance::r2)
+lapply(models, performance::model_performance)
+lapply(models, function(x) as.numeric(calc_auc(x)))
+
+
+# umissingsdq = df %>%
+#   filter(twin == 1) %>%
+#   filter(acontact == 1) %>%
+#   pull(u1psdqemot1) %>%
+#    is.na() %>% 
+#    as.numeric()
+# 
+# zmissingsdq = df %>%
+#   filter(twin == 1) %>%
+#   filter(acontact == 1) %>%
+#   pull(zmhsdqemot1) %>%
+#    is.na() %>% 
+#    as.numeric()
+# 
+# df_rq1_imputed$umissingsdq = umissingsdq
+
+
+
+
+
+
+
+
+# 
+# 
+# 
+# model_sdq = glm(
+#   as.formula(paste("umissingsdq ~", paste(rq1x, collapse = "+"))),
+#   family = binomial,
+#   data = df_rq1_imputed
+# )
+# 
+# 
+# summary(model_sdq)
+# performance::model_performance(model_sdq)
+# performance::r2(model_sdq)
+# calc_auc(model_sdq)
+# 
+# 
+# lapply(models, summary)
+# lapply(models, performance::r2)
+# lapply(models, performance::model_performance)
+# lapply(models, function(x) as.numeric(calc_auc(x)))
+
+
+
+```

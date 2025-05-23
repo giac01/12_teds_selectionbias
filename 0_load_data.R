@@ -1,0 +1,253 @@
+# Load Libraries and Data ------------------------------------------------------
+
+rm(list=ls())
+
+library(tidyverse)
+library(mice)
+library(pROC)
+library(performance)
+source("0_functions.R")
+source("0_lists_of_variables.R")
+
+
+df0 = haven::read_sav(file.path("data","732 GB FINAL.sav"))
+
+df = df0
+
+# Define Variable Sets ---------------------------------------------------------
+
+rq1x = c("amumagetw","adadagetw","aadults","aalgzyg","amedtot",
+         # "afaclas",
+         # "afajob", "afasoc", 
+         "afasoc2",
+         # "afaspq", "afawork", 
+         "afahqual",
+         
+         # "amoclas", 
+         # "amojob", "amosoc", 
+         "amosoc2",
+         "amohqual", 
+         # "amospq", "amowork",
+         "atwmed1", 
+         # Mising acorn and pollution data
+         "aethnicc", "alang", "anoldsib", "anyngsib",
+         "atwclub",
+         "alookels",
+         "asmoke",
+         "adrink",
+         "astress"
+)
+
+rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr", "gpdata", "heightyr", "ipdata", "jtenyear", "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
+
+rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr",           "heightyr",           "jtenyear", "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
+
+rq2y = c("brawg1", "badparn1","breparc1", "bparca1", 
+         "bvocab1", "bgramma1","bsdqcbeht1","bsdqccont1",
+         "bsdqcemot1", "bsdqchypt1", "bsdqcpert1", "bsdqcprot1"
+         )
+
+# Research Question 5 
+
+# Available outcomes at 12, 14, 16, 18, 21 & 26
+#       l:12          n:14          p:16 / gcses        u:21                      z:26
+ 
+hyp = c()
+
+gca = c("lcg1",       "ncg1",       "pcg1",             "ucgt1") # GCA scores: ages 12, 14, 16, 21
+
+mfq = c("lcmfqt1",                  "pcbhmfqt1",        "u1cmfqt1",               "zmhmfqt1") # MFQ scores
+
+# MAYBE REMOVE GAD - AS ITS MOSTLY MISSING! 
+gad = c(                                                "u2cganxt1",              "zmhganxt1") # GAD-D Anxiety Scores
+
+edu = c(              "npks3tall1", "pcexgcsecoregrdm1","rcqucast1","u1chqualp1", "zmhhqual1")
+
+hyp = c("lcsdqhypt1",               "pcbhsdqhypt1",     "u1csdqhypt1",            "zmhsdqhypt1") # SDQ Hyperactivity scores
+
+con = c("lcsdqcont1",               "pcbhsdqcont1",     "u1csdqcont1",            "zmhsdqcont1")
+
+rq5y = c(
+  gca,
+  edu,
+  mfq
+  )
+
+# gad %in% rq5z
+# 
+# df %>%
+#   select(all_of(rq5y))
+
+# Variable fixes and formatting ------------------------------------------------
+
+df$gsevenyr[is.na(df$gsevenyr)] = 0
+
+df$heightyr[is.na(df$heightyr)] = 0
+
+df$aadults   = haven::as_factor(df$aadults, levels = "label") %>%
+  droplevels( "unknown or other") 
+df$aalgzyg   = haven::as_factor(df$aalgzyg)
+df$afaclas   = haven::as_factor(df$afaclas)
+df$afajob    = haven::as_factor(df$afajob)
+df$afasoc    = haven::as_factor(df$afasoc)
+df$afaspq    = haven::as_factor(df$afaspq)
+df$afawork   = haven::as_factor(df$afawork)
+df$afahqual  = haven::as_factor(df$afahqual)
+df$amoclas   = haven::as_factor(df$amoclas)
+df$amojob    = haven::as_factor(df$amojob)
+df$amohqual  = haven::as_factor(df$amohqual)
+df$amosoc    = haven::as_factor(df$amosoc)
+df$amospq    = haven::as_factor(df$amospq)
+df$amowork   = haven::as_factor(df$amowork)
+df$aethnicc  = haven::as_factor(df$aethnicc)
+df$alang     = haven::as_factor(df$alang)
+df$anoldsib  = haven::as_factor(df$anoldsib)  # COULD TREAT THIS AS CONTINUOUS - NUMBER OF OLDER SIBLINGS
+df$anyngsib  = haven::as_factor(df$anyngsib)  # SAME ^
+df$atwclub   = haven::as_factor(df$atwclub)
+df$alookels  = haven::as_factor(df$alookels)
+df$asmoke    = haven::as_factor(df$asmoke)
+df$adrink    = haven::as_factor(df$adrink)
+df$astress   = haven::as_factor(df$astress)
+
+df$aadults   = set_most_frequent_ref(df$aadults)
+df$aalgzyg   = set_most_frequent_ref(df$aalgzyg)
+df$aethnicc  = set_most_frequent_ref(df$aethnicc)
+df$afahqual  = set_most_frequent_ref(df$afahqual)
+
+df$zmhhqual1   = as.numeric(df$zmhhqual1)
+df$zmhempst1   = haven::as_factor(df$zmhempst1)
+df$zmhempinc1  = as.numeric(df$zmhempinc1)
+df$sexzyg      = haven::as_factor(df$sexzyg)
+df$x3zygos     = haven::as_factor(df$x3zygos)
+
+df$lsdqext = df$lcsdqcont1   + df$lcsdqhypt1       # Age 12 SDQ Externalising Score
+df$psdqext = df$pcbhsdqcont1 + df$pcbhsdqhypt1     # Age 16 SDQ Externalising Score
+df$usdqext = df$u1csdqcont1  + df$u1csdqhypt1
+df$zsdqext = df$zmhsdqcont1  + df$zmhsdqhypt1
+
+## Recode job variables --------------------------------------------------------
+
+# Mother (female parent) job classification
+df$amosoc2 = as.character(df$amosoc)
+df$amosoc2[df$amojob=="no"] = "no job"
+df$amosoc2[df$amojob=="caring for children at home"] = "caring for children at home"
+df$amosoc2 = set_most_frequent_ref(as.factor(df$amosoc2))
+
+# table(df$amojob, df$amosoc2, useNA = "always")
+
+attr(df$amosoc2, "label") = "Mother SOC employment level (1st Contact), 1-9"
+
+# Father (male parent) job classification
+df$afasoc2 = as.character(df$afasoc)
+df$afasoc2[df$afajob=="no"] = "no job"
+df$afasoc2[df$afajob=="caring for children at home"] = "caring for children at home"
+# df$afasoc2[df$aadults=="single parent" & is.na(df$afasoc2)] = "single parent".  #  Probably not a good idea to create single parent group here! 
+df$afasoc2 = set_most_frequent_ref(as.factor(df$afasoc2))
+
+attr(df$afasoc2, "label") = "Father SOC employment level (1st Contact), 1-9"
+
+# Father (male parent) qualification classification
+
+## Not sure this makes sense - maybe do not use? 
+
+# df$afahqual2 = as.character(df$afahqual)
+# df$afahqual2[df$aadults=="single parent" & is.na(df$afahqual2)] = "single parent"
+
+# table(df$afajob, df$afasoc2, useNA = "always")
+# table(df$aadults, df$afasoc2, useNA = "always")
+# table(df$aadults, useNA = "always")
+# df_singleparent = df0 %>%
+#   mutate(aadults = haven::as_factor(aadults)) %>%
+#   filter(aadults == "single parent")
+# table(df_singleparent$afajob, useNA = "always")
+# table(df_singleparent$amojob, useNA = "always")
+
+# Reset attributes -------------------------------------------------------------
+
+all_vars = colnames(df)
+
+for (var in all_vars) {
+  if (!is.null(attr(df0[[var]], "label"))){
+  attr(df[[var]], "label") <- attr(df0[[var]], "label") }
+}
+
+for (var in all_vars) {
+  if (!is.null(attr(df0[[var]], "labels"))){
+    attr(df[[var]], "labels") <- attr(df0[[var]], "labels") }
+}
+
+# Creating seperate dataframes -------------------------------------------------
+
+df_colnames = colnames(df)
+
+df_labels   = sapply(1:ncol(df), function(i) attr(df[,i, drop = TRUE], "label"))
+
+df_rq1 = df %>%
+  filter(twin == 1) %>%
+  filter(acontact == 1) %>%
+  select(all_of(c(rq1x, rq1y)))
+
+df_rq1x = df_rq1 %>% 
+  select(all_of(rq1x)) 
+
+df_rq1y = df_rq1 %>% 
+  select(all_of(rq1y)) 
+
+df_rq5 = df %>%
+  select(any_of(rq5z))
+
+# Create Labels ----------------------------------------------------------------
+
+rq1x_labels = df_rq1x %>% 
+  sapply(., function(x) attr(x, "label"))
+
+rq1y_labels = df_rq1y %>% 
+  sapply(., function(x) attr(x, "label"))
+
+rq2y_labels = df %>% 
+  select(all_of(rq2y)) %>%
+  sapply(., function(x) attr(x, "label"))
+
+mfq_labels = df %>% 
+  select(all_of(mfq)) %>%
+  sapply(., function(x) attr(x, "label"))
+
+# Data chceks -------------------------
+# 
+# sapply(1:ncol(df_rq1y), function(i) attr(df_rq1y[,i, drop = TRUE], "label"))
+#   
+#   df$anyngsib %>%
+#     attr(., "label")
+#   
+#   colnames(df)
+#   
+#   df_rq1x = df %>% 
+#     select(
+#       dplyr::any_of(rq1x)
+#     )
+#   
+#   
+#   
+#  i=1
+#  
+#  df$cens01po
+#  
+#  
+#  df_colnames[257]
+#  
+#  
+#  attr(df$randomfamid, "label")
+#  
+#  attr(df[,i, drop = TRUE], "label")
+#  
+#  
+#  
+# grep("present",df_labels) 
+# df_colnames[grep("present",df_labels)]
+
+# table(df$afasoc, df$afajob, useNA = "always")
+# table(df$afajob, useNA = "always")
+
+
+
+
