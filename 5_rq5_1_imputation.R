@@ -33,14 +33,31 @@ df %>%
   return(invisible(NULL))
 }
 
+sink("variable_check_results.txt")
+
 invisible(
   df %>%
     select(any_of(rq5z)) %>%
-    select(1:100) %>%
+    mutate_if(is.numeric, ~ round(.x, 1)) %>%
+    select(150:250) %>%
     purrr::imap(~.variable_check(.x, .y))
 )
 
+# Stop redirecting output
+sink()
 
+
+df %>%
+  select(any_of(rq5z)) %>%
+  mutate_if(is.numeric, ~ round(.x, 1)) %>%
+  apply(.,2, function(x) length(unique(x))) %>% table()
+
+## Check what percentage of data is missing ------------------------------------
+
+df %>%
+  select(any_of(rq5z)) %>%
+  apply(.,2,function(x) length(which(!is.na(x)))/length(x)) 
+  
 ## Create descriptive table ----------------------------------------------------
 
 source("0_lists_of_variables.R")

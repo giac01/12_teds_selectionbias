@@ -1,5 +1,33 @@
 ---
-title: "5_rq5_results"
-format: html
+title: "RQ4: complete case analysis vs imputation analysis"
+format: 
+  html:
+    fig-width: 8
+    fig-height: 8
+    code-link: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    toc: true
+    grid:
+      body-width: 900px
+editor: source
 ---
+
+
+```{r}
+
+source("0_load_data.R")
+
+```
+
+Descriptive stats
+
+```{r}
+
+df_rq5 %>% colnames()
+
+
+
+```
 

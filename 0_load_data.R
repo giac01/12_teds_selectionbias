@@ -6,6 +6,10 @@ library(tidyverse)
 library(mice)
 library(pROC)
 library(performance)
+library(DHARMa) # needed for performance::checkmodel function
+library(see)    # needed for performance::see function
+library(future)
+library(future.apply)
 source("0_functions.R")
 source("0_lists_of_variables.R")
 
@@ -42,10 +46,19 @@ rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr", "gpdata", "heightyr", "i
 
 rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr",           "heightyr",           "jtenyear", "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
 
-rq2y = c("brawg1", "badparn1","breparc1", "bparca1", 
-         "bvocab1", "bgramma1","bsdqcbeht1","bsdqccont1",
-         "bsdqcemot1", "bsdqchypt1", "bsdqcpert1", "bsdqcprot1"
-         )
+# rq2y = c("brawg1", "badparn1","breparc1", "bparca1", 
+#          "bvocab1", "bgramma1","bsdqcbeht1","bsdqccont1",
+#          "bsdqcemot1", "bsdqchypt1", "bsdqcpert1", "bsdqcprot1"
+#          )
+
+rq2y_prefix  = c(
+  "bvocab", "bgramma","badparn", "breparc", 
+  "bsdqccont", "bsdqcemot", "bsdqchypt", "bsdqcpert", "bsdqcprot"
+)
+
+rq2y         = paste0(rq2y_prefix, "1")
+
+rq2y_all     = c(paste0(rq2y_prefix, "1"),paste0(rq2y_prefix, "2"))
 
 # Research Question 5 
 
@@ -108,6 +121,8 @@ df$alookels  = haven::as_factor(df$alookels)
 df$asmoke    = haven::as_factor(df$asmoke)
 df$adrink    = haven::as_factor(df$adrink)
 df$astress   = haven::as_factor(df$astress)
+df$agenpro1  = haven::as_factor(df$agenpro1)
+df$agenpro2  = haven::as_factor(df$agenpro2)
 
 df$aadults   = set_most_frequent_ref(df$aadults)
 df$aalgzyg   = set_most_frequent_ref(df$aalgzyg)
@@ -115,8 +130,15 @@ df$aethnicc  = set_most_frequent_ref(df$aethnicc)
 df$afahqual  = set_most_frequent_ref(df$afahqual)
 
 df$zmhhqual1   = as.numeric(df$zmhhqual1)
+df$zmhhqual2   = as.numeric(df$zmhhqual2)
 df$zmhempst1   = haven::as_factor(df$zmhempst1)
+df$zmhempst2   = haven::as_factor(df$zmhempst2)
 df$zmhempinc1  = as.numeric(df$zmhempinc1)
+df$zmhempinc2  = as.numeric(df$zmhempinc2)
+
+df$zmhneet1    = haven::as_factor(df$zmhneet1)
+df$zmhneet2    = haven::as_factor(df$zmhneet2)
+
 df$sexzyg      = haven::as_factor(df$sexzyg)
 df$x3zygos     = haven::as_factor(df$x3zygos)
 
@@ -207,6 +229,18 @@ rq1y_labels = df_rq1y %>%
 rq2y_labels = df %>% 
   select(all_of(rq2y)) %>%
   sapply(., function(x) attr(x, "label"))
+
+rq2y_labels_short = c(
+  "Vocabulary",
+  "Grammar",
+  "Parent-admin Parca",
+  "Parent-report Parca",
+  "Conduct problems", 
+  "Emotional problems",
+  "Hyperactivity",
+  "Peer problems",
+  "Prosocial behavior"
+)
 
 mfq_labels = df %>% 
   select(all_of(mfq)) %>%

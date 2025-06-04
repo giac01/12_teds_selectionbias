@@ -2,11 +2,11 @@
 
 source("0_load_data.R")
 
-number_bootstraps = 100
+number_bootstraps = 200
 
 rq1y = rq1y[-1] # Remove year 2 time point from comparison list 
 
-# Create Attrittioned Datasets -------------------------------------------------
+# Create Attritioned Datasets --------------------------------------------------
 
 attritioned_datasets = list()
 
@@ -15,19 +15,16 @@ for (i in seq_along(rq1y)){
   filter = as.numeric(df[[rq1y[i]]])==0
   
   attritioned_datasets[[i]] = df %>% 
-    select(all_of(rq2y))
+    select("randomfamid", "twin", "random", "x3zygos", all_of(rq2y_all))
   
-  attritioned_datasets[[i]][filter,] = NA
+  attritioned_datasets[[i]][filter,rq2y_all] = NA
   
 }
 
 original_dataset = df %>%
-  select(all_of(rq2y))
+  select("randomfamid", "twin", "random","x3zygos", all_of(rq2y_all))
 
 # Run parallelised bootstrapped analyuses --------------------------------------
-
-library(future)
-library(future.apply)
 
 # Set up parallel processing
 plan(multisession, workers = 12)
@@ -36,8 +33,8 @@ ta = Sys.time()
 
 variable_comparisons <- future_lapply(1:length(attritioned_datasets), function(i) {
   compare_df(
-    attritioned_datasets[[i]],
-    original_dataset,
+    attritioned_datasets[[i]][rq2y],
+    original_dataset[rq2y],
     B = number_bootstraps
   )
 }, 
@@ -51,7 +48,7 @@ plan(sequential)
 
 saveRDS(variable_comparisons, file = file.path("results", "variable_comparisons.Rds"))
 
-# Clean data into a sigle dataframe --------------------------------------------
+## Clean data into a single dataframe ------------------------------------------
 
 names(variable_comparisons) = rq1y
 
@@ -78,3 +75,53 @@ saveRDS(variable_comparisons_df, file = file.path("results", "variable_compariso
 
 
 variable_comparisons_df = do.call(rbind.data.frame, variable_comparisons_df)
+
+
+# Run ACE Analyses -------------------------------------------------------------
+
+attritioned_datasets_twin1 = lapply(
+  attritioned_datasets, function(x) {
+    x %>%
+      filter(random == 1)
+  }
+)
+
+original_dataset_twin1 = original_dataset %>%
+  filter(random == 1)
+
+# Set up parallel processing
+options(future.globals.maxSize = 1000 * 1024^2)  # Increase if you have large objects
+plan(multisession, workers = 12)
+
+ta = Sys.time()
+
+ace_comparisons <- future_lapply(seq_along(rq2y_prefix), function(i) {
+  compare_ace(
+    var = rq2y_prefix[i],   # Variable that we want to calculate ACE estimates for 
+    B = number_bootstraps
+  )
+}, 
+future.seed = 1,
+future.globals = list(
+  original_dataset_twin1 = original_dataset_twin1,
+  attritioned_datasets_twin1 = attritioned_datasets_twin1,
+  rq2y_prefix = rq2y_prefix,
+  number_bootstraps = number_bootstraps,
+  calc_ace    = calc_ace,
+  i = i,
+  rq1y = rq1y,
+  .mean_qi_pd = .mean_qi_pd,
+  compare_ace = compare_ace  # if this is a custom function
+),
+future.packages = c("dplyr", "magrittr")
+)  
+
+tb = Sys.time()
+print(tb - ta)
+
+names(ace_comparisons) = rq2y_prefix
+
+saveRDS(ace_comparisons, file = file.path("results", "ace_comparisons.Rds"))
+
+
+

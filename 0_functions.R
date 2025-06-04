@@ -33,24 +33,29 @@ set_most_frequent_ref <- function(x) {
 }
 
 
-calc_auc = function(x){
+calc_auc = function(x, printplot = FALSE){
   outcome_name    = all.vars(formula(x))[1]
   
-  outcome_values  = x$data[[outcome_name]]
-  predicted_probs = predict(x, type = "response")
+  # Get the complete cases from the original data
+  complete_cases <- complete.cases(x$data[, c(outcome_name, all.vars(formula(x))[-1])])
   
-  roc_obj         = pROC::roc(outcome_values, predicted_probs)
+  # Extract outcome values for complete cases only
+  outcome_values <- x$data[[outcome_name]][complete_cases]
+  predicted_probs <- predict(x, type = "response")
   
-  plot(roc_obj)
+  roc_obj         = pROC::roc(outcome_values, predicted_probs, quiet = TRUE)
   
-  auc             = pROC::auc(roc_obj)
+  if (printplot) plot(roc_obj)
+  
+  auc             = pROC::auc(roc_obj, quiet = TRUE)
   
   return(auc)
   
 }
 
 var_to_label = function(var, df0 = df){
-  df0 = select(df0, all_of(var))
+  # df0 = select(df0, all_of(var))
+  df0 = df0[var]
   out = sapply(1:ncol(df0), function(i) attr(df0[[i]], "label"))
   return(out)
 }
@@ -206,9 +211,11 @@ compare_correlation = function(df1, df2){
 
 
 .mean_qi_pd = function(x, .width = .95){
-  out = ggdist::mean_qi(x, .width = .width, na.rm = TRUE)
-  pd  = as.numeric(bayestestR::p_direction(x))
-  out$pd = pd
+  out      = ggdist::mean_qi(x, .width = .width, na.rm = TRUE)
+  pd       = as.numeric(bayestestR::p_direction(x))
+  pval     = bayestestR::pd_to_p(pd)
+  out$pd   = pd
+  out$pval = pval
   return(out)
 }
 
@@ -333,26 +340,26 @@ calc_srmr2 = function(df1, df2){
 # original_dataset[,1] %>% cleanvar()
 
 
-
-library(ggplot2)
-library(dplyr)
+# 
+# library(ggplot2)
+# library(dplyr)
 
 # Function to create ggplot of lower triangular correlation matrix
 plot_lower_triangular_matrix <- function(
     data, 
-    value_col    = "y", 
-    pd_col       = "pd", 
-    pd_threshold = 0.95,
+    p_threshold = 0.05,
     show_values  = TRUE,
-    text_size    = 3, 
-    # rq2y         = rqy2,
-    # x_var        = x_var,
-    # y_var        = y_var,
-    title        = "Residual Correlation Matrix"
+    text_size    = 3,
+    title = "plot title",
+    caption = "plot subtitle"
+
 ) {
   
-  data$x_var = x_var
-  data$y_var = y_var
+  rq2y <- get("rq2y", envir = parent.frame())
+  rq2y_labels_short <- get("rq2y_labels_short", envir = parent.frame())
+  
+  data$x_var = get("x_var", envir = parent.frame())
+  data$y_var = get("y_var", envir = parent.frame())
   
   # Extract unique variable names
   # all_vars <- unique(c(data[["x_var"]], data[["y_var"]]))
@@ -363,29 +370,17 @@ plot_lower_triangular_matrix <- function(
   
   # Add correlation values for lower triangle
   for (i in 1:nrow(data)) {
-    # x_var <- data[[x_var_col]][i]
-    # y_var <- data[[y_var_col]][i]
-    value <- data[[value_col]][i]
-    pd_value <- data[[pd_col]][i]
+    value   <- data[["y"]][i]
+    p_value <- data[["pval_adj"]][i]
     
-    # Find positions
-    # x_pos <- which(all_vars == x_var[i])
-    # y_pos <- which(all_vars == y_var[i])
-    
-    x_pos <- which(data$x_var[i] == rq2y)
-    y_pos <- which(data$y_var[i] == rq2y)
-    
-    # Only include lower triangle (where row > col)
-    # if (x_pos > y_pos) {
-      # Only color if pd value meets threshold, otherwise set to NA for no color
-    fill_value <- ifelse(pd_value >= pd_threshold, value, NA)
+
+    fill_value <- ifelse(p_value < p_threshold, value, NA)
       
       plot_data <- rbind(plot_data, data.frame(
         x = y_var[i],
         y = x_var[i],
         value = value,
-        fill_value = fill_value,
-        pd = pd_value
+        fill_value = fill_value
       ))
     # }
   }
@@ -393,13 +388,19 @@ plot_lower_triangular_matrix <- function(
   # Skip adding diagonal values - we want only lower triangle without diagonal
   
   # Set factor levels to control ordering
-  plot_data$x <- factor(plot_data$x, levels = rq2y, labels = rq2y_labels)
-  plot_data$y <- factor(plot_data$y, levels = rev(rq2y), labels = rev(rq2y_labels))
+  plot_data$x <- factor(plot_data$x, levels = rq2y,      labels = rq2y_labels_short)
+  plot_data$y <- factor(plot_data$y, levels = rev(rq2y), labels = rev(rq2y_labels_short))
+  
+  plot_data$x <- droplevels(plot_data$x)
+  plot_data$y <- droplevels(plot_data$y)
   
   # Format numbers without leading zero
   plot_data$formatted_value <- ifelse(plot_data$value >= 0,
                                       sub("^0", "", sprintf("%.3f", plot_data$value)),
                                       sub("^-0", "-", sprintf("%.3f", plot_data$value)))
+  
+  
+  if (length(which(!is.na(plot_data$fill_value)))==0) { plot_data$fill_value = 0 }
   
   # Create the plot
   p <- ggplot(plot_data, aes(x = x, y = y, fill = fill_value)) +
@@ -416,7 +417,11 @@ plot_lower_triangular_matrix <- function(
       plot.title = element_text(hjust = 0.5)
     ) +
     coord_equal() +
-    labs(title = title)
+    labs(
+      title = title, 
+      caption = caption
+    ) +
+    theme(legend.position = "none")
   
   # Add correlation values as text if requested
   if (show_values) {
@@ -434,3 +439,214 @@ plot_lower_triangular_matrix <- function(
 # 
 # plot_lower_triangular_matrix(x)
 
+calc_ace = function(
+    data = NULL,
+    var  = c("bvocab")
+    
+    
+    ){
+  
+  if (length(var)!=1) stop("length(var) should equal 1")
+  
+  data_mz = data %>%
+    filter(x3zygos=="MZ")
+  
+  data_dz = data %>%
+    filter(x3zygos=="DZ same sex")
+  
+  ace_results  = vector()
+  
+  mz_cor = cor(
+    as.numeric(data_mz[[paste0(var,"1")]]),
+    as.numeric(data_mz[[paste0(var,"2")]]),
+    use = "pairwise.complete.obs"
+  )
+
+  dz_cor = cor(
+    as.numeric(data_dz[[paste0(var,"1")]]),
+    as.numeric(data_dz[[paste0(var,"2")]]),
+    use = "pairwise.complete.obs"
+  )
+  
+  a = 2*(mz_cor - dz_cor)
+  
+  c = 2*dz_cor - mz_cor
+  
+  e = 1 - mz_cor
+  
+  ace_results = c(a, c, e)
+  
+  names(ace_results) = c("a", "c", "e")
+    
+  return(ace_results)
+}
+
+
+
+# var = "bvocab"
+
+compare_ace = function(
+    var = var,
+    B = 10
+    ){
+
+  boot_results_original = list() # bootstrapped results for non-attrition dataset
+  boot_results = list()          # bootstrapped results for 
+  
+  original_dataset_twin1     = get("original_dataset_twin1",     envir = parent.frame())
+  attritioned_datasets_twin1 = get("attritioned_datasets_twin1", envir = parent.frame())
+  
+  
+  if (length(var)>1) stop("length(var) should equal 1")
+  if (nrow(original_dataset_twin1)!=nrow(attritioned_datasets_twin1[[1]])) stop("nrows should match")
+
+  for (i in 1:B){
+    
+    boot_select = sample(nrow(original_dataset_twin1), nrow(original_dataset_twin1), replace = TRUE)
+    
+    boot_results_original[[i]] = calc_ace(original_dataset_twin1[boot_select,], var = var)
+    
+    boot_results[[i]] = list()
+    
+    for (j in seq_along(rq1y)){
+      
+      boot_results[[i]][[j]] = calc_ace(data=attritioned_datasets_twin1[[j]][boot_select,], var = var)
+      
+    }
+    
+    names(boot_results[[i]]) = rq1y
+
+  }
+
+  boot_results_original_df = data.frame(do.call("rbind", boot_results_original))
+  
+  
+  boot_results_df <- lapply(rq1y, function(selection_group) {
+    lapply(boot_results, function(x) x[[selection_group]])
+  })
+  
+  boot_results_df = lapply(boot_results_df, function(x) data.frame(do.call('rbind', x)))
+  
+  names(boot_results_df) = rq1y
+  
+  # Compare changes in ace model parameters
+  
+  boot_results_differences = list()
+  
+  for(i in seq_along(rq1y)){
+    boot_results_differences[[i]] = as.matrix(boot_results_original_df) - as.matrix(boot_results_df[[i]])
+  }
+  
+  boot_results_differences_summary = lapply(boot_results_differences, function(x)
+    apply(x,2,.mean_qi_pd)
+  )
+  
+  names(boot_results_differences_summary) = rq1y
+  
+  out = list(
+    boot_results_differences_summary,
+    boot_results_differences,
+    boot_results_df,
+    boot_results_original
+  )
+  
+  names(out) = c("boot_results_differences_summary", "boot_results_differences", "boot_results_df")
+
+  return(out)
+}
+
+
+glm_model_comparison = function(full_model) {
+  
+  # Get drop1 results
+  drop_results    = drop1(full_model, test = "LRT")
+  drop_results_df = data.frame(drop_results)
+  
+  # Get variable names
+  vars_to_test    = all.vars(formula(full_model))[-1]
+  outcome         = all.vars(formula(full_model))[1]
+  
+  # Fit Intercept-Only Model
+  
+  used_rows       = as.numeric(names(residuals(full_model)))
+  
+  if(length(used_rows)!=nobs(full_model)) stop("sample size does not match between comparisons A")
+  
+  subset_data     = full_model$data[used_rows, ]
+  
+  null_model      = update(
+    full_model, 
+    . ~ 1,
+    data = subset_data
+    )
+  
+  if (nobs(null_model)!=nobs(full_model)) stop("sample size does not match between comparisons B")
+  
+  # Initialize results
+  comparison_df = data.frame(
+    # Model             = c("Full", paste0("Drop_", vars_to_test)),
+    Variables_Dropped = c("None", vars_to_test),
+    Variables_full    = c("None", var_to_label(vars_to_test)),
+    outcome           = rep(outcome, length(vars_to_test)+1),
+    nobs              = integer(length(vars_to_test) + 1),
+    
+    logLik            = numeric(length(vars_to_test) + 1),
+    AIC               = numeric(length(vars_to_test) + 1),
+    BIC               = numeric(length(vars_to_test) + 1),
+    AUC               = numeric(length(vars_to_test) + 1),
+    mcfad_r2          = numeric(length(vars_to_test) + 1),
+
+    Delta_logLik      = numeric(length(vars_to_test) + 1),
+    Delta_AIC         = numeric(length(vars_to_test) + 1),
+    Delta_BIC         = numeric(length(vars_to_test) + 1),
+    Delta_AUC         = numeric(length(vars_to_test) + 1),
+    Delta_mcfad_r2    = numeric(length(vars_to_test) + 1),
+
+    stringsAsFactors  = FALSE
+  )
+  
+  # Full model metrics
+  comparison_df$nobs[1]         = nobs(full_model)
+  comparison_df$logLik[1]       = as.numeric(logLik(full_model))
+  comparison_df$AIC[1]          = AIC(full_model)
+  comparison_df$BIC[1]          = BIC(full_model)
+  comparison_df$AUC[1]          = calc_auc(full_model)
+  comparison_df$mcfad_r2[1]     = 1 - logLik(full_model)/logLik(null_model)
+  
+
+  
+  # Reduced models
+  for(i in seq_along(vars_to_test)) {
+    var                                 = vars_to_test[i]
+    reduced_formula                     = update(formula(full_model), paste("~ . -", var))
+    reduced_model                       = glm(reduced_formula, data = full_model$model, family = full_model$family) # full_model$model should only include the complete case data (removing rows with missing predictor values)
+    comparison_df$nobs[i + 1]           = nobs(reduced_model)
+    
+    if(nobs(reduced_model)!=nobs(full_model)) stop("non match nobs!")
+    
+    comparison_df$logLik[i + 1]         = as.numeric(logLik(reduced_model))
+    comparison_df$AIC[i + 1]            = AIC(reduced_model)
+    comparison_df$BIC[i + 1]            = BIC(reduced_model)
+    comparison_df$AUC[i + 1]            = calc_auc(reduced_model)
+    comparison_df$mcfad_r2[i + 1]       = 1 - logLik(reduced_model)/logLik(null_model)
+    
+    comparison_df$Delta_logLik[i + 1]   = as.numeric(logLik(full_model)) - as.numeric(logLik(reduced_model))
+    comparison_df$Delta_AIC[i + 1]      = AIC(reduced_model) - AIC(full_model)
+    comparison_df$Delta_BIC[i + 1]      = BIC(reduced_model) - BIC(full_model)
+    comparison_df$Delta_AUC[i + 1]      = comparison_df$AUC[i + 1] - comparison_df$AUC[1]
+    comparison_df$Delta_mcfad_r2[i + 1] = comparison_df$mcfad_r2[i + 1] - comparison_df$mcfad_r2[1]
+    
+  }
+  
+  comparison_df$df    = 0
+  comparison_df$df    = drop_results_df$Df[match(comparison_df$Variables_Dropped, rownames(drop_results_df))]
+  comparison_df$LRT   = 0
+  comparison_df$LRT   = drop_results_df$LRT[match(comparison_df$Variables_Dropped, rownames(drop_results_df))]
+  comparison_df$LRT_p = drop_results_df$Pr..Chi.[match(comparison_df$Variables_Dropped, rownames(drop_results_df))]
+  
+  
+  # Sort by Delta_AIC (most important variables have largest positive Delta_AIC)
+  comparison_df = comparison_df[order(comparison_df$LRT_p, decreasing = TRUE), ]
+  
+  return(comparison_df)
+}

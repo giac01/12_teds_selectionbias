@@ -11,7 +11,7 @@ format:
     toc: true
     grid:
       body-width: 900px
-editor: visual
+editor: source
 ---
 
 # Load Data
@@ -42,7 +42,7 @@ df_rq1_imputed = complete(df_rq1_imputed)
 
 ```
 
-## How concordant is participation between twins?
+## Correlation of participation over time
 
 ```{r}
 
@@ -60,53 +60,23 @@ df %>%
   )
 
 
+df %>% 
+  select(randomfamid,twin,all_of(rq1y)) %>% 
+  filter(twin == 1) %>%
+  select(-twin, -randomfamid) %>% 
+  gbtoolbox::plot_correlations(
+    sample_size = TRUE,
+    confidence_interval = FALSE
+  )
+
+
 ```
 
 # Family-Level Logistic Regressions on each outcome
 
-### caret approach
-
-```{r}
-
-library(caret)
-
-i = 1
-formula <- as.formula(paste(rq1y[i], "~", paste(rq1x, collapse = "+")))
-df_rq1_imputed[[rq1y[i]]] <- as.factor(df_rq1_imputed[[rq1y[i]]])
-model = train(
-  # x = df_rq1_imputed[rq1x],
-  # y = df_rq1_imputed[rq1y[i]],
-  formula,
-  data = df_rq1_imputed,
-  method = "glm",
-  family = "binomial",
-  trControl = trainControl(method = "none")
-)
-
-importance <- varImp(model, scale = FALSE)
-```
-
-### rms::lrm approach
-
-```{r}
-
-lrm_models = list()
-
-for (i in seq_along(rq1y)){
-  
-  cat(i, "/", length(rq1y),"\n")
-  formula <- as.formula(paste(rq1y[i], "~", paste(rq1x, collapse = "+")))
-  lrm_models[[i]] = rms::lrm(formula, data = df_rq1_imputed)
-
-  }
-
-lapply(lrm_models, function(x) x$stats[6])
-
-lrm_models[[1]]$stats[6]
-
-```
-
 ### stats::glm approach
+
+Fit logistic regression models to each participation outcome
 
 ```{r}
 
@@ -118,44 +88,116 @@ for (i in seq_along(rq1y)){
   models[[i]] = glm(formula, data = df_rq1_imputed, family = binomial)
 }
 
-lapply(models, summary)
-lapply(models, performance::r2)
-lapply(models, performance::model_performance)
-lapply(models, function(x) as.numeric(calc_auc(x)))
-
-
-# x=calc_auc(models[[1]])
-# 
-# predict(x, type = "response") %>% hist()
-
-lin_pred = sapply(models, function(x) predict.glm(x, type = "link"))
-
-colnames(lin_pred) = colnames(df_rq1y)
-
-lin_pred %>%
-  `colnames<-`(colnames(df_rq1y)) %>%
-gbtoolbox::plot_correlations(
-  confidence_interval = FALSE,
-  sample_size = FALSE
-  ) + 
-  labs(title = "Correlation Between Linear Predictors")
-
-x=models[[12]]
-# all.vars(formula(x))[1]
-
-explainer = DALEX::explain(
-  x,
-  y = as.numeric(df_rq1_imputed[[all.vars(formula(x))[1]]]),
-  label = "GLM"
-  )
-
-importance <- DALEX::model_parts(explainer, 
-                         # loss_function = DALEX::loss_auc,
-                         type = "difference")
-
-plot(importance)
 
 ```
+
+
+### Full model results 
+
+```{r}
+
+# Extract all coefficients and combine
+models_results = do.call(rbind, lapply(1:length(models), function(i) {
+  coefs = tidy(models[[i]])
+  coefs$outcome = as.character(models[[i]]$formula)[2]
+  return(coefs)
+}))
+
+models_results %>% 
+  select(outcome, everything()) %>%
+  mutate(
+    outcome = var_to_label(outcome) %>% str_remove("data.*"),
+    term = df_labels[match(.$term,df_colnames)],
+    term   = ifelse(is.na(term), "Intercept", term),
+    p_star = as.character(symnum(p.value, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")))
+  ) %>% 
+  knitr::kable(., digits = 3)
+
+
+```
+
+
+### Significance of individual variables
+
+```{r}
+#| echo: false
+
+glm_model_comparison_results = lapply(models, glm_model_comparison)
+
+glm_model_comparison_results_df = do.call("rbind.data.frame", glm_model_comparison_results)
+
+# glm_model_comparison_results_df$LRT_p_star = glm_model_comparison_results_df$LRT_p %>%
+#   symnum(., cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " "))
+
+# Adjust p-values and add star
+
+glm_model_comparison_results_df = glm_model_comparison_results_df %>% 
+  filter(Variables_Dropped!="None") %>%
+  group_by(outcome) %>%
+  mutate(LRT_p = stats::p.adjust(LRT_p, method = "holm")) %>% 
+  ungroup() %>%
+  mutate(
+    LRT_p_star = as.character(symnum(LRT_p, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")))
+  )
+
+variable_importance_order = glm_model_comparison_results_df %>%
+  group_by(Variables_full) %>%
+  summarise(mean_score = mean(LRT_p)) %>%
+  arrange(mean_score) %>%
+  pull(Variables_full)
+glm_model_comparison_results_df = glm_model_comparison_results_df %>%
+  mutate(
+    Variables_full = factor(Variables_full, levels = variable_importance_order)
+  )
+
+# Plotting code
+glm_model_comparison_results_df %>%
+  mutate(
+    outcome_labeled = var_to_label(outcome),
+    outcome_labeled = outcome_labeled %>% str_remove("data.*"),
+    outcome_labeled = factor(outcome_labeled, levels =  str_remove(var_to_label(rq1y),"data.*")),
+    criterion       = Delta_AUC,
+    sig_level = case_when(
+      LRT_p < 0.001 ~ "p < 0.001",
+      LRT_p < 0.01 ~ "p < 0.01", 
+      LRT_p < 0.05 ~ "p < 0.05",
+      LRT_p < 0.1 ~ "p < 0.1",
+      TRUE ~ "Not significant"
+    ),
+    sig_level = factor(sig_level, levels = c("p < 0.001", "p < 0.01", "p < 0.05", "p < 0.1", "Not significant"))
+  ) %>%
+  ggplot(aes(y = Variables_full, x = criterion)) + 
+  geom_col(aes(fill = sig_level), alpha = 0.8) + 
+  geom_text(aes(label = gsub("0\\.", ".", sprintf("%.3f", criterion))),  # Remove ALL 0. patterns
+            size = 2.5, fontface = "bold", color = "black") +
+  facet_wrap(~outcome_labeled, scales = "fixed", ncol = 6) +
+  scale_x_continuous(labels = function(x) gsub("0\\.", ".", sprintf("%.3f", x))) +  # Remove ALL 0. patterns
+  scale_fill_manual(
+    values = c("p < 0.001" = "#d73027", "p < 0.01" = "#fc8d59", 
+               "p < 0.05" = "#fee08b", "p < 0.1" = "#e0f3f8", 
+               "Not significant" = "#d9d9d9"),
+    name = "Significance\n(Holm-adjusted)"
+  ) +
+  labs(
+    x = "Change in AUC (when variable removed)",
+    y = NULL,
+    title = "Variable Importance by AUC Change",
+    subtitle = "Colors show Holm-adjusted significance levels"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 7),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+    strip.text = element_text(size = 9, face = "bold"),
+    legend.position = "bottom"
+  )
+
+
+ggsave(file.path("plots", "1_rq1_variable_importance.pdf"), width = 14, height = 7)
+
+```
+
+The variable importance analysis is shown [here](plots/1_rq1_variable_importance.pdf).
 
 # Descriptive Information
 
@@ -374,74 +416,3 @@ cbind.data.frame(df)
 
 ```
 
-```{r}
-df_predictors = df %>%
-  filter(acontact == 1) %>%
-  select(all_of(randomfamid,rq1x)) 
-
-df_predictors = mice(df_predictors, method = "pmm", m = 1) 
-df_predictors = complete(df_predictors) # simple approach - should be refined
-
-df2 = cbind.data.frame(missing_outcomes, df_predictors)
-
-models = list()
-
-for (i in seq_along(list_of_sdq_var)){
-  cat(i, "/", length(list_of_sdq_var),"\n")
-  formula <- as.formula(paste(list_of_sdq_var[i], "~", paste(rq1x, collapse = "+"), "  ( 1 | ) "))
-  models[[i]] = lme4::lmer(formula, data = df2, family = binomial)
-}
-
-lapply(models, summary)
-lapply(models, performance::r2)
-lapply(models, performance::model_performance)
-lapply(models, function(x) as.numeric(calc_auc(x)))
-
-
-# umissingsdq = df %>%
-#   filter(twin == 1) %>%
-#   filter(acontact == 1) %>%
-#   pull(u1psdqemot1) %>%
-#    is.na() %>% 
-#    as.numeric()
-# 
-# zmissingsdq = df %>%
-#   filter(twin == 1) %>%
-#   filter(acontact == 1) %>%
-#   pull(zmhsdqemot1) %>%
-#    is.na() %>% 
-#    as.numeric()
-# 
-# df_rq1_imputed$umissingsdq = umissingsdq
-
-
-
-
-
-
-
-
-# 
-# 
-# 
-# model_sdq = glm(
-#   as.formula(paste("umissingsdq ~", paste(rq1x, collapse = "+"))),
-#   family = binomial,
-#   data = df_rq1_imputed
-# )
-# 
-# 
-# summary(model_sdq)
-# performance::model_performance(model_sdq)
-# performance::r2(model_sdq)
-# calc_auc(model_sdq)
-# 
-# 
-# lapply(models, summary)
-# lapply(models, performance::r2)
-# lapply(models, performance::model_performance)
-# lapply(models, function(x) as.numeric(calc_auc(x)))
-
-
-
-```
