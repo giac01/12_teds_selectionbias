@@ -60,6 +60,123 @@ df %>%
 
 ```
 
+## Variable characteristics
+
+```{r}
+
+# Variable check function
+.variable_check = function(x, name = NULL){
+  if (!is.null(name)) {
+    var_name <- name
+  } else {
+    var_name <- deparse(substitute(x))
+  }
+  cat("Variable:", var_name, "\n")
+  cat("Class:", class(x), "\n")
+  cat("Label:", attr(x,"label"), "\n")
+  print(table(x, useNA = "always"))
+  cat("\n")
+  return(invisible(NULL))
+}
+
+# Check variable characteristics (subset for output)
+df %>%
+  select(any_of(rq5z)) %>%
+  mutate_if(is.numeric, ~ round(.x, 1)) %>%
+  select(150:250) %>%
+  purrr::imap(~.variable_check(.x, .y))
+
+# Check number of unique values per variable
+df %>%
+  select(any_of(rq5z)) %>%
+  mutate_if(is.numeric, ~ round(.x, 1)) %>%
+  apply(.,2, function(x) length(unique(x))) %>% 
+  table()
+
+```
+
+## Missing data frequency plot
+
+```{r}
+
+df %>%
+  select(any_of(rq5z)) %>%
+  apply(.,2,function(x) length(which(!is.na(x)))/length(x)) %>%
+  as.data.frame() %>%
+  rownames_to_column() %>%
+  `colnames<-`(c("var","percent_notmissing")) %>%
+  mutate(var_label = factor(var, levels = var, labels = var_to_label(var))) %>%
+  ggplot(aes(x = percent_notmissing, y = var_label)) + 
+  geom_col() +
+  geom_vline(aes(xintercept=.2)) +
+  theme_bw()
+
+ggsave(file.path("plots", "5_1_missing_data_frequency.pdf"), height = 25, width = 12)
+
+```
+
+## Descriptive table of imputation variables
+
+```{r}
+
+# List of all variables for imputation
+df_rq5 = df %>%
+  select(any_of(rq5z))
+
+# Descriptive information on each imputed variable
+impute_df = data.frame(
+  var   = colnames(df_rq5),
+  label = as.character(sapply(df_rq5, function(x) attr(x, "label"))),
+  class = as.character(sapply(df_rq5, function(x) class(x))),
+  perc_not_missing = as.numeric(sapply(df_rq5, function(x) round(length(which(!is.na(x)))/length(x)*100))),
+  sd    = round(as.numeric(sapply(df_rq5, function(x) sd(as.numeric(x), na.rm = TRUE) )),2),
+  distinct_categories = as.numeric(sapply(df_rq5, function(x) length(na.omit(unique(x)))))
+)
+
+impute_df <- impute_df %>%
+  mutate(variable_year = case_when(
+    str_starts(var, "a") ~ "Year 1 (1st Contact)",
+    str_starts(var, "b") ~ "Year 2",
+    str_starts(var, "c") ~ "Year 3",
+    str_starts(var, "d") ~ "Year 4",
+    str_starts(var, "g") ~ "Year 7",
+    str_starts(var, "h") ~ "Year 8",
+    str_starts(var, "i") ~ "Year 9",
+    str_starts(var, "j") ~ "Year 10",
+    str_starts(var, "l") ~ "Year 12",
+    str_starts(var, "n") ~ "Year 14",
+    str_starts(var, "p") ~ "Year 16",
+    str_starts(var, "r") ~ "Year 18",
+    str_starts(var, "u") ~ "Year 21",
+    str_starts(var, "z") ~ "Year 26",
+    TRUE ~ "Other"
+  ))
+
+impute_df %>%
+  arrange(perc_not_missing) %>%
+  knitr::kable()
+
+```
+
+## Missing data proportions by group
+
+```{r}
+
+# Check proportion of missing data by sexzyg group
+df %>%
+  select(sexzyg, any_of(rq5y)) %>%
+  group_by(sexzyg) %>%
+  summarise(
+    n = n(),
+    total_cells = n() * length(rq5y),
+    missing_cells = sum(is.na(c_across(any_of(rq5y)))),
+    overall_prop_missing = missing_cells / total_cells,
+    .groups = "drop"
+  ) %>%
+  knitr::kable()
+
+```
+
 ## How well can we predict missingness in the outcomes? 
 
 ```{r}

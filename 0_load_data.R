@@ -13,6 +13,8 @@ library(future.apply)
 library(tidyverse)
 library(dplyr)
 
+conflicted::conflict_prefer_all("tidyverse")
+
 conflicted::conflict_prefer("select", "dplyr")
 conflicted::conflict_prefer("filter", "dplyr")
 
@@ -23,6 +25,12 @@ source("0_lists_of_variables.R")
 df0 = haven::read_sav(file.path("data","732 GB FINAL.sav"))
 
 df = df0
+
+# Apply participant filter -----------------------------------------------------
+
+df = df %>%
+  filter(exclude1 == 0) %>%
+  mutate(sexzyg = droplevels(haven::as_factor(sexzyg)))
 
 # Define Variable Sets ---------------------------------------------------------
 
