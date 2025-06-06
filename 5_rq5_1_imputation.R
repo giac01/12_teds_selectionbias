@@ -4,9 +4,9 @@ source("0_load_data.R")
 
 # Descriptive Data -------------------------------------------------------------
 
-ggmice::plot_pattern(df_rq5)
-
-gbtoolbox::plot_pairwise_missing(df_rq5)
+# ggmice::plot_pattern(df_rq5)
+# 
+# gbtoolbox::plot_pairwise_missing(df_rq5)
 
 
 gbtoolbox::plot_pairwise_missing(df_rq5[1:150],   divisor = 1000, textadjust = .9)
@@ -33,6 +33,7 @@ df %>%
   return(invisible(NULL))
 }
 
+
 sink("variable_check_results.txt")
 
 invisible(
@@ -56,7 +57,21 @@ df %>%
 
 df %>%
   select(any_of(rq5z)) %>%
-  apply(.,2,function(x) length(which(!is.na(x)))/length(x)) 
+  apply(.,2,function(x) length(which(!is.na(x)))/length(x)) %>%
+  as.data.frame() %>%
+  rownames_to_column() %>%
+  `colnames<-`(c("var","percent_notmissing")) %>%
+  mutate(var_label = factor(var, levels = var, labels = var_to_label(var))) %>%
+  ggplot(aes(x = percent_notmissing, y = var_label)) + 
+  geom_col() +
+  geom_vline(aes(xintercept=.2)) +
+  theme_bw()
+
+ggsave(file.path("plots", "5_1_missing_data_frequency.pdf"), height = 25, width = 12)
+
+
+
+
   
 ## Create descriptive table ----------------------------------------------------
 
@@ -66,11 +81,14 @@ source("0_lists_of_variables.R")
 df_rq5 = df %>%
   select(any_of(rq5z))
 
+# Descriptive information on each imputed variable
 impute_df = data.frame(
-  var = colnames(df_rq5),
+  var   = colnames(df_rq5),
   label = as.character(sapply(df_rq5, function(x) attr(x, "label"))),
   class = as.character(sapply(df_rq5, function(x) class(x))),
-  perc_not_missing = as.numeric(sapply(df_rq5, function(x) round(length(which(!is.na(x)))/length(x)*100)))
+  perc_not_missing = as.numeric(sapply(df_rq5, function(x) round(length(which(!is.na(x)))/length(x)*100))),
+  sd    = round(as.numeric(sapply(df_rq5, function(x) sd(as.numeric(x), na.rm = TRUE) )),2),
+  distinct_categories = as.numeric(sapply(df_rq5, function(x) length(na.omit(unique(x)))))
 )
 
 impute_df <- impute_df %>%
@@ -96,7 +114,9 @@ impute_df <- impute_df %>%
 # THERE IS A BIT OF A DISCONNECT HERE REGARDING PARTICIPATION RATES RELATIVE TO THE "DATA PRESENT" VARIABLES I HAVE BEEN GIVEN. 
 
 impute_df %>%
-  slice(grep("sdq",.$var))
+  arrange(perc_not_missing) %>%
+  knitr::kable() %>%
+  print(n=10000)
 
 
 sapply(df_rq1y, function(x) length(which(x==1))/length(which(x>=0)))
@@ -110,15 +130,26 @@ df$lestcon1
                                    
                                 
 # Imputation -------------------------------------------------------------------
+df_rq5 = df %>%
+  # select(sexzyg, all_of(rq1x), any_of(rq5y))
+select(sexzyg, any_of(rq5y))
 
 df_rq5_split = split(df_rq5, df_rq5$sexzyg)
 
-df_rq5_imputed = mice(df_rq5, method = "pmm", m = 1, maxit = 0)
+# Set up predictor matrix
 
-df_rq5_imputed$loggedEvents
+miceinit = mice(df_rq5, method = "pmm", m = 1, maxit = 0)
 
-table(df$rcfnact1, df$jmatta1)
+df_rq5_imputed = lapply(df_rq5_split, function(df)
+  mice(df, method = "pmm", m = 1, maxit = 5)
+  )
 
+
+df_rq5_imputed[[1]]$loggedEvents
+
+
+
+library(miceadds)
 
 
 

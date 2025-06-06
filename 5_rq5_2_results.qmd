@@ -1,0 +1,72 @@
+---
+title: "RQ5: complete case analysis vs imputation analysis"
+format: 
+  html:
+    fig-width: 8
+    fig-height: 8
+    code-link: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    toc: true
+    grid:
+      body-width: 900px
+editor: source
+---
+
+# Load data
+
+
+```{r}
+#| output: false
+
+source("0_load_data.R")
+
+```
+
+# Descriptive stats
+
+## Missingness plots
+
+```{r}
+
+df %>%
+  select(rq5y) %>%
+  as.data.frame() %>%
+  gbtoolbox::plot_correlations()
+
+df %>%
+  select(rq5y) %>%
+  `colnames<-`(rq5y_labels_short) %>%
+  as.data.frame() %>%
+  gbtoolbox::plot_missing_correlations(cluster_variables = FALSE)
+
+# df$zmhmfqt1[which(df$lcmfqt1>2)]=NA
+# df$lcmfqt1[which(df$zmhmfqt1>2)]=NA
+
+df %>%
+  select(rq5y) %>%
+  `colnames<-`(rq5y_labels_short) %>%
+  as.data.frame() %>%
+  gbtoolbox::plot_missing_correlations(cluster_variables = FALSE) 
+
+df %>% 
+  select(any_of(c(rq5y, rq5z))) %>%
+  select(where(is.numeric)) %>%
+  select(rq5y, everything()) %>%
+  as.data.frame() %>%
+  gbtoolbox::plot_missing_correlations(cluster_variables = FALSE, textadjust = 0) 
+
+
+```
+
+## How well can we predict missingness in the outcomes? 
+
+```{r}
+
+
+
+```
+
+
+

@@ -68,6 +68,14 @@ cleanvar = function(x){
   return(as.numeric(na.omit(unlist(x))))
 }
 
+clean_rq1y_label = function(x){
+  yr =  x %>%
+    str_remove(" data.*") %>%
+    str_extract("\\d{1,2}")
+  
+  return(paste0("Year ", yr))
+  
+}
 # df2 = original_dataset
 # df1 = attritioned_datasets[[10]]
 

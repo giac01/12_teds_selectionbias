@@ -2,7 +2,7 @@
 
 rm(list=ls())
 
-library(tidyverse)
+library(MASS)
 library(mice)
 library(pROC)
 library(performance)
@@ -10,6 +10,12 @@ library(DHARMa) # needed for performance::checkmodel function
 library(see)    # needed for performance::see function
 library(future)
 library(future.apply)
+library(tidyverse)
+library(dplyr)
+
+conflicted::conflict_prefer("select", "dplyr")
+conflicted::conflict_prefer("filter", "dplyr")
+
 source("0_functions.R")
 source("0_lists_of_variables.R")
 
@@ -46,6 +52,8 @@ rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr", "gpdata", "heightyr", "i
 
 rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr",           "heightyr",           "jtenyear", "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
 
+rq1y_short = c(                  "dfouryr", "gsevenyr",           "heightyr",                       "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
+
 # rq2y = c("brawg1", "badparn1","breparc1", "bparca1", 
 #          "bvocab1", "bgramma1","bsdqcbeht1","bsdqccont1",
 #          "bsdqcemot1", "bsdqchypt1", "bsdqcpert1", "bsdqcprot1"
@@ -74,7 +82,7 @@ mfq = c("lcmfqt1",                  "pcbhmfqt1",        "u1cmfqt1",             
 # MAYBE REMOVE GAD - AS ITS MOSTLY MISSING! 
 gad = c(                                                "u2cganxt1",              "zmhganxt1") # GAD-D Anxiety Scores
 
-edu = c(              "npks3tall1", "pcexgcsecoregrdm1","rcqucast1","u1chqualp1", "zmhhqual1")
+edu = c(              "npks3tall1", "pcexgcsecoregrdm1", "u1chqualp1", "zmhhqual1")  # removed UCAS
 
 hyp = c("lcsdqhypt1",               "pcbhsdqhypt1",     "u1csdqhypt1",            "zmhsdqhypt1") # SDQ Hyperactivity scores
 
@@ -128,6 +136,8 @@ df$aadults   = set_most_frequent_ref(df$aadults)
 df$aalgzyg   = set_most_frequent_ref(df$aalgzyg)
 df$aethnicc  = set_most_frequent_ref(df$aethnicc)
 df$afahqual  = set_most_frequent_ref(df$afahqual)
+
+df$u1chqualp1 = as.numeric(df$u1chqualp1)
 
 df$zmhhqual1   = as.numeric(df$zmhhqual1)
 df$zmhhqual2   = as.numeric(df$zmhhqual2)
@@ -220,15 +230,11 @@ df_rq5 = df %>%
 
 # Create Labels ----------------------------------------------------------------
 
-rq1x_labels = df_rq1x %>% 
-  sapply(., function(x) attr(x, "label"))
+rq1x_labels = rq1x %>% var_to_label()
 
-rq1y_labels = df_rq1y %>% 
-  sapply(., function(x) attr(x, "label"))
+rq1y_labels = rq1y %>% var_to_label()
 
-rq2y_labels = df %>% 
-  select(all_of(rq2y)) %>%
-  sapply(., function(x) attr(x, "label"))
+rq2y_labels = rq2y %>% var_to_label()
 
 rq2y_labels_short = c(
   "Vocabulary",
@@ -240,6 +246,21 @@ rq2y_labels_short = c(
   "Hyperactivity",
   "Peer problems",
   "Prosocial behavior"
+)
+
+rq5y_labels_short = c(
+  "Yr12: Cognitive ability",
+  "Yr14: Cognitive ability", 
+  "Yr16: Cognitive ability",
+  "Yr16: G-game total score",
+  "Yr14: KS3 academic achievement",
+  "Yr16: GCSE core subjects grade",
+  "Yr21: Highest qualification",
+  "Yr26: Highest qualification",
+  "Yr12: Depression (MFQ)",
+  "Yr16: Depression (MFQ)", 
+  "Yr21: Depression (MFQ)",
+  "Yr26: Depression (MFQ)"
 )
 
 mfq_labels = df %>% 

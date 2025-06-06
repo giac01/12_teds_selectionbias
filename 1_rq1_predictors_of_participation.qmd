@@ -74,7 +74,7 @@ df %>%
 
 # Family-Level Logistic Regressions on each outcome
 
-### stats::glm approach
+### Fit Models
 
 Fit logistic regression models to each participation outcome
 
@@ -118,6 +118,8 @@ models_results %>%
 
 
 ### Significance of individual variables
+
+A detailed version of the figure below can be found here [here](plots/1_rq1_variable_importance.pdf){target="_blank"}.
 
 ```{r}
 #| echo: false
@@ -197,7 +199,93 @@ ggsave(file.path("plots", "1_rq1_variable_importance.pdf"), width = 14, height =
 
 ```
 
-The variable importance analysis is shown [here](plots/1_rq1_variable_importance.pdf).
+### Visualise predicted probabilities 
+
+```{r}
+
+model_predictions = lapply(models, function(x) data.frame(prediction = predict.glm(x, type = "response", se.fit = FALSE)))
+
+names(model_predictions) = rq1y
+
+model_predictions = list_rbind(model_predictions, names_to = "outcome")
+
+model_predictions %>% 
+  filter(outcome %in% rq1y_short) %>%
+  mutate(outcome = clean_rq1y_label(var_to_label(outcome))) %>%
+  ggplot(aes(x = prediction)) + 
+  geom_histogram(bins = 100) + 
+  scale_x_continuous(labels = gbtoolbox::apa_num, limits = c(0,1)) +
+  facet_wrap(~outcome, scales = "fixed") +
+  labs(title = "Distribution of predicted participation probabilties")
+
+model_predictions %>% 
+  filter(outcome %in% rq1y_short) %>%
+  mutate(weight = 1 / prediction) %>%
+  ggplot(aes(x = weight)) + 
+  geom_histogram(bins = 100) + 
+  # scale_x_continuous(labels = gbtoolbox::apa_num, limits = c(0,1)) +
+  facet_wrap(~outcome, scales = "fixed") +
+  labs(title = "Distribution of inverse probability weights")
+
+
+
+# Reliability check (16 year)
+
+# predictions_link = predict.glm(models[[9]], type = "link", se.fit = TRUE)
+# 
+# var_predictions = var(predictions_link$fit)
+# error_var_mean  = mean(predictions_link$se.fit^2)
+# 
+# error_var_mean
+# var_predictions/(var_predictions+error_var_mean)
+
+```
+
+#### Lets just compare this to a permuted version to see how different this is
+
+```{r}
+models_permuted = list()
+
+df_rq1_imputed_permuted = df_rq1_imputed
+
+df_rq1_imputed_permuted[rq1y] = df_rq1_imputed_permuted[sample(nrow(df_rq1_imputed),nrow(df_rq1_imputed), replace = TRUE),rq1y] 
+
+for (i in seq_along(rq1y)){
+  cat(i, "/", length(rq1y),"\n")
+  formula <- as.formula(paste(rq1y[i], "~", paste(rq1x, collapse = "+")))
+  models_permuted[[i]] = glm(formula, data = df_rq1_imputed_permuted, family = binomial)
+}
+
+# lapply(models_permuted, function(x) summary(x))
+
+lapply(models_permuted, function(x) data.frame(prediction = predict.glm(x, type = "response", se.fit = FALSE))) %>%
+  `names<-`(rq1y) %>%
+  list_rbind(., names_to = "outcome") %>% 
+  filter(outcome %in% rq1y_short) %>%
+  mutate(outcome = clean_rq1y_label(var_to_label(outcome))) %>%
+  ggplot(aes(x = prediction)) + 
+  geom_histogram(bins = 100) + 
+  facet_wrap(~outcome, scales = "fixed") + 
+  scale_x_continuous(labels = gbtoolbox::apa_num, limits = c(0,1)) +
+  labs(title = "Distribution of predicted participation probabilties for PERMUTED data ")
+
+
+lapply(models_permuted, function(x) data.frame(prediction = predict.glm(x, type = "response", se.fit = FALSE))) %>%
+  `names<-`(rq1y) %>%
+  list_rbind(., names_to = "outcome") %>% 
+  filter(outcome %in% rq1y_short) %>%
+  mutate(
+    outcome = clean_rq1y_label(var_to_label(outcome)),
+    weights = 1/prediction
+         ) %>%
+  ggplot(aes(x = weights)) + 
+  geom_histogram(bins = 100) + 
+  facet_wrap(~outcome, scales = "fixed") + 
+  # scale_x_continuous(labels = gbtoolbox::apa_num, limits = c(0,1)) +
+  labs(title = "Distribution of inverse probability weights for PERMUTED outcome data")
+
+```
+
 
 # Descriptive Information
 

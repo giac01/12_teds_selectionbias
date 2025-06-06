@@ -669,6 +669,12 @@ rq5z = c(
   # "genotypedzyg"  # Genotyped zygosity
 )
 
+remove_variables = c(
+ # Removed these because there is a lot of missingness:
+  
+  
+)
+
 # Missing Data
 # rq5z[!(rq5z %in% colnames(df))]
 
