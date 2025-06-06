@@ -74,9 +74,9 @@ I ran the bootstrapped analyses in the script [2_rq2_run_bootstrapping.R](2_rq2_
 
 ```{r}
 
-variable_comparisons    = readRDS(file = file.path("results", "variable_comparisons.Rds"))
+variable_comparisons    = readRDS(file = file.path("results", "2_variable_comparisons.Rds"))
 
-variable_comparisons_df = readRDS(file = file.path("results", "variable_comparisons_df.Rds"))
+variable_comparisons_df = readRDS(file = file.path("results", "2_variable_comparisons_df.Rds"))
 
 variable_comparisons_df = do.call("rbind.data.frame", variable_comparisons_df)
 
@@ -238,7 +238,7 @@ ggsave(
 
 ```{r}
 
-ace_comparisons = readRDS(file = file.path("results", "ace_comparisons.Rds"))
+ace_comparisons = readRDS(file = file.path("results", "2_ace_comparisons.Rds"))
 
 # Extract ACE estimates from original (non-attrittioned) dataset
 
@@ -263,11 +263,11 @@ ace_comparisons_df = map_dfr(ace_comparisons_df, ~ map_dfr(.x, ~ map_dfr(.x, ~ .
 
 # Attritioned datasets: Extract mean estimates of ACE parameters across bootstrap resamples
 
-ace_boot_results_df = lapply(ace_comparisons, function(x) x$boot_results_df)
+ace_boot_results_attritioned_df = lapply(ace_comparisons, function(x) x$boot_results_attritioned_df)
 
-ace_boot_results_df = map_dfr(ace_boot_results_df, ~ map_dfr(.x, ~ map_dfr(.x, ~ .x, .id = "component"), .id = "dataset"), .id = "variable")
+ace_boot_results_attritioned_df = map_dfr(ace_boot_results_attritioned_df, ~ map_dfr(.x, ~ map_dfr(.x, ~ .x, .id = "component"), .id = "dataset"), .id = "variable")
 
-ace_boot_results_df %>% 
+ace_boot_results_attritioned_df %>% 
   pivot_longer(cols = c(a,c,e), names_to = "parameter") %>%
   group_by(variable, dataset, parameter) %>% 
   summarise(
@@ -307,7 +307,7 @@ original_ace_estimates = boot_results_original_df_summary %>%
 
 original_ace_estimates$variable_shortlabel = rq2y_labels_short[match(original_ace_estimates$variable, rq2y_prefix)]
 
-attritioned_ace_estimates = ace_boot_results_df %>%
+attritioned_ace_estimates = ace_boot_results_attritioned_df %>%
   pivot_longer(cols = c(a,c,e), names_to = "parameter") %>%
   group_by(variable, dataset, parameter) %>%
   summarise(

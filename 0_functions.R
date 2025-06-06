@@ -198,12 +198,33 @@ compare_correlation = function(df1, df2){
   
 }
 
-.boot_compare_df = function(df1, df2){
-  boot_select = sample(nrow(df1), nrow(df1), replace = TRUE)
+# df1 = original_dataset
+# df2 = attritioned_datasets[[1]]
+
+.boot_compare_df = function(df1, df2, resample_families = TRUE){
+  #Randomly resample rows
+  if (resample_families==FALSE){
+    boot_select = sample(nrow(df1), nrow(df1), replace = TRUE)
+    df1 = df1[boot_select,]
+    df2 = df2[boot_select,]
+  }
+  #Randomly resample families
+  if (resample_families==TRUE){
+    families = na.omit(unique(df1$randomfamid))
+    boot_select_families = sample(families, length(families), replace = TRUE)
+    
+    family_rows = split(seq_len(nrow(df1)), df1$randomfamid)
+    selected_rows = family_rows[as.character(boot_select_families)]
+    selected_rows = unlist(selected_rows, use.names = FALSE)
+    
+    df1 = df1[selected_rows,]
+    df2 = df2[selected_rows,]
+    
+  }
   
-  df1 = df1[boot_select,]
-  df2 = df2[boot_select,]
-  
+  df1$randomfamid = NULL
+  df2$randomfamid = NULL
+
   out = list(
     compare_md(df1, df2),
     compare_smd(df1, df2),
@@ -499,7 +520,7 @@ compare_ace = function(
     ){
 
   boot_results_original = list() # bootstrapped results for non-attrition dataset
-  boot_results = list()          # bootstrapped results for 
+  boot_results_attritioned = list()          # bootstrapped results for 
   
   original_dataset_twin1     = get("original_dataset_twin1",     envir = parent.frame())
   attritioned_datasets_twin1 = get("attritioned_datasets_twin1", envir = parent.frame())
@@ -514,35 +535,36 @@ compare_ace = function(
     
     boot_results_original[[i]] = calc_ace(original_dataset_twin1[boot_select,], var = var)
     
-    boot_results[[i]] = list()
+    boot_results_attritioned[[i]] = list()
     
     for (j in seq_along(rq1y)){
       
-      boot_results[[i]][[j]] = calc_ace(data=attritioned_datasets_twin1[[j]][boot_select,], var = var)
+      boot_results_attritioned[[i]][[j]] = calc_ace(data=attritioned_datasets_twin1[[j]][boot_select,], var = var)
       
     }
     
-    names(boot_results[[i]]) = rq1y
+    names(boot_results_attritioned[[i]]) = rq1y
+    
 
   }
 
   boot_results_original_df = data.frame(do.call("rbind", boot_results_original))
   
   
-  boot_results_df <- lapply(rq1y, function(selection_group) {
-    lapply(boot_results, function(x) x[[selection_group]])
+  boot_results_attritioned_df <- lapply(rq1y, function(selection_group) {
+    lapply(boot_results_attritioned, function(x) x[[selection_group]])
   })
   
-  boot_results_df = lapply(boot_results_df, function(x) data.frame(do.call('rbind', x)))
+  boot_results_attritioned_df = lapply(boot_results_attritioned_df, function(x) data.frame(do.call('rbind', x)))
   
-  names(boot_results_df) = rq1y
+  names(boot_results_attritioned_df) = rq1y
   
   # Compare changes in ace model parameters
   
   boot_results_differences = list()
   
   for(i in seq_along(rq1y)){
-    boot_results_differences[[i]] = as.matrix(boot_results_original_df) - as.matrix(boot_results_df[[i]])
+    boot_results_differences[[i]] = as.matrix(boot_results_original_df) - as.matrix(boot_results_attritioned_df[[i]])
   }
   
   boot_results_differences_summary = lapply(boot_results_differences, function(x)
@@ -554,11 +576,11 @@ compare_ace = function(
   out = list(
     boot_results_differences_summary,
     boot_results_differences,
-    boot_results_df,
-    boot_results_original
+    boot_results_attritioned_df,
+    boot_results_original_df
   )
   
-  names(out) = c("boot_results_differences_summary", "boot_results_differences", "boot_results_df")
+  names(out) = c("boot_results_differences_summary", "boot_results_differences", "boot_results_attritioned_df", "boot_results_original_df")
 
   return(out)
 }

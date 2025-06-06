@@ -2,7 +2,7 @@
 
 source("0_load_data.R")
 
-number_bootstraps = 200
+number_bootstraps = 5000
 
 rq1y = rq1y[-1] # Remove year 2 time point from comparison list 
 
@@ -31,10 +31,10 @@ plan(multisession, workers = 12)
 
 ta = Sys.time()
 
-variable_comparisons <- future_lapply(1:length(attritioned_datasets), function(i) {
+variable_comparisons = future_lapply(1:length(attritioned_datasets), function(i) {
   compare_df(
-    attritioned_datasets[[i]][rq2y],
-    original_dataset[rq2y],
+    attritioned_datasets[[i]][c("randomfamid",rq2y)],
+    original_dataset[c("randomfamid",rq2y)],
     B = number_bootstraps
   )
 }, 
@@ -46,17 +46,19 @@ print(tb - ta)
 # Reset to sequential processing
 plan(sequential)
 
-saveRDS(variable_comparisons, file = file.path("results", "variable_comparisons.Rds"))
+names(variable_comparisons) = rq1y
+
+saveRDS(variable_comparisons, file = file.path("results", "2_variable_comparisons.Rds"))
 
 ## Clean data into a single dataframe ------------------------------------------
-
-names(variable_comparisons) = rq1y
 
 variable_comparisons_df = lapply(variable_comparisons, function(x) x$bootstrap_summary)
 
 for(i in 1:length(variable_comparisons_df)){
+  #Looping across atttritioned datasets 
+  
   for (j in 1:3){ # only first three sets of results relate to specific variables in rq2y
-    variable_comparisons_df[[i]] = variable_comparisons_df[[i]][1:3]
+    variable_comparisons_df[[i]] = variable_comparisons_df[[i]][1:3] # this line just removes the correlation analyses that arne't relevant here
     variable_comparisons_df[[i]][[j]] = do.call(
       rbind,
       variable_comparisons_df[[i]][[j]]
@@ -71,11 +73,11 @@ for(i in 1:length(variable_comparisons_df)){
 }
 
 
-saveRDS(variable_comparisons_df, file = file.path("results", "variable_comparisons_df.Rds"))
-
-
 variable_comparisons_df = do.call(rbind.data.frame, variable_comparisons_df)
 
+rownames(variable_comparisons_df) = NULL
+
+saveRDS(variable_comparisons_df, file = file.path("results", "2_variable_comparisons_df.Rds"))
 
 # Run ACE Analyses -------------------------------------------------------------
 
@@ -95,7 +97,7 @@ plan(multisession, workers = 12)
 
 ta = Sys.time()
 
-ace_comparisons <- future_lapply(seq_along(rq2y_prefix), function(i) {
+ace_comparisons = future_lapply(seq_along(rq2y_prefix), function(i) {
   compare_ace(
     var = rq2y_prefix[i],   # Variable that we want to calculate ACE estimates for 
     B = number_bootstraps
@@ -121,7 +123,7 @@ print(tb - ta)
 
 names(ace_comparisons) = rq2y_prefix
 
-saveRDS(ace_comparisons, file = file.path("results", "ace_comparisons.Rds"))
+saveRDS(ace_comparisons, file = file.path("results", "2_ace_comparisons.Rds"))
 
 
 

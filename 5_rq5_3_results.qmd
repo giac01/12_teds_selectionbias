@@ -1,0 +1,459 @@
+---
+title: "RQ5: complete case analysis vs imputation analysis"
+format: 
+  html:
+    fig-width: 8
+    fig-height: 8
+    code-link: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    toc: true
+    grid:
+      body-width: 900px
+editor: source
+---
+
+# Load data
+
+
+```{r}
+#| output: false
+
+source("0_load_data.R")
+
+```
+
+# Descriptive stats
+
+## Missingness plots
+
+```{r}
+
+df %>%
+  select(rq5y) %>%
+  as.data.frame() %>%
+  gbtoolbox::plot_correlations()
+
+df %>%
+  select(rq5y) %>%
+  `colnames<-`(rq5y_labels_short) %>%
+  as.data.frame() %>%
+  gbtoolbox::plot_missing_correlations(cluster_variables = FALSE)
+
+# df$zmhmfqt1[which(df$lcmfqt1>2)]=NA
+# df$lcmfqt1[which(df$zmhmfqt1>2)]=NA
+
+df %>%
+  select(rq5y) %>%
+  `colnames<-`(rq5y_labels_short) %>%
+  as.data.frame() %>%
+  gbtoolbox::plot_missing_correlations(cluster_variables = FALSE) 
+
+df %>% 
+  select(any_of(c(rq5y, rq5z))) %>%
+  select(where(is.numeric)) %>%
+  select(rq5y, everything()) %>%
+  as.data.frame() %>%
+  gbtoolbox::plot_missing_correlations(cluster_variables = FALSE, textadjust = 0) 
+
+
+```
+
+## Variable characteristics
+
+```{r}
+
+# Variable check function
+.variable_check = function(x, name = NULL){
+  if (!is.null(name)) {
+    var_name <- name
+  } else {
+    var_name <- deparse(substitute(x))
+  }
+  cat("Variable:", var_name, "\n")
+  cat("Class:", class(x), "\n")
+  cat("Label:", attr(x,"label"), "\n")
+  print(table(x, useNA = "always"))
+  cat("\n")
+  return(invisible(NULL))
+}
+
+# Check variable characteristics (subset for output)
+df %>%
+  select(any_of(rq5z)) %>%
+  mutate_if(is.numeric, ~ round(.x, 1)) %>%
+  select(150:250) %>%
+  purrr::imap(~.variable_check(.x, .y))
+
+# Check number of unique values per variable
+df %>%
+  select(any_of(rq5z)) %>%
+  mutate_if(is.numeric, ~ round(.x, 1)) %>%
+  apply(.,2, function(x) length(unique(x))) %>% 
+  table()
+
+```
+
+## Missing data frequency plot
+
+```{r}
+
+df %>%
+  select(any_of(rq5z)) %>%
+  apply(.,2,function(x) length(which(!is.na(x)))/length(x)) %>%
+  as.data.frame() %>%
+  rownames_to_column() %>%
+  `colnames<-`(c("var","percent_notmissing")) %>%
+  mutate(var_label = factor(var, levels = var, labels = var_to_label(var))) %>%
+  ggplot(aes(x = percent_notmissing, y = var_label)) + 
+  geom_col() +
+  geom_vline(aes(xintercept=.2)) +
+  theme_bw()
+
+ggsave(file.path("plots", "5_1_missing_data_frequency.pdf"), height = 25, width = 12)
+
+```
+
+## Descriptive table of imputation variables
+
+```{r}
+
+# List of all variables for imputation
+df_rq5 = df %>%
+  select(any_of(rq5z))
+
+# Descriptive information on each imputed variable
+impute_df = data.frame(
+  var   = colnames(df_rq5),
+  label = as.character(sapply(df_rq5, function(x) attr(x, "label"))),
+  class = as.character(sapply(df_rq5, function(x) class(x))),
+  perc_not_missing = as.numeric(sapply(df_rq5, function(x) round(length(which(!is.na(x)))/length(x)*100))),
+  sd    = round(as.numeric(sapply(df_rq5, function(x) sd(as.numeric(x), na.rm = TRUE) )),2),
+  distinct_categories = as.numeric(sapply(df_rq5, function(x) length(na.omit(unique(x)))))
+)
+
+impute_df <- impute_df %>%
+  mutate(variable_year = case_when(
+    str_starts(var, "a") ~ "Year 1 (1st Contact)",
+    str_starts(var, "b") ~ "Year 2",
+    str_starts(var, "c") ~ "Year 3",
+    str_starts(var, "d") ~ "Year 4",
+    str_starts(var, "g") ~ "Year 7",
+    str_starts(var, "h") ~ "Year 8",
+    str_starts(var, "i") ~ "Year 9",
+    str_starts(var, "j") ~ "Year 10",
+    str_starts(var, "l") ~ "Year 12",
+    str_starts(var, "n") ~ "Year 14",
+    str_starts(var, "p") ~ "Year 16",
+    str_starts(var, "r") ~ "Year 18",
+    str_starts(var, "u") ~ "Year 21",
+    str_starts(var, "z") ~ "Year 26",
+    TRUE ~ "Other"
+  ))
+
+impute_df %>%
+  arrange(perc_not_missing) %>%
+  knitr::kable()
+
+```
+
+## Missing data proportions by group
+
+```{r}
+
+# Check proportion of missing data by sexzyg group
+df %>%
+  select(sexzyg, any_of(rq5y)) %>%
+  group_by(sexzyg) %>%
+  summarise(
+    n = n(),
+    total_cells = n() * length(rq5y),
+    missing_cells = sum(is.na(c_across(any_of(rq5y)))),
+    overall_prop_missing = missing_cells / total_cells,
+    .groups = "drop"
+  ) %>%
+  knitr::kable()
+
+```
+
+## How well can we predict missingness in the outcomes? 
+
+```{r}
+
+
+
+```
+
+# Compare Original vs Imputed Data
+
+## Load imputed dataset
+
+```{r}
+
+# Load the imputed dataset
+df_rq5_imputed <- readRDS(file.path("data", "df_rq5_final.Rds"))
+
+# Create comparison datasets - only rq5y variables
+original_dataset <- df %>%
+  select(all_of(rq5y)) 
+
+imputed_dataset <- df_rq5_imputed %>%
+  select(all_of(rq5y))
+
+```
+
+## Compare univariate distributions
+
+```{r}
+
+# Calculate comparisons using existing functions
+smd_values <- compare_smd(original_dataset, imputed_dataset)
+md_values <- compare_md(original_dataset, imputed_dataset)
+hellinger_values <- compare_hellinger(original_dataset, imputed_dataset)
+
+# Create results dataframe
+comparison_results <- data.frame(
+  variable = names(original_dataset),
+  label    = var_to_label(names(original_dataset)),
+  smd = smd_values,
+  md = md_values,
+  hellinger = hellinger_values,
+  stringsAsFactors = FALSE
+)
+# Display results
+comparison_results %>%
+  select(-variable) %>%
+  arrange(desc(abs(smd))) %>%
+  knitr::kable(caption = "Comparison of Original vs Imputed Data", digits = 2)
+
+```
+
+## Plot distribution comparisons
+
+```{r}
+
+# Create long format data for plotting
+original_long <- original_dataset %>%
+  mutate(dataset = "Original") %>%
+  pivot_longer(cols = -dataset, names_to = "variable", values_to = "value")
+
+imputed_long <- imputed_dataset %>%
+  mutate(dataset = "Imputed") %>%
+  pivot_longer(cols = -dataset, names_to = "variable", values_to = "value")
+
+combined_long <- bind_rows(original_long, imputed_long) %>%
+  filter(!is.na(value)) %>%
+  mutate(
+    variable_label = factor(variable, levels = rq5y, labels = rq5y_labels_short)
+  )
+
+# Plot distributions
+combined_long %>%
+  ggplot(aes(x = value, fill = dataset)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~variable_label, scales = "free", ncol = 3) +
+  scale_fill_manual(values = c("Original" = "#1f77b4", "Imputed" = "#ff7f0e")) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 8),
+    legend.position = "bottom"
+  ) +
+  labs(
+    title = "Distribution Comparison: Original vs Imputed Data",
+    x = "Value",
+    y = "Density",
+    fill = "Dataset"
+  )
+
+```
+
+## Plot comparison statistics
+
+```{r}
+
+# Plot SMDs and Hellinger distances
+p1 <- comparison_results %>%
+  ggplot(aes(x = reorder(label, abs(smd)), y = smd)) +
+  geom_col(fill = "#1f77b4", alpha = 0.7) +
+  geom_hline(yintercept = c(-0.2, 0.2), linetype = "dashed", color = "red") +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Standardized Mean Differences",
+    subtitle = "Dashed lines at ±0.2 (small effect)",
+    x = "Variable",
+    y = "SMD (Original - Imputed)"
+  )
+
+p2 <- comparison_results %>%
+  ggplot(aes(x = reorder(label, hellinger), y = hellinger)) +
+  geom_col(fill = "#ff7f0e", alpha = 0.7) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Hellinger Distances",
+    subtitle = "Higher values = more different distributions",
+    x = "Variable",
+    y = "Hellinger Distance"
+  )
+
+# Combine plots
+library(patchwork)
+combined_plot <- p1 / p2
+
+print(combined_plot)
+
+ggsave(file.path("plots", "5_rq5_distribution_comparison.pdf"), 
+       plot = combined_plot, width = 12, height = 10)
+
+```
+
+## Compare correlation structures (SRMR)
+
+```{r}
+
+# Calculate SRMR using existing function
+srmr <- calc_srmr2(original_dataset, imputed_dataset)
+
+# Also calculate correlation matrices for visualization
+cor_original <- cor(original_dataset, use = "complete.obs")
+cor_imputed <- cor(imputed_dataset, use = "complete.obs")
+
+cat("SRMR (correlation structure difference):", round(srmr, 4), "\n")
+cat("SRMR < 0.05 indicates good fit\n")
+cat("SRMR < 0.08 indicates acceptable fit\n")
+
+# Prepare correlation data for plotting (following RQ2 approach)
+# Calculate correlation residuals 
+cor_residuals <- compare_correlation(original_dataset, imputed_dataset)
+
+# Create matrix positions for correlation plot (adapted from RQ2)
+test_correlation_matrix = matrix(
+  nrow = length(rq5y),
+  ncol = length(rq5y)
+)
+
+for(i in seq_along(rq5y)){
+  for(j in seq_along(rq5y)){
+    test_correlation_matrix[i,j] = paste(rq5y[i], rq5y[j], collapse = " ")
+  }
+}
+
+x = test_correlation_matrix[lower.tri(test_correlation_matrix)]
+x_var = str_extract(x, "^\\S+")
+y_var = str_extract(x, "\\S+$")
+
+rm(test_correlation_matrix, x)
+
+# Create correlation comparison dataframe
+correlation_comparison <- data.frame(
+  x_var = x_var,
+  y_var = y_var,
+  y = cor_residuals,
+  pval = 0.01,  # Placeholder - no significance test for single comparison
+  pval_adj = 0.01,
+  stringsAsFactors = FALSE
+)
+
+# Set variables for plotting function
+rq2y <- rq5y  # Temporary assignment for compatibility with plotting function
+rq2y_labels_short <- rq5y_labels_short
+
+# Plot correlation differences using RQ2 approach
+correlation_plot <- correlation_comparison %>%
+  plot_lower_triangular_matrix(
+    title = "Correlation Differences (Original - Imputed)",
+    caption = "RQ5: Imputation vs Original Data",
+    p_threshold = 1.0  # Show all values since we don't have significance tests
+  )
+
+print(correlation_plot)
+
+ggsave(file.path("plots", "5_rq5_correlation_differences.pdf"), 
+       plot = correlation_plot, width = 10, height = 8)
+
+# Clean up temporary variables
+rm(rq2y, rq2y_labels_short)
+
+```
+
+# ACE Model Comparisons
+
+## Fit ACE models to both datasets
+
+```{r}
+
+# This section will compare ACE estimates between original and imputed data
+# Note: This requires the OpenMx package and ACE modeling functions
+
+# Function to fit ACE model (simplified version)
+# You may need to adapt this based on your specific ACE modeling approach
+
+fit_ace_models <- function(original_data, imputed_data) {
+  
+  # Placeholder for ACE model fitting
+  # This should be replaced with your actual ACE modeling code
+  
+  cat("ACE model fitting section\n")
+  cat("Original data dimensions:", dim(original_data), "\n")
+  cat("Imputed data dimensions:", dim(imputed_data), "\n")
+  
+  # Results would typically include A, C, E estimates for each variable
+  # and comparisons between datasets
+  
+}
+
+# Fit models (placeholder)
+fit_ace_models(original_dataset, imputed_dataset)
+
+```
+
+## Bootstrap comparison of ACE estimates
+
+```{r}
+
+# Placeholder for bootstrap analysis comparing ACE estimates
+# This would involve:
+# 1. Bootstrap resampling of both datasets
+# 2. Fitting ACE models to each bootstrap sample
+# 3. Calculating differences in A, C, E estimates
+# 4. Statistical testing of differences
+
+cat("Bootstrap ACE comparison section\n")
+cat("This section will compare A, C, E estimates between original and imputed data\n")
+
+```
+
+## Summary of imputation impact
+
+```{r}
+
+# Summary statistics
+cat("=== SUMMARY OF IMPUTATION IMPACT ===\n\n")
+
+cat("Distribution Changes:\n")
+cat("- Variables with |SMD| > 0.2:", 
+    sum(abs(comparison_results$smd) > 0.2), "out of", nrow(comparison_results), "\n")
+cat("- Variables with Hellinger > 0.1:", 
+    sum(comparison_results$hellinger > 0.1), "out of", nrow(comparison_results), "\n")
+
+cat("\nCorrelation Structure:\n")
+cat("- SRMR:", round(srmr, 4), "\n")
+cat("- Interpretation:", 
+    if(srmr < 0.05) "Excellent fit" else if(srmr < 0.08) "Good fit" else "Poor fit", "\n")
+
+cat("\nVariables with largest changes:\n")
+top_changes <- comparison_results %>%
+  arrange(desc(abs(smd))) %>%
+  head(3)
+
+for(i in 1:nrow(top_changes)) {
+  cat("-", top_changes$variable_label[i], ": SMD =", round(top_changes$smd[i], 3), 
+      ", Hellinger =", round(top_changes$hellinger[i], 3), "\n")
+}
+
+```
+
+
+

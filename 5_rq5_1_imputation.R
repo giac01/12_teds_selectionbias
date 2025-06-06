@@ -1,52 +1,62 @@
 # Load things ------------------------------------------------------------------
 
 source("0_load_data.R")
-                                
-# Imputation -------------------------------------------------------------------
-df_rq5 = df %>%
-  # select(sexzyg, all_of(rq1x), any_of(rq5y))
-select(sexzyg, any_of(rq5y))
 
-df_rq5_split = split(df_rq5, df_rq5$sexzyg)
+number_bootstraps = 10
+ 
+number_iterations = 5
+                                
+# Set up imputation  -------------------------------------------------------------------
+df_impute = df %>%
+  # select(sexzyg, all_of(rq1x), any_of(rq5y))
+  select(sexzyg,randomfamid,randomtwinid,any_of(rq5y))
+
+df_split = split(df_impute, df_impute$sexzyg)
 
 # Set up predictor matrix (not actually helpful currently - could remove)
 
-if (FALSE){
-miceinit = mice(df_rq5, method = "pmm", m = 1, maxit = 0)
+if (TRUE){
+miceinit = mice(df_impute, method = "pmm", m = 1, maxit = 0)
 
-meth <- miceinit$method
-pred <- miceinit$predictorMatrix
+meth = miceinit$method
+pred = miceinit$predictorMatrix
 
-pred[, "sexzyg"] <- 0
-pred["sexzyg", ] <- 0
+exclude_vars = c("sexzyg", "randomtwinid", "randomfamid")
+
+# Set all excluded variables to 0 in predictor matrix
+pred[exclude_vars, ] = 0
+pred[, exclude_vars] = 0
+
 }
 
-# Impute groups separately 
+# Impute groups separately -----------------------------------------------------
 
-df_rq5_imputed = lapply(df_rq5_split, function(df)
-  mice(df, method = "pmm", m = 1, maxit = 5)
+imputed_mice = lapply(df_split, function(df)
+  mice(
+    df, 
+    m = number_bootstraps, 
+    maxit = number_iterations, 
+    method = meth,
+    predictorMatrix = pred
+    )
   )
 
-# Check logged events for warnings
-lapply(df_rq5_imputed, function(x) x$loggedEvents)
+lapply(imputed_mice, function(x) x$loggedEvents)
 
 # Extract completed datasets from each group
-df_rq5_completed_list <- lapply(names(df_rq5_imputed), function(group_name) {
-  completed_data <- complete(df_rq5_imputed[[group_name]])
-  completed_data$sexzyg <- group_name  # Ensure group identifier is preserved
+completed_list = lapply(names(imputed_mice), function(group_name) {
+  completed_data = complete(imputed_mice[[group_name]], action = "long") 
+  completed_data$sexzyg = group_name  # Ensure group identifier is preserved
   return(completed_data)
 })
 
 # Combine all groups back together
-df_rq5_final <- do.call(rbind, df_rq5_completed_list)
-
-# Reorder by original row indices if needed
-# (This assumes the original df had row names or an ID column)
-df_rq5_final <- df_rq5_final[order(as.numeric(rownames(df_rq5_final))), ]
-
+df_rq5_final = do.call(rbind, completed_list) %>%
+  arrange(.imp, randomtwinid) %>%
+  select(-.id) # .id is the rowname in each imputed dataset, created by complete() - not useful. 
 
 # Verify the final dataset
-if (!identical(nrow(df),nrow(df_rq5_final))) stop("error")
+if (!identical(nrow(df),nrow(filter(df_rq5_final, .imp ==1)))) stop("error")
 
 # Check for any remaining missing values
 cat("\nMissing values in final dataset:\n")
