@@ -2,6 +2,7 @@
 
 rm(list=ls())
 
+library(testthat)
 library(MASS)
 library(mice)
 library(pROC)
@@ -101,6 +102,8 @@ rq5y = c(
   edu,
   mfq
   )
+
+rq5y_prefix = str_remove(rq5y, "1$")
 
 # gad %in% rq5z
 # 

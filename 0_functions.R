@@ -511,35 +511,44 @@ calc_ace = function(
 }
 
 
-
-# var = "bvocab"
-
+# THIS BOOTSTRAPPING CODE NEEDS TO BE UPDATED TO USE CLUSTER-BASED BOOTSTRAP! 
 compare_ace = function(
     var = var,
-    B = 10
+    B = 10,
+    df1 = NULL,
+    df2 = NULL
     ){
 
   boot_results_original = list() # bootstrapped results for non-attrition dataset
-  boot_results_attritioned = list()          # bootstrapped results for 
-  
-  original_dataset_twin1     = get("original_dataset_twin1",     envir = parent.frame())
-  attritioned_datasets_twin1 = get("attritioned_datasets_twin1", envir = parent.frame())
-  
+  boot_results_imputed = list()          # bootstrapped results for 
   
   if (length(var)>1) stop("length(var) should equal 1")
-  if (nrow(original_dataset_twin1)!=nrow(attritioned_datasets_twin1[[1]])) stop("nrows should match")
+  if (nrow(df1)!=nrow(df2[[1]])) stop("nrows should match")
 
   for (i in 1:B){
     
-    boot_select = sample(nrow(original_dataset_twin1), nrow(original_dataset_twin1), replace = TRUE)
+    if (!identical(as.numeric(df1$randomtwinid),as.numeric(df2$randomfamid))) stop("error 2")
     
-    boot_results_original[[i]] = calc_ace(original_dataset_twin1[boot_select,], var = var)
+    families = na.omit(unique(df1$randomfamid))
+    boot_select_families = sample(families, length(families), replace = TRUE)    
+    
+    family_rows = split(seq_len(nrow(df1)), df1$randomfamid)
+    selected_rows = family_rows[as.character(boot_select_families)]
+    selected_rows = unlist(selected_rows, use.names = FALSE)
+    
+    df1_boot = df1[selected_rows,]
+    df2_boot = df2[selected_rows,]
+    
+    df1_temp = df1[]
+    
+    
+    boot_results_original[[i]] = calc_ace(df1[boot_select,], var = var)
     
     boot_results_attritioned[[i]] = list()
     
     for (j in seq_along(rq1y)){
       
-      boot_results_attritioned[[i]][[j]] = calc_ace(data=attritioned_datasets_twin1[[j]][boot_select,], var = var)
+      boot_results_attritioned[[i]][[j]] = calc_ace(data=df2[[j]][boot_select,], var = var)
       
     }
     
@@ -582,6 +591,124 @@ compare_ace = function(
   
   names(out) = c("boot_results_differences_summary", "boot_results_differences", "boot_results_attritioned_df", "boot_results_original_df")
 
+  return(out)
+}
+
+if(FALSE){
+  df1 = df_nonimputed_wide
+  df_imputed_list = df_imputed_wide
+  i=1
+  j=1
+  var = rq5y_prefix
+  
+  rm(boot_results_original, boot_results_attritioned, df2,
+     families, boot_select_families,
+     family_rows, selected_rows, df1_boot, df2_boot, df1_temp, j,
+     boot_results_original_df, boot_results_attritioned_df,
+     boot_results_differences,
+     boot_results_differences_summary, out)
+
+}
+
+compare_ace_imputation = function(
+    var = rq5y_prefix,
+    df1 = NULL,
+    df_imputed_list = NULL # list of imputed datasets 
+){
+  
+  boot_results_original = list()        # bootstrapped results original dataset
+  boot_results_imputed  = list()     # bootstrapped results for imputed datasets 
+  
+  if (nrow(df1)!=nrow(df_imputed_list[[1]])) stop("nrows should match")
+  
+
+  for (i in seq_along(df_imputed_list)){
+    df2 = df_imputed_list[[i]]
+    
+    if (!identical(as.numeric(df1$randomfamid),as.numeric(df2$randomfamid))) stop("df1 and df2 should match rows") # ideally would use randomtwinid to check matching here
+    
+    families = na.omit(unique(df1$randomfamid))
+    boot_select_families = sample(families, length(families), replace = TRUE)    
+    
+    family_rows = split(seq_len(nrow(df1)), df1$randomfamid)
+    selected_rows = family_rows[as.character(boot_select_families)]
+    selected_rows = unlist(selected_rows, use.names = FALSE)
+    
+    df1_boot = df1[selected_rows,]
+    df2_boot = df2[selected_rows,]
+    
+    # Initialize the nested lists for this iteration
+    boot_results_original[[i]] = list()
+    boot_results_imputed[[i]] = list()
+    
+    for(j in seq_along(var)){
+      boot_results_original[[i]][[var[j]]] = list()
+      boot_results_imputed [[i]][[var[j]]] = list()
+    
+      boot_results_original[[i]][[var[j]]] =  data.frame(t(calc_ace(data=df1_boot, var = var[j])))
+      boot_results_imputed [[i]][[var[j]]] =  data.frame(t(calc_ace(data=df2_boot, var = var[j])))
+    
+    }
+  }
+  
+  boot_results_original_df = lapply(boot_results_original, function(x) list_rbind(x, names_to = "outcome"))
+  boot_results_original_df = list_rbind(boot_results_original_df, names_to = ".imp")
+  
+  boot_results_imputed_df = lapply(boot_results_imputed, function(x) list_rbind(x, names_to = "outcome"))
+  boot_results_imputed_df = list_rbind(boot_results_imputed_df, names_to = ".imp")
+  
+  # Compare changes in ace model parameters
+  
+  boot_results_differences = as.matrix(boot_results_original_df[c("a","c","e")]) - as.matrix(boot_results_imputed_df[c("a","c","e")])
+  
+  boot_results_differences_df = cbind.data.frame(boot_results_original_df[c(".imp","outcome")],boot_results_differences)
+  
+  # Summarise all results
+  boot_results_original_summary = boot_results_original_df %>%
+    pivot_longer(
+      cols = c("a","c","e"),
+      names_to = "parameter",
+    ) %>% 
+    group_by(parameter, outcome) %>%
+    summarise(results = .mean_qi_pd(value), .groups = "drop") %>%
+    unnest(results)
+  
+  boot_results_imputed_summary = boot_results_imputed_df %>%
+    pivot_longer(
+      cols = c("a","c","e"),
+      names_to = "parameter",
+    ) %>% 
+    group_by(parameter, outcome) %>%
+    summarise(results = .mean_qi_pd(value), .groups = "drop") %>%
+    unnest(results)
+  
+  boot_results_differences_summary = boot_results_differences_df %>%
+    pivot_longer(
+      cols = c("a","c","e"),
+      names_to = "parameter",
+      ) %>% 
+    group_by(parameter, outcome) %>%
+    summarise(results = .mean_qi_pd(value), .groups = "drop") %>%
+    unnest(results)
+
+  out = list(
+    boot_results_original_df,
+    boot_results_imputed_df,
+    boot_results_differences_df,
+    boot_results_original_summary,
+    boot_results_imputed_summary,
+    boot_results_differences_summary
+  )
+  
+  names(out) = c(
+    "boot_results_original_df",
+    "boot_results_imputed_df",
+    "boot_results_differences_df",
+    "boot_results_original_summary",
+    "boot_results_imputed_summary",
+    "boot_results_differences_summary"
+  )
+  
   return(out)
 }
 

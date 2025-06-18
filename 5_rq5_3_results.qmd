@@ -22,6 +22,11 @@ editor: source
 
 source("0_load_data.R")
 
+bootstrap_summary_df = readRDS(file = file.path("results", "5_bootstrap_summary_df.Rds"))
+boot_compare_results.Rds = readRDS(file = file.path("plots", "5_boot_compare_results.Rds"))
+
+ace_comparisons = readRDS(file = file.path("results", "5_ace_comparisons.Rds"))
+
 ```
 
 # Descriptive stats
@@ -192,7 +197,7 @@ df %>%
 ```{r}
 
 # Load the imputed dataset
-df_rq5_imputed <- readRDS(file.path("data", "df_rq5_final.Rds"))
+df_rq5_imputed <- readRDS(file.path("data", "df_rq5_imputed.Rds"))
 
 # Create comparison datasets - only rq5y variables
 original_dataset <- df %>%
@@ -380,78 +385,24 @@ rm(rq2y, rq2y_labels_short)
 
 # ACE Model Comparisons
 
-## Fit ACE models to both datasets
-
 ```{r}
 
-# This section will compare ACE estimates between original and imputed data
-# Note: This requires the OpenMx package and ACE modeling functions
+ace_comparisons$boot_results_differences_summary %>%
+  mutate(outcome = rq5y_labels_short[match(paste0(outcome,"1"), rq5y)]) %>%
+  ggplot(aes(y = y, ymin = ymin, ymax = ymax, x = outcome, group = parameter, fill = parameter)) + 
+  geom_col(position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 
-# Function to fit ACE model (simplified version)
-# You may need to adapt this based on your specific ACE modeling approach
 
-fit_ace_models <- function(original_data, imputed_data) {
-  
-  # Placeholder for ACE model fitting
-  # This should be replaced with your actual ACE modeling code
-  
-  cat("ACE model fitting section\n")
-  cat("Original data dimensions:", dim(original_data), "\n")
-  cat("Imputed data dimensions:", dim(imputed_data), "\n")
-  
-  # Results would typically include A, C, E estimates for each variable
-  # and comparisons between datasets
-  
-}
-
-# Fit models (placeholder)
-fit_ace_models(original_dataset, imputed_dataset)
-
+ace_comparisons$boot_results_original_df %>% head()
+ace_comparisons$boot_results_imputed_df %>% head()
 ```
 
-## Bootstrap comparison of ACE estimates
+
+Lets try to understand what is happening to the correlations... 
 
 ```{r}
 
-# Placeholder for bootstrap analysis comparing ACE estimates
-# This would involve:
-# 1. Bootstrap resampling of both datasets
-# 2. Fitting ACE models to each bootstrap sample
-# 3. Calculating differences in A, C, E estimates
-# 4. Statistical testing of differences
-
-cat("Bootstrap ACE comparison section\n")
-cat("This section will compare A, C, E estimates between original and imputed data\n")
-
-```
-
-## Summary of imputation impact
-
-```{r}
-
-# Summary statistics
-cat("=== SUMMARY OF IMPUTATION IMPACT ===\n\n")
-
-cat("Distribution Changes:\n")
-cat("- Variables with |SMD| > 0.2:", 
-    sum(abs(comparison_results$smd) > 0.2), "out of", nrow(comparison_results), "\n")
-cat("- Variables with Hellinger > 0.1:", 
-    sum(comparison_results$hellinger > 0.1), "out of", nrow(comparison_results), "\n")
-
-cat("\nCorrelation Structure:\n")
-cat("- SRMR:", round(srmr, 4), "\n")
-cat("- Interpretation:", 
-    if(srmr < 0.05) "Excellent fit" else if(srmr < 0.08) "Good fit" else "Poor fit", "\n")
-
-cat("\nVariables with largest changes:\n")
-top_changes <- comparison_results %>%
-  arrange(desc(abs(smd))) %>%
-  head(3)
-
-for(i in 1:nrow(top_changes)) {
-  cat("-", top_changes$variable_label[i], ": SMD =", round(top_changes$smd[i], 3), 
-      ", Hellinger =", round(top_changes$hellinger[i], 3), "\n")
-}
 
 ```
 
