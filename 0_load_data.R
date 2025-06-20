@@ -13,6 +13,8 @@ library(future)
 library(future.apply)
 library(tidyverse)
 library(dplyr)
+library(distrEx)
+library(Ternary)
 
 conflicted::conflict_prefer_all("tidyverse")
 
@@ -23,7 +25,7 @@ source("0_functions.R")
 source("0_lists_of_variables.R")
 
 
-df0 = haven::read_sav(file.path("data","732 GB FINAL.sav"))
+df0 = haven::read_sav(file.path("data","732 GB FINAL 20250612.sav"))
 
 df = df0
 
@@ -142,6 +144,9 @@ df$adrink    = haven::as_factor(df$adrink)
 df$astress   = haven::as_factor(df$astress)
 df$agenpro1  = haven::as_factor(df$agenpro1)
 df$agenpro2  = haven::as_factor(df$agenpro2)
+df$aonsby    = haven::as_factor(df$aonsby)
+df$cohort    = haven::as_factor(df$cohort)
+df$cohort_by = paste0(as.numeric(df$cohort), df$aonsby)
 
 df$aadults   = set_most_frequent_ref(df$aadults)
 df$aalgzyg   = set_most_frequent_ref(df$aalgzyg)
@@ -278,42 +283,17 @@ mfq_labels = df %>%
   select(all_of(mfq)) %>%
   sapply(., function(x) attr(x, "label"))
 
-# Data chceks -------------------------
-# 
-# sapply(1:ncol(df_rq1y), function(i) attr(df_rq1y[,i, drop = TRUE], "label"))
-#   
-#   df$anyngsib %>%
-#     attr(., "label")
-#   
-#   colnames(df)
-#   
-#   df_rq1x = df %>% 
-#     select(
-#       dplyr::any_of(rq1x)
-#     )
-#   
-#   
-#   
-#  i=1
-#  
-#  df$cens01po
-#  
-#  
-#  df_colnames[257]
-#  
-#  
-#  attr(df$randomfamid, "label")
-#  
-#  attr(df[,i, drop = TRUE], "label")
-#  
-#  
-#  
-# grep("present",df_labels) 
-# df_colnames[grep("present",df_labels)]
+# Define Participant Exclusion Lists -------------------------------------------
 
-# table(df$afasoc, df$afajob, useNA = "always")
-# table(df$afajob, useNA = "always")
+#Work in progress - will update in next commit
 
+# rq5_exlcude = df %>%
+#   select(all_of(rq5y)) %>%
+#   mutate(
+#     missing_percent = rowSums(is.na(.)) / length(rq5y),
+#     nonmissing_n = rowSums(!is.na(.)),
+#     exclude_pps = missing_percent > .80
+#   ) 
 
 
 
