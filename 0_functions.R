@@ -289,11 +289,12 @@ compare_correlation = function(df1, df2){
     compare_md(df1, df2),
     compare_smd(df1, df2),
     compare_hellinger(df1, df2),
+    compare_var(df1, df2),
     compare_correlation(df1, df2),
     calc_srmr2(df1, df2)
   )
   
-  names(out) = c("md", "smd", "h", "cor_resid", "srmr")
+  names(out) = c("md", "smd", "h", "var", "cor_resid", "srmr")
   
   return(out)
 }

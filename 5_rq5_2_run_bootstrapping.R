@@ -106,8 +106,6 @@ print(tb - ta)
 
 saveRDS(ace_comparisons, file = file.path("results", "5_ace_comparisons.Rds"))
 
-
-
 # Post-processing of results ---------------------------------------------------
 
 ## Variable Differences --------------------------------------------------------
@@ -115,17 +113,18 @@ saveRDS(ace_comparisons, file = file.path("results", "5_ace_comparisons.Rds"))
 md_df   = do.call(rbind, lapply(boot_compare_results, function(x) t(as.data.frame(x$md))))
 smd_df  = do.call(rbind, lapply(boot_compare_results, function(x) t(as.data.frame(x$smd))))
 h_df    = do.call(rbind, lapply(boot_compare_results, function(x) t(as.data.frame(x$h))))
+var_df  = do.call(rbind, lapply(boot_compare_results, function(x) t(as.data.frame(x$var))))
 cor_df  = do.call(rbind, lapply(boot_compare_results, function(x) t(as.data.frame(x$cor_resid))))
 srmr_df = do.call(rbind, lapply(boot_compare_results, function(x) t(as.data.frame(x$srmr))))
 
-bootstrap_iter = list(md_df, smd_df, h_df, cor_df, srmr_df)
-names(bootstrap_iter) = c("md", "smd", "h", "cor_resid", "srmr")
+bootstrap_iter = list(md_df, smd_df, h_df, var_df, cor_df, srmr_df)
+names(bootstrap_iter) = c("md", "smd", "h", "var",  "cor_resid", "srmr")
 
 bootstrap_summary = lapply(bootstrap_iter, function(df)
   apply(df,2, function(xx).mean_qi_pd(xx))
 )
 
-bootstrap_summary_df = bootstrap_summary[1:3]
+bootstrap_summary_df = bootstrap_summary[1:4]
 
 for(i in 1:length(bootstrap_summary_df)){
   #Looping across atttritioned datasets 
