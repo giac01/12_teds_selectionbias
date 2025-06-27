@@ -258,45 +258,45 @@ compare_correlation = function(df1, df2){
   
 }
 
-# df1 = original_dataset
-# df2 = attritioned_datasets[[1]]
+df1 = df[c("randomfamid",rq5y)]
+df2 = imputed_datasets[[1]][c("randomfamid",rq5y)]
+debug(.boot_compare_df)
+.boot_compare_df(df1,df2)
 
-.boot_compare_df = function(df1, df2, resample_families = TRUE){
-  #Randomly resample rows
-  if (resample_families==FALSE){
-    boot_select = sample(nrow(df1), nrow(df1), replace = TRUE)
-    df1 = df1[boot_select,]
-    df2 = df2[boot_select,]
-  }
-  #Randomly resample families
-  if (resample_families==TRUE){
-    families = na.omit(unique(df1$randomfamid))
+.boot_compare_df = function(df1, df2, B = 100){
+  
+  boot_results = list()
+  
+  for (i in 1:B){
+    df1_boot = df1
+    df2_boot = df2
+    
+    families = na.omit(unique(df1_boot$randomfamid))
     boot_select_families = sample(families, length(families), replace = TRUE)
     
-    family_rows = split(seq_len(nrow(df1)), df1$randomfamid)
+    family_rows = split(seq_len(nrow(df1_boot)), df1_boot$randomfamid)
     selected_rows = family_rows[as.character(boot_select_families)]
     selected_rows = unlist(selected_rows, use.names = FALSE)
     
-    df1 = df1[selected_rows,]
-    df2 = df2[selected_rows,]
+    df1_boot = df1_boot[selected_rows,]
+    df2_boot = df2_boot[selected_rows,]
     
+    df1_boot$randomfamid = NULL
+    df2_boot$randomfamid = NULL
+
+    boot_results[[i]] = list(
+      compare_md(df1_boot, df2_boot),
+      compare_smd(df1_boot, df2_boot),
+      compare_hellinger(df1_boot, df2_boot),
+      compare_var(df1_boot, df2_boot),
+      compare_correlation(df1_boot, df2_boot),
+      calc_srmr2(df1_boot, df2_boot)
+    )
+    
+    names(boot_results[[i]]) = c("md", "smd", "h", "var", "cor_resid", "srmr")
   }
   
-  df1$randomfamid = NULL
-  df2$randomfamid = NULL
-
-  out = list(
-    compare_md(df1, df2),
-    compare_smd(df1, df2),
-    compare_hellinger(df1, df2),
-    compare_var(df1, df2),
-    compare_correlation(df1, df2),
-    calc_srmr2(df1, df2)
-  )
-  
-  names(out) = c("md", "smd", "h", "var", "cor_resid", "srmr")
-  
-  return(out)
+  return(boot_results)
 }
 
 
