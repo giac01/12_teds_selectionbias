@@ -49,6 +49,97 @@ df %>%
 
 ggsave(file.path("plots","11_participation_rate.pdf"), width = 9, height = 5)
 
+
+df %>%
+  select(cohort, acontact, all_of(rq1y)) %>%
+  group_by(cohort) %>%
+  summarise(across(everything(), 
+                   ~ length(which(. == 1)) / length(which(. >= 0)),
+                   .names = "{.col}"),
+            .groups = "keep") %>%
+  pivot_longer(cols = -cohort, names_to = "Time Point", values_to = "Participation Rate") %>%
+  mutate(
+    `Time Point` = factor(`Time Point`, 
+                              levels = c("acontact", rq1y), 
+                              labels = var_to_label(c("acontact", rq1y))),
+         Time_numeric = as.numeric(`Time Point`),
+    cohort = gsub(" twins", "",cohort),
+    cohort = gsub(" to ", "-",cohort)
+    ) %>%
+  ggplot(aes(x = Time_numeric, y = `Participation Rate`, color = cohort, group = cohort)) + 
+  geom_point(size = 3) +
+  geom_line(linewidth = 1) +
+  geom_text(
+    aes(label = paste0(round(`Participation Rate` * 100, 1), "%")),
+    vjust = -0.5,
+    hjust = 0.5,
+    size = 3,
+    show.legend = FALSE
+  ) +
+  scale_x_continuous(
+    breaks = 1:length(c("acontact", rq1y)),
+    labels = var_to_label(c("acontact", rq1y))
+  ) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_bw() +
+  labs(x = "Time Point", 
+       y = "Participation Rate", 
+       color = "Cohort",
+       title = "Participation Rates Over Time by Cohort") +
+  theme(legend.position = c(.8,.8),
+        axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(plot.margin = margin(t = 1, r = 1, b = 1, l = 10, unit = "mm"))
+
+ggsave(file.path("plots","11_participation_rate_by_cohort.pdf"), width = 11, height = 9)
+
+
+df %>%
+  select(cohort, acontact, all_of(rq1y)) %>%
+  filter(btwoyear==1) %>%
+  group_by(cohort) %>%
+  summarise(across(everything(), 
+                   ~ length(which(. == 1)) / length(which(. >= 0)),
+                   .names = "{.col}"),
+            .groups = "keep") %>%
+  pivot_longer(cols = -cohort, names_to = "Time Point", values_to = "Participation Rate") %>%
+  mutate(
+    `Time Point` = factor(`Time Point`, 
+                              levels = c("acontact", rq1y), 
+                              labels = var_to_label(c("acontact", rq1y))),
+         Time_numeric = as.numeric(`Time Point`),
+    cohort = gsub(" twins", "",cohort),
+    cohort = gsub(" to ", "-",cohort)
+    ) %>%
+  ggplot(aes(x = Time_numeric, y = `Participation Rate`, color = cohort, group = cohort)) + 
+  geom_point(size = 3) +
+  geom_line(linewidth = 1) +
+  geom_text(
+    aes(label = paste0(round(`Participation Rate` * 100, 1), "%")),
+    vjust = -0.5,
+    hjust = 0.5,
+    size = 3,
+    show.legend = FALSE
+  ) +
+  scale_x_continuous(
+    breaks = 1:length(c("acontact", rq1y)),
+    labels = var_to_label(c("acontact", rq1y))
+  ) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_bw() +
+  labs(x = "Time Point", 
+       y = "Participation Rate", 
+       color = "Cohort",
+       title = "Participation Rates Over Time by Cohort",
+       subtitle = "Just selecting participants that participated at YEAR 2"
+       ) +
+  theme(legend.position = c(.8,.8),
+        axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(plot.margin = margin(t = 1, r = 1, b = 1, l = 10, unit = "mm"))
+
+ggsave(file.path("plots","11_participation_rate_by_cohort_selectedy2.pdf"), width = 11, height = 9)
+
+
+
 ```
 
 

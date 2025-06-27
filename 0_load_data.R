@@ -107,6 +107,8 @@ rq5y = c(
 
 rq5y_prefix = str_remove(rq5y, "1$")
 
+rq5y_12 = paste0(rep(rq5y_prefix, each = 2), c("1", "2"))
+
 # gad %in% rq5z
 # 
 # df %>%
@@ -120,6 +122,8 @@ df$heightyr[is.na(df$heightyr)] = 0
 
 df$aadults   = haven::as_factor(df$aadults, levels = "label") %>%
   droplevels( "unknown or other") 
+df$asingle   = (as.character(df$aadults)=="single parent") %>% as.numeric()
+df$asingle[which(df$aadults=="biological mother with missing partner details")] = NA
 df$aalgzyg   = haven::as_factor(df$aalgzyg)
 df$afaclas   = haven::as_factor(df$afaclas)
 df$afajob    = haven::as_factor(df$afajob)
@@ -129,14 +133,23 @@ df$afawork   = haven::as_factor(df$afawork)
 df$afahqual  = haven::as_factor(df$afahqual)
 df$amoclas   = haven::as_factor(df$amoclas)
 df$amojob    = haven::as_factor(df$amojob)
+
+df$amohqualn = haven::as_factor(df$amohqual, levels = "values") %>% as.character() %>% as.numeric() # Numeric version of amohqual
 df$amohqual  = haven::as_factor(df$amohqual)
 df$amosoc    = haven::as_factor(df$amosoc)
 df$amospq    = haven::as_factor(df$amospq)
 df$amowork   = haven::as_factor(df$amowork)
 df$aethnicc  = haven::as_factor(df$aethnicc)
 df$alang     = haven::as_factor(df$alang)
-df$anoldsib  = haven::as_factor(df$anoldsib)  # COULD TREAT THIS AS CONTINUOUS - NUMBER OF OLDER SIBLINGS
-df$anyngsib  = haven::as_factor(df$anyngsib)  # SAME ^
+
+
+df$anoldsibn  = haven::as_factor(df$anoldsib, levels = "values") %>% as.character() %>% as.numeric()  # numeric version
+df$anyngsibn  = haven::as_factor(df$anyngsib, levels = "values") %>% as.character() %>% as.numeric() # numeric version
+df$asibsn     = df$anoldsibn + df$anyngsibn 
+
+df$anoldsib  = haven::as_factor(df$anoldsib)  
+df$anyngsib  = haven::as_factor(df$anyngsib)  
+
 df$atwclub   = haven::as_factor(df$atwclub)
 df$alookels  = haven::as_factor(df$alookels)
 df$asmoke    = haven::as_factor(df$asmoke)
@@ -154,6 +167,7 @@ df$aethnicc  = set_most_frequent_ref(df$aethnicc)
 df$afahqual  = set_most_frequent_ref(df$afahqual)
 
 df$u1chqualp1 = as.numeric(df$u1chqualp1)
+df$u1chqualp2 = as.numeric(df$u1chqualp2)
 
 df$zmhhqual1   = as.numeric(df$zmhhqual1)
 df$zmhhqual2   = as.numeric(df$zmhhqual2)
@@ -209,6 +223,18 @@ attr(df$afasoc2, "label") = "Father SOC employment level (1st Contact), 1-9"
 #   filter(aadults == "single parent")
 # table(df_singleparent$afajob, useNA = "always")
 # table(df_singleparent$amojob, useNA = "always")
+
+# Create other variables -------------------------------------------------------
+
+
+x = df %>%
+  select(c(pollution1998pm10, pollution1998pm25, pollution1998no2, pollution1998nox, pollution1998benzene,
+           pollution1998ozone)) %>%
+  mutate(across(everything(), as.numeric)) %>%
+  as.data.frame() %>%
+  psych::pca(nfactors = 1, missing = FALSE)
+
+df$pollution1998pca = as.numeric(x$scores)
 
 # Reset attributes -------------------------------------------------------------
 
@@ -287,13 +313,12 @@ mfq_labels = df %>%
 
 #Work in progress - will update in next commit
 
-# rq5_exlcude = df %>%
-#   select(all_of(rq5y)) %>%
-#   mutate(
-#     missing_percent = rowSums(is.na(.)) / length(rq5y),
-#     nonmissing_n = rowSums(!is.na(.)),
-#     exclude_pps = missing_percent > .80
-#   ) 
+df = df %>%
+  mutate(
+    rq5_missing_percent = rowSums(is.na(select(.,starts_with(rq5y_prefix)))) / length(rq5y)*2,
+    rq5_nonmissing_n = rowSums(!is.na(select(., starts_with(rq5y_prefix)))),
+    rq5_exclude_pps = rq5_nonmissing_n < 2
+  )
 
 
 

@@ -76,15 +76,67 @@ clean_rq1y_label = function(x){
   return(paste0("Year ", yr))
   
 }
-# df2 = original_dataset
-# df1 = attritioned_datasets[[10]]
 
-# x = rbinom(100, 4, .2)
-# y = rbinom(100, 4, .8)
-# 
-# x[13] = NA
-# y[95] = NA
- 
+
+# Updated version using alternative integrate function
+
+.hellinger_continuous = function (x, y, method = 1, adjust = c(1,1), plot = TRUE, ...) {
+  
+  # Estimate range for calculating pdf (set lower bound on x to 0 where appropriate)
+  integration_lower <- min(c(x,y), na.rm = TRUE)
+  integration_upper <- max(c(x,y), na.rm = TRUE)
+  
+  # More robust density estimation
+  create_density_fun <- function(data, label, adjust) {
+    data_clean <- data[!is.na(data) & is.finite(data)]
+    dens <- density(
+      data_clean, 
+      bw = "SJ", 
+      n = 10000,
+      na.rm = TRUE, 
+      from = integration_lower,
+      to   = integration_upper,
+      adjust = adjust,
+      cut = 0,
+      ...)
+    
+    # Store density object for plotting
+    attr(dens, "label") <- label
+    list(
+      density_obj = dens,
+      density_fun = approxfun(dens$x, dens$y, yleft = 0, yright = 0, rule = 2)
+    )
+  }
+  
+  fx_result <- create_density_fun(x, "X", adjust = adjust[1])
+  fy_result <- create_density_fun(y, "Y", adjust = adjust[2])
+  
+  # Plot comparison if requested
+  if (plot) {
+    plot(fx_result$density_obj, main = "Density Comparison", 
+         col = "blue", lwd = 2, 
+         xlim = c(integration_lower, integration_upper))
+    lines(fy_result$density_obj, col = "red", lwd = 2)
+    legend("topright", c("X", "Y"), col = c("blue", "red"), lty = 1, lwd = 2)
+  }
+  
+  fx <- fx_result$density_fun
+  fy <- fy_result$density_fun
+  
+  if (method == 1) {
+    g <- function(z) (fx(z)^0.5 - fy(z)^0.5)^2 
+    h2 <- pracma::quadgk(g, integration_lower, integration_upper, tol = 1e-6)/2
+  }
+  else if (method == 2) {
+    g <- function(z) (fx(z) * fy(z))^0.5
+    h2 <- 1 - pracma::quadgk(g, integration_lower, integration_upper, tol = 1e-6)
+  }
+  else {
+    stop("incorrect 'method' argument", call. = FALSE)
+  }
+  sqrt(h2)
+}
+
 .hellinger_discrete = function(x, y){
   all_outcomes = as.numeric(stats::na.omit(base::unique(c(x,y))))
   
@@ -120,7 +172,7 @@ compare_hellinger = function(df1, df2){
   
   n_categories = apply(df2, 2, function(x) length(unique(x)))
   
-  var_type     = ifelse(n_categories<15, "discrete", "continuous")
+  var_type     = ifelse(n_categories<200, "discrete", "continuous")
   
   out = vector() # vector of H values for each column in df1/df2 
   
@@ -183,6 +235,14 @@ compare_md = function(df1, df2){
         cleanvar(df1[,i]),
         cleanvar(df2[,i])
       )
+    )
+  )
+}
+
+compare_var = function(df1, df2){
+  return(
+    sapply(1:ncol(df1), function(i) 
+        stats::var(cleanvar(df1[,i]))/stats::var(cleanvar(df2[,i]))
     )
   )
 }
@@ -659,7 +719,7 @@ compare_ace_imputation = function(
   
   # Compare changes in ace model parameters
   
-  boot_results_differences = as.matrix(boot_results_original_df[c("a","c","e")]) - as.matrix(boot_results_imputed_df[c("a","c","e")])
+  boot_results_differences = as.matrix(boot_results_imputed_df[c("a","c","e")]) - as.matrix(boot_results_original_df[c("a","c","e")])
   
   boot_results_differences_df = cbind.data.frame(boot_results_original_df[c(".imp","outcome")],boot_results_differences)
   

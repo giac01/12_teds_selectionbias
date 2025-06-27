@@ -1,6 +1,7 @@
 # Load Data --------------------------------------------------------------------
 
 source("0_load_data.R")
+options(future.globals.maxSize = +Inf)  
 
 df_rq5_imputed = readRDS(file.path("data","df_rq5_imputed.Rds")) 
 
@@ -18,8 +19,8 @@ ta = Sys.time()
 
 boot_compare_results = future_lapply(1:length(imputed_datasets), function(i) {
   .boot_compare_df(
-    imputed_datasets[[i]][c("randomfamid",rq5y)],
-    df[c("randomfamid",rq5y)]
+    df[c("randomfamid",rq5y)],
+    imputed_datasets[[i]][c("randomfamid",rq5y)]
   )
 }, 
 future.seed = 1)  
@@ -29,7 +30,7 @@ print(tb - ta)
 
 plan(sequential)
 
-names(boot_compare_results) = rq1y
+names(boot_compare_results) = paste("inp",1:length(imputed_datasets))
 
 saveRDS(boot_compare_results, file.path("results", "5_boot_compare_results.Rds"))
 

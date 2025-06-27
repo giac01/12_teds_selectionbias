@@ -37,6 +37,7 @@ ace_comparisons = readRDS(file = file.path("results", "5_ace_comparisons.Rds"))
 
 df %>%
   select(rq5y) %>%
+  `colnames<-`(rq5y_labels_short) %>%
   as.data.frame() %>%
   gbtoolbox::plot_correlations()
 
@@ -46,13 +47,15 @@ df %>%
   as.data.frame() %>%
   gbtoolbox::plot_missing_correlations(cluster_variables = FALSE)
 
+# takes a long time to run with all the vairables in 
+if(FALSE){
 df %>% 
   select(any_of(c(rq5y, rq5z))) %>%
   select(where(is.numeric)) %>%
   select(rq5y, everything()) %>%
   as.data.frame() %>%
   gbtoolbox::plot_missing_correlations(cluster_variables = FALSE, textadjust = 0) 
-
+}
 
 ```
 
@@ -75,12 +78,12 @@ df %>%
   return(invisible(NULL))
 }
 
-# Check variable characteristics (subset for output)
-df %>%
-  select(any_of(rq5z)) %>%
-  mutate_if(is.numeric, ~ round(.x, 1)) %>%
-  select(150:250) %>%
-  purrr::imap(~.variable_check(.x, .y))
+# # Check variable characteristics (subset for output)
+# df %>%
+#   select(any_of(rq5z)) %>%
+#   mutate_if(is.numeric, ~ round(.x, 1)) %>%
+#   # select(150:250) %>%
+#   purrr::imap(~.variable_check(.x, .y))
 
 # Check number of unique values per variable
 df %>%
@@ -93,24 +96,32 @@ df %>%
 
 ## Missing data frequency plot
 
-[Click here for full-size plot](plots/5_1_missing_data_frequency.pdf){target="_blank"}
+[Click here for full-size plot](plots/5_3_missing_data_frequency.pdf){target="_blank"}
 
 ```{r}
 
 df %>%
   select(any_of(rq5z)) %>%
+  select(!ends_with("2")) %>% # because the data is in a long format, we don't need the twin 2 variables! 
   apply(.,2,function(x) length(which(!is.na(x)))/length(x)) %>%
   as.data.frame() %>%
   rownames_to_column() %>%
   `colnames<-`(c("var","percent_notmissing")) %>%
-  mutate(var_label = factor(var, levels = var, labels = var_to_label(var))) %>%
+  mutate(
+    # var       = factor(var, levels = rq5z),
+    var_label = sapply(var, function(x) ifelse(!is.null(var_to_label(x)[[1]]), var_to_label(x), x)), 
+    var_label = paste0(var_label, " (", var, ")"),
+    var_label = factor(var_label, levels = var_label)
+  ) %>%                                                                          #pull(var_label) %>% duplicated() %>% table()
+  arrange(percent_notmissing) %>%
+  
   ggplot(aes(x = percent_notmissing, y = var_label)) + 
   geom_col() +
   geom_vline(aes(xintercept=.2)) +
   theme_bw() +
   labs(x="Percent of not-missing data", y = NULL)
-
-ggsave(file.path("plots", "5_1_missing_data_frequency.pdf"), height = 32, width = 12)
+# 
+ggsave(file.path("plots", "5_3_missing_data_frequency_auxillaryvars.pdf"), height = 32, width = 12)
 
 df %>%
   select(any_of(rq5y)) %>%
@@ -119,7 +130,7 @@ df %>%
   as.data.frame() %>%
   rownames_to_column() %>%
   `colnames<-`(c("var","percent_notmissing")) %>%
-  mutate(var_label = factor(var, levels = var, labels = var_to_label(var))) %>%
+  mutate(var_label = factor(var, levels = rq5y, labels = rq5y_labels_short)) %>%
   ggplot(aes(x = percent_notmissing, y = var_label)) + 
   geom_col() +
   geom_vline(aes(xintercept=.2)) +
@@ -127,14 +138,71 @@ df %>%
   theme_bw() +
   labs(x="Percent of not-missing data", y = NULL)
 
-ggsave(file.path("plots", "5_1_missing_data_frequency.pdf"), height = 32, width = 12)
+ggsave(file.path("plots", "5_3_missing_data_frequency.pdf"), height = 32, width = 12)
+
+df %>%
+  select(cohort, any_of(rq5y)) %>%
+  pivot_longer(cols = -cohort, names_to = "var", values_to = "value") %>%
+  mutate(var = factor(var, levels = rq5y, labels = rq5y_labels_short)) %>%
+  group_by(cohort, var) %>%
+  summarise(
+    total_n = dplyr::n(),
+    not_missing_n = sum(!is.na(value)),
+    percent_notmissing = not_missing_n / total_n,
+    .groups = "drop"
+  ) %>%
+    mutate(
+      # var_label = factor(var, levels = unique(var), labels = var_to_label(unique(var))),
+      cohort = factor(cohort,
+        levels = c("Cohort 4: twins born Sep-96 to Dec-96",
+                   "Cohort 3: twins born Sep-95 to Aug-96",
+                   "Cohort 2: twins born Sep-94 to Aug-95",
+                   "Cohort 1: twins born Jan-94 to Aug-94"),
+        labels = c("4", "3", "2", "1")
+      )
+    ) %>%
+  ggplot(aes(x = percent_notmissing, y = var, fill = cohort)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_vline(aes(xintercept = 0.2), linetype = "dashed") +
+  geom_text(
+    aes(label = paste0(round(percent_notmissing*100), "%")),
+    position = position_dodge(width = 0.8),
+    hjust = -.2,
+    size = 3
+  ) +
+  theme_bw() +
+  labs(
+    x = "Percent of not-missing data BY COHORT",
+    y = NULL,
+    fill = "Cohort"
+  ) +
+  theme(
+    legend.position = "bottom",
+    axis.text.y = element_text(size = 8)
+  ) + 
+  guides(fill = guide_legend(reverse = TRUE))
+
+ggsave(file.path("plots", "5_3_missing_data_frequency_bycohort.pdf"), height = 13, width = 8)
 
 
-```
+``` 
 
 ## Descriptive table of imputation variables
 
 ```{r}
+  get_levels_summary <- function(x) {
+    if (is.factor(x)) {
+      paste(levels(x), collapse = ", ")
+    } else {
+      unique_vals <- na.omit(unique(x))
+      if (length(unique_vals) <= 6) {
+        paste(unique_vals, collapse = ", ")
+      } else {
+        # paste(length(unique_vals), "unique values")
+        paste("")
+      }
+    }
+  }
 
 # List of all variables for imputation
 df_rq5 = df %>%
@@ -144,6 +212,7 @@ df_rq5 = df %>%
 impute_df = data.frame(
   var   = colnames(df_rq5),
   label = as.character(sapply(df_rq5, function(x) attr(x, "label"))),
+  levels = map_chr(df_rq5, get_levels_summary),
   class = as.character(sapply(df_rq5, function(x) class(x))),
   perc_not_missing = as.numeric(sapply(df_rq5, function(x) round(length(which(!is.na(x)))/length(x)*100))),
   sd    = round(as.numeric(sapply(df_rq5, function(x) sd(as.numeric(x), na.rm = TRUE) )),2),
@@ -168,6 +237,7 @@ impute_df <- impute_df %>%
     str_starts(var, "z") ~ "Year 26",
     TRUE ~ "Other"
   ))
+
 
 impute_df %>%
   arrange(perc_not_missing) %>%
@@ -276,9 +346,10 @@ imputed_dataset <- df_rq5_imputed %>%
 ```{r}
 
 # Calculate comparisons using existing functions
-smd_values <- compare_smd(original_dataset, imputed_dataset)
-md_values <- compare_md(original_dataset, imputed_dataset)
-hellinger_values <- compare_hellinger(original_dataset, imputed_dataset)
+smd_values        = compare_smd(original_dataset, imputed_dataset)
+md_values         = compare_md(original_dataset, imputed_dataset)
+hellinger_values  = compare_hellinger(original_dataset, imputed_dataset)
+var_values        = compare_var(original_dataset, imputed_dataset)
 
 # Create results dataframe
 comparison_results <- data.frame(
@@ -299,6 +370,9 @@ comparison_results %>%
 
 ## Plot distribution comparisons
 
+[Click here for full-size plot](plots/5_rq5_histogram_comparison.pdf){target="_blank"}
+
+
 ```{r}
 
 # Create long format data for plotting
@@ -307,6 +381,7 @@ original_long <- original_dataset %>%
   pivot_longer(cols = -dataset, names_to = "variable", values_to = "value")
 
 imputed_long <- imputed_dataset %>%
+  # slice(1:1000) %>%
   mutate(dataset = "Imputed") %>%
   pivot_longer(cols = -dataset, names_to = "variable", values_to = "value")
 
@@ -316,23 +391,30 @@ combined_long <- bind_rows(original_long, imputed_long) %>%
     variable_label = factor(variable, levels = rq5y, labels = rq5y_labels_short)
   )
 
-# Plot distributions
+
+
 combined_long %>%
   ggplot(aes(x = value, fill = dataset)) +
-  geom_density(alpha = 0.6) +
-  facet_wrap(~variable_label, scales = "free", ncol = 3) +
+  geom_histogram(aes(y = after_stat(density * 100)),
+                 alpha = .7, position = "identity", bins = 10,
+                 color = "black", size = 0.2) +
+  facet_wrap(~variable_label, scales = "free", ncol = 4) +
   scale_fill_manual(values = c("Original" = "#1f77b4", "Imputed" = "#ff7f0e")) +
   theme_minimal() +
   theme(
-    strip.text = element_text(size = 8),
-    legend.position = "bottom"
+    strip.text = element_text(size = 8, face = "bold"),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "grey98")
   ) +
   labs(
     title = "Distribution Comparison: Original vs Imputed Data",
     x = "Value",
-    y = "Density",
+    y = "Density (%)",
     fill = "Dataset"
   )
+
+ggsave(file.path("plots", "5_rq5_histogram_comparison.pdf"), width = 12, height = 9)
 
 ```
 
@@ -470,6 +552,7 @@ ace_comparisons$boot_results_original_summary %>%
     outcome = var_to_label(paste0(outcome,"1")),
     outcome = factor(outcome, levels = var_to_label(rq5y), labels = rq5y_labels_short)
     ) %>%
+  arrange(outcome) %>%
   pivot_wider(names_from = parameter, values_from = y) %>%
   knitr::kable(digits =2)
 
@@ -480,6 +563,7 @@ ace_comparisons$boot_results_imputed_summary %>%
     outcome = var_to_label(paste0(outcome,"1")),
     outcome = factor(outcome, levels = var_to_label(rq5y), labels = rq5y_labels_short)
     ) %>%
+  arrange(outcome) %>%
   pivot_wider(names_from = parameter, values_from = y) %>%
   knitr::kable(digits =2)
   
