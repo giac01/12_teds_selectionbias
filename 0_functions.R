@@ -242,7 +242,7 @@ compare_md = function(df1, df2){
 compare_var = function(df1, df2){
   return(
     sapply(1:ncol(df1), function(i) 
-        stats::var(cleanvar(df1[,i]))/stats::var(cleanvar(df2[,i]))
+        stats::var(cleanvar(df1[,i])) - stats::var(cleanvar(df2[,i]))
     )
   )
 }
@@ -258,23 +258,32 @@ compare_correlation = function(df1, df2){
   
 }
 
-df1 = df[c("randomfamid",rq5y)]
-df2 = imputed_datasets[[1]][c("randomfamid",rq5y)]
-debug(.boot_compare_df)
-.boot_compare_df(df1,df2)
+# df1 = df[c("randomfamid",rq5y)]
+# df2 = imputed_datasets[[1]][c("randomfamid",rq5y)]
+# B = 3
+# debug(.boot_compare_df)
+# .boot_compare_df(df1,df2, B = 10)
 
-.boot_compare_df = function(df1, df2, B = 100){
+.boot_compare_df = function(df1, df2, B = 100){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
   
-  boot_results = list()
+  # Initialize results structure
+  boot_results = list(
+    md        = list(),
+    smd       = list(),
+    h         = list(),
+    var       = list(),
+    cor_resid = list(),
+    srmr      = list()
+  )
   
   for (i in 1:B){
     df1_boot = df1
     df2_boot = df2
     
-    families = na.omit(unique(df1_boot$randomfamid))
+    families             = na.omit(unique(df1_boot$randomfamid))
     boot_select_families = sample(families, length(families), replace = TRUE)
     
-    family_rows = split(seq_len(nrow(df1_boot)), df1_boot$randomfamid)
+    family_rows   = split(seq_len(nrow(df1_boot)), df1_boot$randomfamid)
     selected_rows = family_rows[as.character(boot_select_families)]
     selected_rows = unlist(selected_rows, use.names = FALSE)
     
@@ -284,16 +293,13 @@ debug(.boot_compare_df)
     df1_boot$randomfamid = NULL
     df2_boot$randomfamid = NULL
 
-    boot_results[[i]] = list(
-      compare_md(df1_boot, df2_boot),
-      compare_smd(df1_boot, df2_boot),
-      compare_hellinger(df1_boot, df2_boot),
-      compare_var(df1_boot, df2_boot),
-      compare_correlation(df1_boot, df2_boot),
-      calc_srmr2(df1_boot, df2_boot)
-    )
-    
-    names(boot_results[[i]]) = c("md", "smd", "h", "var", "cor_resid", "srmr")
+    # Store results by metric type
+    boot_results$md[[i]]        = compare_md(df1_boot, df2_boot)
+    boot_results$smd[[i]]       = compare_smd(df1_boot, df2_boot)
+    boot_results$h[[i]]         = compare_hellinger(df1_boot, df2_boot)
+    boot_results$var[[i]]       = compare_var(df1_boot, df2_boot)
+    boot_results$cor_resid[[i]] = compare_correlation(df1_boot, df2_boot)
+    boot_results$srmr[[i]]      = calc_srmr2(df1_boot, df2_boot)
   }
   
   return(boot_results)

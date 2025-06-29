@@ -317,8 +317,21 @@ df = df %>%
   mutate(
     rq5_missing_percent = rowSums(is.na(select(.,starts_with(rq5y_prefix)))) / length(rq5y)*2,
     rq5_nonmissing_n = rowSums(!is.na(select(., starts_with(rq5y_prefix)))),
-    rq5_exclude_pps = rq5_nonmissing_n < 2
+    rq5_exclude_pps = rq5_nonmissing_n == 0 
   )
+
+# Participants with little (or no) data on the rq5y variables before imputation. (EXCLUSION IS BASED ON TWIN PAIR!)
+rq5_exclude_fams = df %>%
+  filter(rq5_exclude_pps) %>%
+  pull(randomfamid) %>%
+  unique()
+
+## We want to exclude families with with only one sibling in the study following application of the exclusion criteria
+exclude_fams_onesib = df %>%
+  count(randomfamid) %>% 
+  filter(n == 1) %>%
+  pull(randomfamid) %>%
+  as.character()
 
 
 
