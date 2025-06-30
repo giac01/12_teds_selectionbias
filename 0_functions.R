@@ -579,6 +579,7 @@ calc_ace = function(
 
 
 # THIS BOOTSTRAPPING CODE NEEDS TO BE UPDATED TO USE CLUSTER-BASED BOOTSTRAP! 
+# This function is used in rq2
 compare_ace = function(
     var = var,
     B = 10,
@@ -677,14 +678,16 @@ if(FALSE){
 
 }
 
+# This function is used in rq5 
 compare_ace_imputation = function(
     var = rq5y_prefix,
-    df1 = NULL,
+    df1 = NULL,            # original data
+    B = 10,
     df_imputed_list = NULL # list of imputed datasets 
 ){
   
   boot_results_original = list()        # bootstrapped results original dataset
-  boot_results_imputed  = list()     # bootstrapped results for imputed datasets 
+  boot_results_imputed  = list()        # bootstrapped results for imputed datasets 
   
   if (nrow(df1)!=nrow(df_imputed_list[[1]])) stop("nrows should match")
   
@@ -694,41 +697,56 @@ compare_ace_imputation = function(
     
     if (!identical(as.numeric(df1$randomfamid),as.numeric(df2$randomfamid))) stop("df1 and df2 should match rows") # ideally would use randomtwinid to check matching here
     
-    families = na.omit(unique(df1$randomfamid))
-    boot_select_families = sample(families, length(families), replace = TRUE)    
-    
-    family_rows = split(seq_len(nrow(df1)), df1$randomfamid)
-    selected_rows = family_rows[as.character(boot_select_families)]
-    selected_rows = unlist(selected_rows, use.names = FALSE)
-    
-    df1_boot = df1[selected_rows,]
-    df2_boot = df2[selected_rows,]
-    
     # Initialize the nested lists for this iteration
     boot_results_original[[i]] = list()
     boot_results_imputed[[i]] = list()
     
-    for(j in seq_along(var)){
-      boot_results_original[[i]][[var[j]]] = list()
-      boot_results_imputed [[i]][[var[j]]] = list()
-    
-      boot_results_original[[i]][[var[j]]] =  data.frame(t(calc_ace(data=df1_boot, var = var[j])))
-      boot_results_imputed [[i]][[var[j]]] =  data.frame(t(calc_ace(data=df2_boot, var = var[j])))
-    
+    for(b in 1:B){  # Bootstrap loop
+      families             = na.omit(unique(df1$randomfamid))
+      boot_select_families = sample(families, length(families), replace = TRUE)    
+      
+      family_rows   = split(seq_len(nrow(df1)), df1$randomfamid)
+      selected_rows = family_rows[as.character(boot_select_families)]
+      selected_rows = unlist(selected_rows, use.names = FALSE)
+      
+      df1_boot = df1[selected_rows,] # non-imputed data
+      df2_boot = df2[selected_rows,] # imputed data
+      
+      for(j in seq_along(var)){
+        if(b == 1) {
+          boot_results_original[[i]][[var[j]]] = list()
+          boot_results_imputed [[i]][[var[j]]] = list()
+        }
+        
+        boot_results_original[[i]][[var[j]]][[b]]  = data.frame(t(calc_ace(data=df1_boot, var = var[j])))
+        boot_results_imputed [[i]][[var[j]]][[b]]  = data.frame(t(calc_ace(data=df2_boot, var = var[j])))
+      }
     }
   }
   
-  boot_results_original_df = lapply(boot_results_original, function(x) list_rbind(x, names_to = "outcome"))
-  boot_results_original_df = list_rbind(boot_results_original_df, names_to = ".imp")
+  # browser()
   
-  boot_results_imputed_df = lapply(boot_results_imputed, function(x) list_rbind(x, names_to = "outcome"))
-  boot_results_imputed_df = list_rbind(boot_results_imputed_df, names_to = ".imp")
+  boot_results_original_df = imap_dfr(boot_results_original, ~ {
+    imap_dfr(.x, ~ {
+      map_dfr(.x, ~ .x, .id = ".boot") %>%
+        mutate(outcome = .y, .before = 1)
+    })
+  }, .id = ".imp")
+  
+  boot_results_imputed_df = imap_dfr(boot_results_imputed, ~ {
+    imap_dfr(.x, ~ {
+      map_dfr(.x, ~ .x, .id = ".boot") %>%
+        mutate(outcome = .y, .before = 1)
+    })
+  }, .id = ".imp")
   
   # Compare changes in ace model parameters
   
+  if (!identical(boot_results_original_df[,c(".imp","outcome",".boot")],boot_results_imputed_df[,c(".imp","outcome",".boot")])) stop("comparison dfs do not match")
+  
   boot_results_differences = as.matrix(boot_results_imputed_df[c("a","c","e")]) - as.matrix(boot_results_original_df[c("a","c","e")])
   
-  boot_results_differences_df = cbind.data.frame(boot_results_original_df[c(".imp","outcome")],boot_results_differences)
+  boot_results_differences_df = cbind.data.frame(boot_results_original_df[c(".imp",".boot","outcome")],boot_results_differences)
   
   # Summarise all results
   boot_results_original_summary = boot_results_original_df %>%

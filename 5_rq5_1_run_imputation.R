@@ -2,7 +2,7 @@
 
 source("0_load_data.R")
 
-number_imputations = 10
+number_imputations = 100
 
 number_iterations = 5
 
@@ -19,7 +19,7 @@ df_impute = df %>%
     # randomtwinid,
     rq5_exclude_pps, 
     x3zygos,
-    # all_of(rq5z),
+    all_of(rq5z),
     starts_with(rq5y_prefix)
   )
 
@@ -49,7 +49,7 @@ if (TRUE){
   
 }
 
-miceinit$loggedEvents
+# miceinit$loggedEvents
 
 if (FALSE){
 table(df$aethnicc)
@@ -80,7 +80,7 @@ tb = Sys.time()  # first run was 9.7 minutes
 
 tb-ta  # 3.14 hours to do 24 imputations
 
-lapply(imputed_mice, function(x) x$loggedEvents)
+# lapply(imputed_mice, function(x) x$loggedEvents)
  
 # Extract completed datasets from each group
 completed_list = lapply(names(imputed_mice), function(group_name) {

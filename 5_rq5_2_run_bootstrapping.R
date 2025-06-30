@@ -167,7 +167,7 @@ df_imputed_wide0 = df_rq5_imputed %>%
 # list of imputed datasets 
 df_imputed_wide = split(df_imputed_wide0, df_imputed_wide0$.imp)
 
-### Perform checks -------------------------------------------------------------
+### Tests ----------------------------------------------------------------------
 
 test_that("Family IDs are identical across datasets", {
   expect_identical(
@@ -198,24 +198,27 @@ testthat::test_that("check random variable has been correctly recoded",{
   testthat::expect_equal(0, n_mismatch)
 })
 
-## Run -------------------------------------------------------------------------
+## Run Anayses -----------------------------------------------------------------
 
 ## Next thing to do here - adjust compare_ace so that it works with multiply-imputed dataasets 
 
 # Set up parallel processing
-options(future.globals.maxSize = 1000 * 1024^2) 
-plan(multisession, workers = 12)
+# options(future.globals.maxSize = 1000 * 1024^2) 
+# plan(multisession, workers = 12)
 
 ta = Sys.time()
 
 ace_comparisons = compare_ace_imputation(
-    df1 = df_imputed_wide,
-    df_imputed_list = df_nonimputed_wide,
-    var = rq5y_prefix   # Variable that we want to calculate ACE estimates for 
+    df1 = df_nonimputed_wide,
+    df_imputed_list = df_imputed_wide,
+    B = 10,
+    var = rq5y_prefix   # Variable(s) that we want to calculate ACE estimates for (can set to one variable at a time for parrellisation)
   )
 
 tb = Sys.time()
 print(tb - ta)
+
+### Save results----------------------------------------------------------------
 
 saveRDS(ace_comparisons, file = file.path("results", "5_ace_comparisons.Rds"))
 
