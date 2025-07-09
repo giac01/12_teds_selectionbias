@@ -15,6 +15,7 @@ imputed_datasets = lapply(imputed_datasets, function(x) select(x, -.imp))
 original_dataset = df %>%
   filter(!(randomfamid %in% exclude_fams_onesib)) %>%
   filter(!(randomfamid %in% rq5_exclude_fams)) %>%
+  filter(!(randomfamid %in% rq5_exclude_fams_2)) %>%                            # Exclude fams with less than 30% data on all imputed data (excluding baseline data)
   select(
     all_of(c("randomfamid",rq5y))
   )
@@ -145,7 +146,8 @@ df_nonimputed_wide = df %>%
   select("random","randomfamid","randomtwinid","x3zygos",starts_with(rq5y_prefix)) %>%
   filter(random==1) %>%
   filter(!(randomfamid %in% exclude_fams_onesib)) %>%
-  filter(!(randomfamid %in% rq5_exclude_fams)) 
+  filter(!(randomfamid %in% rq5_exclude_fams)) %>%
+  filter(!(randomfamid %in% rq5_exclude_fams_2))                            # Exclude fams with less than 30% data on all imputed data (excluding baseline data)
 
 ### Imputed dataset -------------------------------------------------------------
 

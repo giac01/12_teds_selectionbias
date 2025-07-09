@@ -19,6 +19,7 @@ editor: source
 ```{r}
 
 source("0_load_data.R")
+
 options(width = 900)
 
 ```
@@ -64,13 +65,30 @@ df %>%
   select(randomfamid,twin,all_of(rq1y)) %>% 
   filter(twin == 1) %>%
   select(-twin, -randomfamid) %>% 
+  `colnames<-`(c(rq1y_labels)) %>%
   gbtoolbox::plot_correlations(
-    sample_size = TRUE,
+    sample_size = FALSE,
     confidence_interval = FALSE
-  )
+  ) + 
+  labs(
+    title = "Correlation between participation at different \ntime points",
+    subtitle = "N = 13020 (Number of families)"
+    )
 
+ggsave(file.path("plots","1_correlation_participation.pdf"), width = 9, height = 9)
 
 ```
+
+## List of predictor variables 
+
+```{r}
+
+cbind(rq1x, rq1x_labels) %>%
+  knitr::kable()
+
+```
+
+
 
 # Family-Level Logistic Regressions on each outcome
 
@@ -94,6 +112,8 @@ for (i in seq_along(rq1y)){
 
 ### Full model results 
 
+Note that each outcome is coded as 0 = Not present, 1 = Present
+
 ```{r}
 
 # Extract all coefficients and combine
@@ -107,8 +127,8 @@ models_results %>%
   select(outcome, everything()) %>%
   mutate(
     outcome = var_to_label(outcome) %>% str_remove("data.*"),
-    term = df_labels[match(.$term,df_colnames)],
-    term   = ifelse(is.na(term), "Intercept", term),
+    # term = df_labels[match(.$term,df_colnames)],
+    # term   = ifelse(is.na(term), "Intercept", term),
     p_star = as.character(symnum(p.value, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")))
   ) %>% 
   knitr::kable(., digits = 3)
@@ -127,6 +147,8 @@ A detailed version of the figure below can be found here [here](plots/1_rq1_vari
 glm_model_comparison_results = lapply(models, glm_model_comparison)
 
 glm_model_comparison_results_df = do.call("rbind.data.frame", glm_model_comparison_results)
+
+glm_model_comparison_results_df$Variables_full = rq1x_labels_clean[match(glm_model_comparison_results_df$Variables_Dropped, rq1x)]
 
 # glm_model_comparison_results_df$LRT_p_star = glm_model_comparison_results_df$LRT_p %>%
 #   symnum(., cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " "))
@@ -147,6 +169,7 @@ variable_importance_order = glm_model_comparison_results_df %>%
   summarise(mean_score = mean(LRT_p)) %>%
   arrange(mean_score) %>%
   pull(Variables_full)
+
 glm_model_comparison_results_df = glm_model_comparison_results_df %>%
   mutate(
     Variables_full = factor(Variables_full, levels = variable_importance_order)
@@ -283,6 +306,81 @@ lapply(models_permuted, function(x) data.frame(prediction = predict.glm(x, type 
   facet_wrap(~outcome, scales = "fixed") + 
   # scale_x_continuous(labels = gbtoolbox::apa_num, limits = c(0,1)) +
   labs(title = "Distribution of inverse probability weights for PERMUTED outcome data")
+
+```
+
+### Plot of AUC and R2 for each timepoint 
+
+```{r}
+
+# Extract AUC and pseudo R2 for each model
+model_metrics = data.frame(
+  outcome = sapply(models, function(x) as.character(x$formula)[2]),
+  AUC = sapply(models, calc_auc),
+  R2 = sapply(models, function(x) performance::r2(x)$R2)
+) %>%
+  mutate(outcome = clean_rq1y_label(var_to_label(outcome)))
+
+# First, order the outcomes chronologically by extracting year numbers
+model_metrics_ordered = model_metrics %>%
+  mutate(
+    year_num = as.numeric(str_extract(outcome, "\\d+")),
+    outcome = fct_reorder(outcome, year_num)
+  )
+
+plot_data = model_metrics_ordered %>%
+  pivot_longer(cols = c(AUC, R2)) %>%
+  mutate(
+    # Format labels
+    label_text = ifelse(name == "R2", 
+                       paste0(sprintf("%.1f", value * 100), "%"),
+                       sprintf("%.3f", value)),
+    label_text = ifelse(name == "AUC", 
+                       gbtoolbox::apa_num(value, n_decimal_places = 3),
+                       label_text),
+    # Adjust bar start position for AUC (start from 0.5 instead of 0)
+    value_start = ifelse(name == "AUC", 0.5, 0),
+    value_width = value - value_start
+  )
+
+plot_data %>%
+  ggplot(aes(y = outcome)) +
+  geom_rect(aes(xmin = value_start, xmax = value, ymin = as.numeric(outcome) - 0.4, ymax = as.numeric(outcome) + 0.4), 
+            fill = "steelblue", alpha = 0.7) + 
+  geom_text(aes(x = value, label = label_text), hjust = -0.1, size = 3) +
+  facet_wrap(~name, scales = "free", 
+             labeller = labeller(name = c("AUC" = "AUC", "R2" = "Tjur's R²"))) +
+  scale_x_continuous(
+    labels = function(x) {
+      # Check if we're in the R2 facet by looking at the range
+      if (max(x, na.rm = TRUE) < 0.2) {  # R2 values are typically small
+        paste0(round(x * 100, 1), "%")
+      } else {
+        sprintf("%.2f", x)
+      }
+    },
+    expand = expansion(mult = c(0, 0.15)),
+    limits = function(x) {
+      # Set minimum limit to 0.5 for AUC facet (values > 0.2)
+      if (max(x, na.rm = TRUE) > 0.2) {
+        c(0.5, max(x, na.rm = TRUE) * 1.05)
+      } else {
+        c(0, max(x, na.rm = TRUE) * 1.05)
+      }
+    }
+  ) +
+  labs(
+    title = "Prediction Accuracy Across Study Timepoints",
+    x = "Value",
+    y = "Study Timepoint"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+ggsave(file.path("plots", "1_prediction_accuracy.pdf"), width = 9, height = 6)
 
 ```
 

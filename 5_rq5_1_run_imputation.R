@@ -2,14 +2,15 @@
 
 source("0_load_data.R")
 
-number_imputations = 100
+number_imputations = 5
 
-number_iterations = 5
+number_iterations = 20
 
 # Set up imputation  -------------------------------------------------------------------
 df_impute = df %>%
-  filter(!(randomfamid %in% exclude_fams_onesib)) %>%
-  filter(!(randomfamid %in% rq5_exclude_fams)) %>%
+  filter(!(randomfamid %in% exclude_fams_onesib)) %>%                           # Exclude fams with one sub in the study
+  filter(!(randomfamid %in% rq5_exclude_fams)) %>%                              # Exclude fams with 0 data on rq5y variables (key outcomes)
+  filter(!(randomfamid %in% rq5_exclude_fams_2)) %>%                            # Exclude fams with less than 30% data on all imputed data (excluding baseline data)
   filter(random == 1) %>%
   select(
     sexzyg,
@@ -81,6 +82,10 @@ tb = Sys.time()  # first run was 9.7 minutes
 tb-ta  # 3.14 hours to do 24 imputations
 
 # lapply(imputed_mice, function(x) x$loggedEvents)
+
+if(TRUE){
+  saveRDS(imputed_mice, file.path("results","5_1imputed_mice.Rds")) # Save for debugging and checking
+}
  
 # Extract completed datasets from each group
 completed_list = lapply(names(imputed_mice), function(group_name) {

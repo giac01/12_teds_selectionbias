@@ -2,6 +2,7 @@
 
 rm(list=ls())
 
+library(patchwork)
 library(testthat)
 library(MASS)
 library(mice)
@@ -26,6 +27,10 @@ source("0_lists_of_variables.R")
 
 
 df0 = haven::read_sav(file.path("data","732 GB FINAL 20250612.sav"))
+
+df0$pollution1998pca = 0
+
+attr(df0[["pollution1998pca"]], "label") = "Principal Component of 1998 pollution variables"
 
 df = df0
 
@@ -56,7 +61,9 @@ rq1x = c("amumagetw","adadagetw","aadults","aalgzyg","amedtot",
          "alookels",
          "asmoke",
          "adrink",
-         "astress"
+         "astress",
+         "cens01pop98density",
+         "pollution1998pca"
 )
 
 rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr", "gpdata", "heightyr", "ipdata", "jtenyear", "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
@@ -274,7 +281,34 @@ df_rq5 = df %>%
 
 rq1x_labels = rq1x %>% var_to_label()
 
+rq1x_labels_clean = c(
+  "Mother age at birth",
+  "Father age at birth",
+  "Household type [aadults]",
+  "Zygosity",
+  "Mother medical risk",
+  "Father employment level",
+  "Father education level",
+  "Mother employment level",
+  "Mother education level",
+  "Twin medical risk",
+  "Ethnic origin",
+  "Language at home",
+  "Older siblings",
+  "Younger siblings",
+  "Twins club member",
+  "Childcare by others",
+  "Smoking in pregnancy",
+  "Alcohol in pregnancy",
+  "Severe stress in pregnancy",
+  "Population density",
+  "Pollution index"
+)
+
+
 rq1y_labels = rq1y %>% var_to_label()
+
+rq1y_labels_clean = clean_rq1y_label(rq1y_labels)
 
 rq2y_labels = rq2y %>% var_to_label()
 
@@ -294,7 +328,7 @@ rq5y_labels_short = c(
   "Yr12: Cognitive ability",
   "Yr14: Cognitive ability", 
   "Yr16: Cognitive ability",
-  "Yr16: G-game total score",
+  "Yr21: G-game total score",
   "Yr14: KS3 academic achievement",
   "Yr16: GCSE core subjects grade",
   "Yr21: Highest qualification",
@@ -325,6 +359,30 @@ rq5_exclude_fams = df %>%
   filter(rq5_exclude_pps) %>%
   pull(randomfamid) %>%
   unique()
+
+# Participants wiht little data on all imputation variables 
+
+# rq5z_1 <- rq5z[!str_detect(rq5z, "2$")] # keep only twin1 variable versions for "long" data analysis 
+
+rq5_percent_complete = df %>%
+  # filter(twin == 1) %>%
+  select(
+    all_of(rq5z), starts_with(rq5y_prefix)
+  ) %>%
+  select(-starts_with("a")) %>%
+  apply(.,1, function(x) length(which(!is.na(x)))/length(x)) 
+
+rq5_exclude_fams_2 = df %>%
+  filter(rq5_percent_complete < .30) %>%
+  pull(randomfamid) %>%
+  unique()
+
+# df %>%
+#   filter(!(randomfamid %in% exclude_fams_onesib)) %>%
+#   filter(!(randomfamid %in% rq5_exclude_fams)) %>%
+#   filter(!(randomfamid %in% rq5_exclude_fams_2)) %>%
+#   filter(random == 1) %>%
+#   nrow()
 
 ## We want to exclude families with with only one sibling in the study following application of the exclusion criteria
 exclude_fams_onesib = df %>%

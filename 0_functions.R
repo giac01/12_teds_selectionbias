@@ -441,6 +441,7 @@ calc_srmr2 = function(df1, df2){
 # library(dplyr)
 
 # Function to create ggplot of lower triangular correlation matrix
+# SEE NEWER VERSION OF THIS FUNCTION BELOW - CAN DEPRICATE THIS LATER!
 plot_lower_triangular_matrix <- function(
     data, 
     p_threshold = 0.05,
@@ -535,6 +536,105 @@ plot_lower_triangular_matrix <- function(
 # 
 # plot_lower_triangular_matrix(x)
 
+# Updated version with flexible parameters
+plot_lower_triangular_matrix2 <- function(
+    data, 
+    variables,
+    labels,
+    p_col = "pval_adj",
+    x_var_col = "x_var",
+    y_var_col = "y_var", 
+    value_col = "y",
+    p_threshold = 0.05,
+    show_values = TRUE,
+    text_size = 3,
+    title = "plot title",
+    caption = "plot subtitle",
+    method = "holm"
+) {
+  
+  # Apply p-value adjustment if method is specified
+  if (method != "none") {
+    data[[p_col]] = p.adjust(data[[p_col]], method = method)
+  }
+  
+  # Check required arguments
+  if (missing(variables)) {
+    stop("Argument 'variables' is required. Please provide a vector of variable names.")
+  }
+  
+  if (missing(labels)) {
+    stop("Argument 'labels' is required. Please provide a vector of variable labels.")
+  }
+  
+  if (length(variables) != length(labels)) {
+    stop("Length of 'variables' and 'labels' must be equal.")
+  }
+  
+  # Create a data frame for plotting
+  plot_data <- data.frame()
+  
+  # Add correlation values for lower triangle
+  for (i in 1:nrow(data)) {
+    value   <- data[[value_col]][i]
+    p_value <- data[[p_col]][i]
+    
+    fill_value <- ifelse(p_value < p_threshold, value, NA)
+      
+    plot_data <- rbind(plot_data, data.frame(
+      x = data[[y_var_col]][i],
+      y = data[[x_var_col]][i],
+      value = value,
+      fill_value = fill_value
+    ))
+  }
+  
+  # Set factor levels to control ordering
+  plot_data$x <- factor(plot_data$x, levels = variables, labels = labels)
+  plot_data$y <- factor(plot_data$y, levels = rev(variables), labels = rev(labels))
+  
+  plot_data$x <- droplevels(plot_data$x)
+  plot_data$y <- droplevels(plot_data$y)
+  
+  # Format numbers without leading zero
+  plot_data$formatted_value <- ifelse(plot_data$value >= 0,
+                                      sub("^0", "", sprintf("%.3f", plot_data$value)),
+                                      sub("^-0", "-", sprintf("%.3f", plot_data$value)))
+  
+  if (length(which(!is.na(plot_data$fill_value)))==0) { plot_data$fill_value = 0 }
+  # browser()
+  # Create the plot
+  p <- ggplot(plot_data, aes(x = x, y = y, fill = fill_value)) +
+    geom_tile(color = "white", size = 0.5) +
+    scale_fill_gradient2(low = "#d73027", mid = "white", high = "darkgreen", 
+                         midpoint = 0, name = "Correlation", 
+                         # limits = c(-0.1, 0.1), 
+                         na.value = "white"
+                         ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+      axis.text.y = element_text(hjust = 1),
+      axis.title = element_blank(),
+      panel.grid = element_blank(),
+      plot.title = element_text(hjust = 0.5)
+    ) +
+    coord_equal() +
+    labs(
+      title = title, 
+      caption = caption
+    ) +
+    theme(legend.position = "none")
+  
+  # Add correlation values as text if requested
+  if (show_values) {
+    p <- p + geom_text(aes(label = formatted_value), 
+                       size = text_size, color = "black")
+  }
+  
+  return(p)
+}
+
 calc_ace = function(
     data = NULL,
     var  = c("bvocab")
@@ -563,6 +663,45 @@ calc_ace = function(
     as.numeric(data_dz[[paste0(var,"2")]]),
     use = "pairwise.complete.obs"
   )
+  
+  a = 2*(mz_cor - dz_cor)
+  
+  c = 2*dz_cor - mz_cor
+  
+  e = 1 - mz_cor
+  
+  ace_results = c(a, c, e)
+  
+  names(ace_results) = c("a", "c", "e")
+    
+  return(ace_results)
+}
+
+calc_ace_binary = function(
+    data = NULL,
+    var  = c("bvocab")
+    ){
+  
+  if (length(var)!=1) stop("length(var) should equal 1")
+  
+  data_mz = data %>%
+    filter(x3zygos=="MZ")
+  
+  data_dz = data %>%
+    filter(x3zygos=="DZ same sex")
+  
+  ace_results  = vector()
+  
+  # Use tetrachoric correlation for binary variables
+  mz_cor = psych::tetrachoric(cbind(
+    data_mz[[paste0(var,"1")]],
+    data_mz[[paste0(var,"2")]]
+  ))$rho[1,2]
+
+  dz_cor = psych::tetrachoric(cbind(
+    data_dz[[paste0(var,"1")]],
+    data_dz[[paste0(var,"2")]]
+  ))$rho[1,2]
   
   a = 2*(mz_cor - dz_cor)
   
