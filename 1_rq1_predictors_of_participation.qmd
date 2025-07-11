@@ -2,6 +2,7 @@
 title: "RQ1: Y2 predictors of attrition"
 format: 
   html:
+    embed-resources: true
     fig-width: 8
     fig-height: 8
     code-link: true
@@ -17,12 +18,28 @@ editor: source
 # Load Data
 
 ```{r}
+#| output: false
 
 source("0_load_data.R")
 
 options(width = 900)
 
 ```
+
+## List of variables
+
+```{r}
+
+data.frame(
+  var = c(rq1x, rq1y),
+  labels = c(rq1x_labels, rq1y_labels),
+  clean_labels = c(rq1x_labels_clean, rq1y_labels_clean)
+  
+)
+
+
+```
+
 
 ## Impute Missing Predictor Data
 
@@ -35,7 +52,7 @@ df_rq1_imputed = df_rq1 %>%
   select(-adadagetw, -afasoc2, -afahqual) %>%
   mice(method = "pmm", m =1)
 
-df_rq1_imputed = mice(df_rq1, method = "pmm", m = 1)
+# df_rq1_imputed = mice(df_rq1, method = "pmm", m = 1)
 
 df_rq1_imputed$loggedEvents
 
@@ -57,7 +74,8 @@ df %>%
   ) %>%
   gbtoolbox::plot_correlations(
     sample_size = FALSE,
-    confidence_interval = FALSE
+    confidence_interval = FALSE,
+    n_decimal_places = 5
   )
 
 
@@ -84,6 +102,15 @@ ggsave(file.path("plots","1_correlation_participation.pdf"), width = 9, height =
 ```{r}
 
 cbind(rq1x, rq1x_labels) %>%
+  knitr::kable()
+
+```
+
+## List of outcome variables
+
+```{r}
+
+cbind(rq1y, rq1y_labels) %>%
   knitr::kable()
 
 ```

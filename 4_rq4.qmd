@@ -1,6 +1,8 @@
 ---
 title: "4_rq4"
-format: html
+format: 
+  html:
+    embed-resources: true
 ---
 
 ```{r}

@@ -2,6 +2,7 @@
 title: "Descriptive Information"
 format: 
   html:
+    embed-resources: true
     fig-width: 8
     fig-height: 8
     code-link: true
