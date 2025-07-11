@@ -4,7 +4,7 @@ source("0_load_data.R")
 
 number_bootstraps = 5000
 
-rq1y = rq1y[-1] # Remove year 2 time point from comparison list 
+rq1y = rq1y_short # Remove year 2 time point from comparison list 
 
 # Create Attritioned Datasets --------------------------------------------------
 
@@ -23,6 +23,7 @@ for (i in seq_along(rq1y)){
 
 original_dataset = df %>%
   select("randomfamid", "twin", "random","x3zygos", all_of(rq2y_all))
+
 
 # Run parallelised bootstrapped analyuses --------------------------------------
 
@@ -57,14 +58,14 @@ variable_comparisons_df = lapply(variable_comparisons, function(x) x$bootstrap_s
 for(i in 1:length(variable_comparisons_df)){
   #Looping across atttritioned datasets 
   
-  for (j in 1:3){ # only first three sets of results relate to specific variables in rq2y
-    variable_comparisons_df[[i]] = variable_comparisons_df[[i]][1:3] # this line just removes the correlation analyses that arne't relevant here
+  for (j in 1:4){ # only first three sets of results relate to specific variables in rq2y
+    variable_comparisons_df[[i]] = variable_comparisons_df[[i]][1:4] # this line just removes the correlation analyses that arne't relevant here
     variable_comparisons_df[[i]][[j]] = do.call(
       rbind,
       variable_comparisons_df[[i]][[j]]
     )
     variable_comparisons_df[[i]][[j]]$dataset  = rq1y[i]
-    variable_comparisons_df[[i]][[j]]$stat = c("md","smd","h")[j]
+    variable_comparisons_df[[i]][[j]]$stat = c("md","smd","h","var")[j]
     variable_comparisons_df[[i]][[j]]$variable = rq2y_labels
     rownames(variable_comparisons_df[[i]][[j]]) = NULL
   }
@@ -80,6 +81,10 @@ rownames(variable_comparisons_df) = NULL
 saveRDS(variable_comparisons_df, file = file.path("results", "2_variable_comparisons_df.Rds"))
 
 # Run ACE Analyses -------------------------------------------------------------
+
+rq2y_prefix = rq2y_prefix[-1] # We don't want to analyse maternal education here as its shared between twins 
+
+# rq2y_prefix = rq2y_prefix[-1]
 
 attritioned_datasets_twin1 = lapply(
   attritioned_datasets, function(x) {
@@ -99,8 +104,10 @@ ta = Sys.time()
 
 ace_comparisons = future_lapply(seq_along(rq2y_prefix), function(i) {
   compare_ace(
+    df2 = attritioned_datasets_twin1,
+    df1 = original_dataset_twin1,
     var = rq2y_prefix[i],   # Variable that we want to calculate ACE estimates for 
-    B = number_bootstraps
+    B   = number_bootstraps
   )
 }, 
 future.seed = 1,

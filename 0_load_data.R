@@ -28,9 +28,17 @@ source("0_lists_of_variables.R")
 
 df0 = haven::read_sav(file.path("data","732 GB FINAL 20250612.sav"))
 
+# Adding variables into df0 so we can look up their labels later (not for analysis use) 
+
 df0$pollution1998pca = 0
+df0$amohqualn = 0
+df0$amohqualn1 = 0
+df0$amohqualn2 = 0
 
 attr(df0[["pollution1998pca"]], "label") = "Principal Component of 1998 pollution variables"
+attr(df0[["amohqualn"]], "label")  = "Maternal Education"
+attr(df0[["amohqualn1"]], "label") = "Maternal Education"
+attr(df0[["amohqualn2"]], "label") = "Maternal Education"
 
 df = df0
 
@@ -78,6 +86,7 @@ rq1y_short = c(                  "dfouryr", "gsevenyr",           "heightyr",   
 #          )
 
 rq2y_prefix  = c(
+  "amohqualn",
   "bvocab", "bgramma","badparn", "breparc", 
   "bsdqccont", "bsdqcemot", "bsdqchypt", "bsdqcpert", "bsdqcprot"
 )
@@ -141,6 +150,7 @@ df$afahqual  = haven::as_factor(df$afahqual)
 df$amoclas   = haven::as_factor(df$amoclas)
 df$amojob    = haven::as_factor(df$amojob)
 
+
 df$amohqualn = haven::as_factor(df$amohqual, levels = "values") %>% as.character() %>% as.numeric() # Numeric version of amohqual
 df$amohqual  = haven::as_factor(df$amohqual)
 df$amosoc    = haven::as_factor(df$amosoc)
@@ -148,7 +158,6 @@ df$amospq    = haven::as_factor(df$amospq)
 df$amowork   = haven::as_factor(df$amowork)
 df$aethnicc  = haven::as_factor(df$aethnicc)
 df$alang     = haven::as_factor(df$alang)
-
 
 df$anoldsibn  = haven::as_factor(df$anoldsib, levels = "values") %>% as.character() %>% as.numeric()  # numeric version
 df$anyngsibn  = haven::as_factor(df$anyngsib, levels = "values") %>% as.character() %>% as.numeric() # numeric version
@@ -201,6 +210,9 @@ df$amosoc2 = as.character(df$amosoc)
 df$amosoc2[df$amojob=="no"] = "no job"
 df$amosoc2[df$amojob=="caring for children at home"] = "caring for children at home"
 df$amosoc2 = set_most_frequent_ref(as.factor(df$amosoc2))
+
+df$amohqualn1  = df$amohqualn
+df$amohqualn2  = df$amohqualn
 
 # table(df$amojob, df$amosoc2, useNA = "always")
 
@@ -313,6 +325,7 @@ rq1y_labels_clean = clean_rq1y_label(rq1y_labels)
 rq2y_labels = rq2y %>% var_to_label()
 
 rq2y_labels_short = c(
+  "Maternal Education",
   "Vocabulary",
   "Grammar",
   "Parent-admin Parca",

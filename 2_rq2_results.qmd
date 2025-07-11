@@ -213,7 +213,7 @@ correlation_comparisons = lapply(correlation_comparisons, function(x) {
 
 library(patchwork)
 
-plots = lapply(1:11, function(i) {
+plots = lapply(1:length(correlation_comparisons), function(i) {
   correlation_comparisons[[i]] %>%
     plot_lower_triangular_matrix(
       title = var_to_label(rq1y)[i] %>% 

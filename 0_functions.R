@@ -316,20 +316,19 @@ compare_correlation = function(df1, df2){
 }
 
 compare_df = function(df1, df2, B = 10){
-  boot_results = list()
-  for (i in 1:B){
-    boot_results[[i]] = .boot_compare_df(df1, df2)
-  }  
   
-  md_df   = do.call(rbind, lapply(boot_results, function(x) t(as.data.frame(x$md))))
-  smd_df  = do.call(rbind, lapply(boot_results, function(x) t(as.data.frame(x$smd))))
-  h_df    = do.call(rbind, lapply(boot_results, function(x) t(as.data.frame(x$h))))
-  cor_df  = do.call(rbind, lapply(boot_results, function(x) t(as.data.frame(x$cor_resid))))
-  srmr_df = do.call(rbind, lapply(boot_results, function(x) t(as.data.frame(x$srmr))))
+  boot_results = .boot_compare_df(df1, df2, B = B)
+  
+  md_df   = do.call(rbind, boot_results$md)
+  smd_df  = do.call(rbind, boot_results$smd)
+  h_df    = do.call(rbind, boot_results$h)
+  var_df  = do.call(rbind, boot_results$var)
+  cor_df  = do.call(rbind, boot_results$cor_resid)
+  srmr_df = do.call(rbind, boot_results$srmr)
   
 
-  bootstrap_iter = list(md_df, smd_df, h_df, cor_df, srmr_df)
-  names(bootstrap_iter) = c("md", "smd", "h", "cor_resid", "srmr")
+  bootstrap_iter = list(md_df, smd_df, h_df, var_df, cor_df, srmr_df)
+  names(bootstrap_iter) = c("md", "smd", "h", "var", "cor_resid", "srmr")
   
   bootstrap_summary = lapply(bootstrap_iter, function(df)
     apply(df,2, function(xx).mean_qi_pd(xx))
@@ -341,9 +340,7 @@ compare_df = function(df1, df2, B = 10){
   
   return(out)
 }
-# 
-# df1 = original_dataset
-# df2 = attritioned_datasets[[10]]
+
 
 .square <- function(x) {
   return(x^2)
@@ -722,19 +719,31 @@ calc_ace_binary = function(
 compare_ace = function(
     var = var,
     B = 10,
-    df1 = NULL,
-    df2 = NULL
+    df1 = NULL, # Original dataset
+    df2 = NULL  # List of comparison datasets
     ){
 
-  boot_results_original = list() # bootstrapped results for non-attrition dataset
-  boot_results_imputed = list()          # bootstrapped results for 
-  
+  boot_results_original = list()      # bootstrapped results for non-attrition dataset
+  boot_results_attritioned = list()   # bootstrapped results for attritioned datasets 
+
+  # Data Checks
   if (length(var)>1) stop("length(var) should equal 1")
   if (nrow(df1)!=nrow(df2[[1]])) stop("nrows should match")
+  if (!identical(df1$randomfamid,df2[[1]]$randomfamid)) stop("error 3")
+  if (!identical(df1$randomfamid,df2[[2]]$randomfamid)) stop("error 4")
+  
+  # Remove participants with missing data (both twins) on var
+  
+  remove_rows = df1 %>%
+    select(starts_with(var)) %>%
+    apply(1, function(x) all(is.na(x))) %>%
+    which()
+  
+  df1 = df1[-remove_rows,]
+  
+  df2 = lapply(df2, function(x) x[-remove_rows,])
 
   for (i in 1:B){
-    
-    if (!identical(as.numeric(df1$randomtwinid),as.numeric(df2$randomfamid))) stop("error 2")
     
     families = na.omit(unique(df1$randomfamid))
     boot_select_families = sample(families, length(families), replace = TRUE)    
@@ -743,25 +752,18 @@ compare_ace = function(
     selected_rows = family_rows[as.character(boot_select_families)]
     selected_rows = unlist(selected_rows, use.names = FALSE)
     
-    df1_boot = df1[selected_rows,]
-    df2_boot = df2[selected_rows,]
-    
-    df1_temp = df1[]
-    
-    
-    boot_results_original[[i]] = calc_ace(df1[boot_select,], var = var)
+    boot_results_original[[i]] = calc_ace(df1[selected_rows,], var = var)
     
     boot_results_attritioned[[i]] = list()
     
     for (j in seq_along(rq1y)){
       
-      boot_results_attritioned[[i]][[j]] = calc_ace(data=df2[[j]][boot_select,], var = var)
+      boot_results_attritioned[[i]][[j]] = calc_ace(data=df2[[j]][selected_rows,], var = var)
       
     }
     
     names(boot_results_attritioned[[i]]) = rq1y
     
-
   }
 
   boot_results_original_df = data.frame(do.call("rbind", boot_results_original))
@@ -801,21 +803,14 @@ compare_ace = function(
   return(out)
 }
 
-if(FALSE){
-  df1 = df_nonimputed_wide
-  df_imputed_list = df_imputed_wide
-  i=1
-  j=1
-  var = rq5y_prefix
-  
-  rm(boot_results_original, boot_results_attritioned, df2,
-     families, boot_select_families,
-     family_rows, selected_rows, df1_boot, df2_boot, df1_temp, j,
-     boot_results_original_df, boot_results_attritioned_df,
-     boot_results_differences,
-     boot_results_differences_summary, out)
-
-}
+# debug(compare_ace)
+# 
+# compare_ace(
+#   df2 = attritioned_datasets_twin1,
+#   df1 = original_dataset_twin1,
+#   var = rq2y_prefix[i],   # Variable that we want to calculate ACE estimates for 
+#   B   = number_bootstraps
+# )
 
 # This function is used in rq5 
 compare_ace_imputation = function(
