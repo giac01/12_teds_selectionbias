@@ -224,10 +224,10 @@ plots = lapply(1:length(correlation_comparisons), function(i) {
     )
 })
 
-combined_plot = wrap_plots(plots, ncol = 4)  # Adjust ncol as needed
+combined_plot = wrap_plots(plots, ncol = 3)  # Adjust ncol as needed
 
 ggsave(
-  filename = file.path("plots","2_rq2_2_correlations.pdf"), width = 16, height = 13,
+  filename = file.path("plots","2_rq2_2_correlations.pdf"), width = 17, height = 14,
   plot = combined_plot)
   
   
@@ -652,6 +652,10 @@ statip::hellinger(rnorm(100000,1,1),rnorm(100000,3,1))*sqrt(2)
 HellingerDist(rbinom(50, size = 20, prob = 0.5), Binom(size = 20, prob = 0.5))
 
 apply(attritioned_datasets[[1]],2, function(x) length(which(!is.na(x))))
+
+
+df %>%
+  select(bcontact)
 
 
 # rq2y
