@@ -2,6 +2,9 @@
 
 rm(list=ls())
 
+library(gt)
+library(weights)
+library(Hmisc)
 library(patchwork)
 library(testthat)
 library(MASS)
@@ -26,7 +29,7 @@ source("0_functions.R")
 source("0_lists_of_variables.R")
 
 
-df0 = haven::read_sav(file.path("data","732 GB FINAL 20250612.sav"))
+df0 = haven::read_sav(file.path("data","732 GB FINAL 20250714.sav"))
 
 # Adding variables into df0 so we can look up their labels later (not for analysis use) 
 
@@ -50,11 +53,19 @@ df = df %>%
 
 # Define Variable Sets ---------------------------------------------------------
 
-rq1x = c("amumagetw","adadagetw","aadults","aalgzyg","amedtot",
+rq1x = c(
+        "sex1",
+        "amumagetw",
+         "adadagetw",
+         "aadults",
+         "zygos",
+         "amedtot",
          # "afaclas",
-         # "afajob", "afasoc", 
+         # "afajob", 
+         # "afasoc", 
          "afasoc2",
-         # "afaspq", "afawork", 
+         # "afaspq", 
+         # "afawork", 
          "afahqual",
          
          # "amoclas", 
@@ -74,11 +85,42 @@ rq1x = c("amumagetw","adadagetw","aadults","aalgzyg","amedtot",
          "pollution1998pca"
 )
 
+# Family-level participation outcomes 
+
 rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr", "gpdata", "heightyr", "ipdata", "jtenyear", "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
 
 rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr",           "heightyr",           "jtenyear", "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
 
 rq1y_short = c(                  "dfouryr", "gsevenyr",           "heightyr",                       "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
+
+
+# Twin-level participation otucomes 
+
+# rq1y_twinsep = df %>% select(contains("data")) %>% colnames()
+# rq1y_twinsep_labels = var_to_label(rq1y_twinsep)
+# cbind(rq1y_twinsep, rq1y_twinsep_labels)
+
+rq1y_twin = c(
+  "btwdata",
+  "ctwdata",
+  "dtwdata",
+  "gcdata",
+  "icdata",
+  "jcdata",
+  "lcwdata",
+  "lcqdata",
+  "pcwebdata",
+  "pcbhdata",
+  "pcl2data",
+  # "rcfdata",   # Fashion, Food and Music Preferences (FFMP) web study was carried out for cohort 3 twins (aged roughly 19 years) between March and April 2015.
+  # "rckdata",   # Kings Challenge web study. A battery of 10 twin activities to test spatial abilities.
+  "rcqdata",
+  "u1cdata",
+  "zmhdata",
+  "zcdata")
+
+rq1y_twin1 = paste0(rq1y_twin,"1")
+rq1y_twin2 = paste0(rq1y_twin,"2")
 
 # rq2y = c("brawg1", "badparn1","breparc1", "bparca1", 
 #          "bvocab1", "bgramma1","bsdqcbeht1","bsdqccont1",
@@ -132,12 +174,18 @@ rq5y_12 = paste0(rep(rq5y_prefix, each = 2), c("1", "2"))
 
 # Variable fixes and formatting ------------------------------------------------
 
+df %>% 
+  select(all_of(starts_with(rq1y_twin)))
+
+df = df %>%
+  mutate(across(starts_with(rq1y_twin), ~ replace_na(.x, 0)))
+
 df$gsevenyr[is.na(df$gsevenyr)] = 0
 
 df$heightyr[is.na(df$heightyr)] = 0
 
 df$aadults   = haven::as_factor(df$aadults, levels = "label") %>%
-  droplevels( "unknown or other") 
+  droplevels(c( "unknown or other","biological mother with missing partner details") )
 df$asingle   = (as.character(df$aadults)=="single parent") %>% as.numeric()
 df$asingle[which(df$aadults=="biological mother with missing partner details")] = NA
 df$aalgzyg   = haven::as_factor(df$aalgzyg)
@@ -173,9 +221,10 @@ df$adrink    = haven::as_factor(df$adrink)
 df$astress   = haven::as_factor(df$astress)
 df$agenpro1  = haven::as_factor(df$agenpro1)
 df$agenpro2  = haven::as_factor(df$agenpro2)
-df$aonsby    = haven::as_factor(df$aonsby)
+df = rename(df, aonsby = "AONSBY")
+df$aonsby    = haven::as_factor(df$aonsby)                                    
 df$cohort    = haven::as_factor(df$cohort)
-df$cohort_by = paste0(as.numeric(df$cohort), df$aonsby)
+df$cohort_by = paste(as.numeric(df$cohort), df$aonsby, sep = "-")                       
 
 df$aadults   = set_most_frequent_ref(df$aadults)
 df$aalgzyg   = set_most_frequent_ref(df$aalgzyg)
@@ -278,7 +327,7 @@ df_labels   = sapply(1:ncol(df), function(i) attr(df[,i, drop = TRUE], "label"))
 df_rq1 = df %>%
   filter(twin == 1) %>%
   filter(acontact == 1) %>%
-  select(all_of(c(rq1x, rq1y)))
+  select(all_of(c(rq1x, rq1y, rq1y_twin1, rq1y_twin2)))
 
 df_rq1x = df_rq1 %>% 
   select(all_of(rq1x)) 
@@ -294,9 +343,10 @@ df_rq5 = df %>%
 rq1x_labels = rq1x %>% var_to_label()
 
 rq1x_labels_clean = c(
+  "Twin Sex",
   "Mother age at birth",
   "Father age at birth",
-  "Household type [aadults]",
+  "Household type",
   "Zygosity",
   "Mother medical risk",
   "Father employment level",
@@ -317,10 +367,33 @@ rq1x_labels_clean = c(
   "Pollution index"
 )
 
-
 rq1y_labels = rq1y %>% var_to_label()
 
 rq1y_labels_clean = clean_rq1y_label(rq1y_labels)
+
+rq1y_twin_labels = var_to_label(rq1y_twin1)
+
+rq1y_twin_labels_clean = c(
+  "Y2 (parent-report twin booklet)",
+  "Y3 (parent-report twin booklet)",
+  "Y4 (parent-report twin booklet)",
+  "Y7 (telephone interview)",
+  "Y9 (child booklet)",
+  "Y10 (web tests)",
+  "Y12 (web tests)",
+  "Y12 (questionnaire)",
+  "Y16 (web study)",
+  "Y16 (behaviour booklet)",
+  "Y16 (LEAP-2 booklet)",
+  "Y18 (questionnaire)",
+  "Y21 (TEDS21 phase-1 questionnaire)",
+  "Y26 (TEDS26 questionnaire)",
+  "Y26 (CATSLife web tests)"
+)
+
+cbind(rq1y_twin_labels, rq1y_twin_labels_clean)
+
+if (length(rq1y_twin)!=length(rq1y_twin_labels_clean)) stop("clean labels don't match")
 
 rq2y_labels = rq2y %>% var_to_label()
 
@@ -404,5 +477,5 @@ exclude_fams_onesib = df %>%
   pull(randomfamid) %>%
   as.character()
 
-
+# saveRDS(df, file = file.path("data","df.Rds"))
 

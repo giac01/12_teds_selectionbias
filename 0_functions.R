@@ -53,12 +53,31 @@ calc_auc = function(x, printplot = FALSE){
   
 }
 
-var_to_label = function(var, df0 = df){
-  # df0 = select(df0, all_of(var))
+var_to_label = function(
+    var,
+    df0 = df,
+    twinsuffix = FALSE
+){
+
   df0 = df0[var]
   out = sapply(1:ncol(df0), function(i) attr(df0[[i]], "label"))
+  
+  if(twinsuffix){
+    t1 = which(stringr::str_detect(var, "1$"))
+    t2 = which(stringr::str_detect(var, "2$"))
+    
+    if (length(t1)>0){
+      out[t1] = paste(out[t1], "(twin 1)")
+    }
+    
+    if (length(t2)>0){
+      out[t2] = paste(out[t2], "(twin 2)")
+    }
+  }
   return(out)
 }
+
+
 
 df_to_label  = function(df){
   sapply(1:ncol(df), function(i) attr(df[[i]], "label"))
@@ -1023,6 +1042,108 @@ glm_model_comparison = function(full_model) {
   
   # Sort by Delta_AIC (most important variables have largest positive Delta_AIC)
   comparison_df = comparison_df[order(comparison_df$LRT_p, decreasing = TRUE), ]
+  
+  return(comparison_df)
+}
+
+glm_model_comparison_robust = function(full_model, cluster_var = "famid") {
+  
+  # Get variable names
+  vars_to_test = all.vars(formula(full_model))[-1]
+  outcome      = all.vars(formula(full_model))[1]
+  
+  # Get the data used in the model
+  used_rows   = as.numeric(names(residuals(full_model)))
+  subset_data = full_model$data[used_rows, ]
+  
+  # Fit null model for McFadden's R²
+  null_model = update(full_model, . ~ 1, data = subset_data)
+  
+  # Compute robust covariance matrix once (fast CR0 approach)
+  vcov_robust = clubSandwich::vcovCR(full_model, 
+                                    cluster = subset_data[[cluster_var]], 
+                                    type = "CR2") # CR0 is much faster than CR3
+
+  # Initialize results
+  comparison_df = data.frame(
+    Variables_Dropped = c("None", vars_to_test),
+    Variables_full    = c("None", var_to_label(vars_to_test)),
+    outcome           = rep(outcome, length(vars_to_test) + 1),
+    nobs              = integer(length(vars_to_test) + 1),
+    
+    AIC               = numeric(length(vars_to_test) + 1),
+    BIC               = numeric(length(vars_to_test) + 1),
+    AUC               = numeric(length(vars_to_test) + 1),
+    mcfad_r2          = numeric(length(vars_to_test) + 1),
+    
+    Delta_AIC         = numeric(length(vars_to_test) + 1),
+    Delta_BIC         = numeric(length(vars_to_test) + 1),
+    Delta_AUC         = numeric(length(vars_to_test) + 1),
+    Delta_mcfad_r2    = numeric(length(vars_to_test) + 1),
+    
+    Wald_stat         = numeric(length(vars_to_test) + 1),
+    Wald_df           = integer(length(vars_to_test) + 1),
+    Wald_p            = numeric(length(vars_to_test) + 1),
+    
+    stringsAsFactors  = FALSE
+  )
+  
+  # Full model metrics
+  comparison_df$nobs[1]      = nobs(full_model)
+  comparison_df$AIC[1]       = AIC(full_model)
+  comparison_df$BIC[1]       = BIC(full_model)
+  comparison_df$AUC[1]       = calc_auc(full_model)
+  comparison_df$mcfad_r2[1]  = 1 - logLik(full_model)/logLik(null_model)
+  
+  # Test each variable using optimized clubSandwich approach
+  for(i in seq_along(vars_to_test)) {
+    var = vars_to_test[i]
+    
+    # Fit reduced model
+    reduced_formula = update(formula(full_model), paste("~ . -", var))
+    reduced_model   = glm(reduced_formula, data = subset_data, family = full_model$family)
+    
+    # Store reduced model metrics
+    comparison_df$nobs[i + 1]         = nobs(reduced_model)
+    comparison_df$AIC[i + 1]          = AIC(reduced_model)
+    comparison_df$BIC[i + 1]          = BIC(reduced_model)
+    comparison_df$AUC[i + 1]          = calc_auc(reduced_model)
+    comparison_df$mcfad_r2[i + 1]     = 1 - logLik(reduced_model)/logLik(null_model)
+    
+    # Calculate deltas
+    comparison_df$Delta_AIC[i + 1]     = comparison_df$AIC[i + 1] - comparison_df$AIC[1]
+    comparison_df$Delta_BIC[i + 1]     = comparison_df$BIC[i + 1] - comparison_df$BIC[1]
+    comparison_df$Delta_AUC[i + 1]     = comparison_df$AUC[i + 1] - comparison_df$AUC[1]
+    comparison_df$Delta_mcfad_r2[i + 1] = comparison_df$mcfad_r2[i + 1] - comparison_df$mcfad_r2[1]
+    
+    # Fast clubSandwich Wald test using pre-computed vcov
+    all_coefs = names(coef(full_model))
+    var_coefs = grep(paste0("^", var), all_coefs, value = TRUE)
+    
+    if(length(var_coefs) > 0) {
+      tryCatch({
+        wald_result = clubSandwich::Wald_test(full_model,
+                                             constraints = clubSandwich::constrain_zero(var_coefs, coef(full_model)),
+                                             vcov = vcov_robust,
+                                             test = "chi-sq")
+        
+        comparison_df$Wald_stat[i + 1] = wald_result$Fstat
+        comparison_df$Wald_df[i + 1]   = wald_result$df_num
+        comparison_df$Wald_p[i + 1]    = wald_result$p_val
+      }, error = function(e) {
+        comparison_df$Wald_stat[i + 1] <<- NA
+        comparison_df$Wald_df[i + 1]   <<- NA
+        comparison_df$Wald_p[i + 1]    <<- NA
+      })
+    } else {
+      comparison_df$Wald_stat[i + 1] = NA
+      comparison_df$Wald_df[i + 1]   = NA
+      comparison_df$Wald_p[i + 1]    = NA
+    }
+  }
+  
+  # Sort by Wald p-value
+  comparison_df = comparison_df[order(comparison_df$Wald_p, decreasing = TRUE), ]
   
   return(comparison_df)
 }
