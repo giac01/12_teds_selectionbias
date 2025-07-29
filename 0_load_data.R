@@ -2,6 +2,7 @@
 
 rm(list=ls())
 
+library(ggh4x)
 library(gt)
 library(weights)
 library(Hmisc)
@@ -111,7 +112,7 @@ rq1y_twin = c(
   "lcqdata",
   "pcwebdata",
   "pcbhdata",
-  "pcl2data",
+  # "pcl2data",
   # "rcfdata",   # Fashion, Food and Music Preferences (FFMP) web study was carried out for cohort 3 twins (aged roughly 19 years) between March and April 2015.
   # "rckdata",   # Kings Challenge web study. A battery of 10 twin activities to test spatial abilities.
   "rcqdata",
@@ -244,6 +245,7 @@ df$zmhempinc2  = as.numeric(df$zmhempinc2)
 df$zmhneet1    = haven::as_factor(df$zmhneet1)
 df$zmhneet2    = haven::as_factor(df$zmhneet2)
 
+df$zygos      = haven::as_factor(df$zygos)
 df$sexzyg      = haven::as_factor(df$sexzyg)
 df$x3zygos     = haven::as_factor(df$x3zygos)
 
@@ -327,7 +329,7 @@ df_labels   = sapply(1:ncol(df), function(i) attr(df[,i, drop = TRUE], "label"))
 df_rq1 = df %>%
   filter(twin == 1) %>%
   filter(acontact == 1) %>%
-  select(all_of(c(rq1x, rq1y, rq1y_twin1, rq1y_twin2)))
+  select(all_of(c(rq1x, rq1y, rq1y_twin1, rq1y_twin2, "cohort")))
 
 df_rq1x = df_rq1 %>% 
   select(all_of(rq1x)) 
@@ -384,11 +386,29 @@ rq1y_twin_labels_clean = c(
   "Y12 (questionnaire)",
   "Y16 (web study)",
   "Y16 (behaviour booklet)",
-  "Y16 (LEAP-2 booklet)",
+  # "Y16 (LEAP-2 booklet)",
   "Y18 (questionnaire)",
   "Y21 (TEDS21 phase-1 questionnaire)",
   "Y26 (TEDS26 questionnaire)",
   "Y26 (CATSLife web tests)"
+)
+
+rq1y_twin_labels_clean_extrashort = c(
+  "Y2",
+  "Y3",
+  "Y4",
+  "Y7",
+  "Y9",
+  "Y10",
+  "Y12 (web test)",
+  "Y12 (q'aire)",
+  "Y16 (web)",
+  "Y16 (q'aire)",
+  # "Y16 (LEAP-2 booklet)",
+  "Y18",
+  "Y21",
+  "Y26 (q'aire)",
+  "Y26 (web test)"
 )
 
 cbind(rq1y_twin_labels, rq1y_twin_labels_clean)

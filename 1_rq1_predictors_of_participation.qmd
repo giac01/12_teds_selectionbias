@@ -39,7 +39,6 @@ data.frame(
 
 ```
 
-
 ## Impute Missing Predictor Data
 
 ### Create Imputed data for family-level 
@@ -57,8 +56,48 @@ df_rq1_imputed$loggedEvents
 
 df_rq1_imputed = complete(df_rq1_imputed)
 
+vars_to_na = c("btwdata","ctwdata", "gcdata","icdata","jcdata","pcwebdata")
+
+df_rq1_imputed = df_rq1_imputed %>%
+  mutate(
+      across(starts_with(vars_to_na), ~ ifelse(cohort %in% c("Cohort 3: twins born Sep-95 to Aug-96","Cohort 4: twins born Sep-96 to Dec-96"), NA, .))
+    )
+
+# df_rq1_imputed$gcdata1 %>% table(., useNA = "always")
+
 ```
 
+
+### Create Long Imputed dataset for twin-level analyses
+
+For imputation, because predictor variables are only measured at the family level, imputation is performed in the wide format with one row per family. 
+
+For modelling twin-level outcomes with glm(), we need to convert outcomes to a long format with one row per twin. 
+
+```{r}
+
+df_rq1_imputed$famid = 1:nrow(df_rq1_imputed)
+
+df1 = df_rq1_imputed[c("famid", rq1x, rq1y_twin1)]
+df2 = df_rq1_imputed[c("famid", rq1x, rq1y_twin2)]
+
+  # Rename twin2 columns to match twin1 column names
+colnames(df2) = colnames(df1)
+
+df_rq1_long = rbind(df1, df2) %>%
+  arrange(famid)
+
+rm(df1, df2)
+
+# Set outcome to missing for participants ineligible at specific time points
+
+
+df_rq1_long$btwdata1 %>% table(., useNA = "always")
+
+df_rq1_long %>% sapply(., function(x) length(which(is.na(x))))
+
+
+```
 
 ## Correlation of participation over time
 
@@ -92,7 +131,7 @@ df %>%
     subtitle = "N = 13020 (Number of families)"
     )
 
-ggsave(file.path("plots","1_correlation_participation.pdf"), width = 9, height = 9)
+save_plot("1_correlation_participation", width = 9, height = 9)
 
 ```
 
@@ -114,31 +153,9 @@ cbind(rq1y, rq1y_labels) %>%
 
 ```
 
+
+
 # Twin-Level Logistic Regressions on each outcome
-
-## Convert outcomes to long
-
-For imputation, because predictor variables are only measured at the family level, imputation is performed in the wide format with one row per family. 
-
-For modelling twin-level outcomes with glm(), we need to convert outcomes to a long format with one row per twin. 
-
-```{r}
-
-df_rq1_imputed$famid = 1:nrow(df_rq1_imputed)
-
-df1 = df_rq1_imputed[c("famid", rq1x, rq1y_twin1)]
-df2 = df_rq1_imputed[c("famid", rq1x, rq1y_twin2)]
-
-  # Rename twin2 columns to match twin1 column names
-colnames(df2) = colnames(df1)
-
-df_rq1_long = rbind(df1, df2) %>%
-  arrange(famid)
-
-rm(df1, df2)
-
-```
-
 
 ## Fit Models
 
@@ -151,7 +168,7 @@ twinmodels = list()
 for (i in seq_along(rq1y_twin)){
   cat(i, "/", length(rq1y_twin),"\n")
   formula <- as.formula(paste(rq1y_twin1[i], "~", paste(rq1x, collapse = "+")))
-  twinmodels[[i]] = glm(formula, data = df_rq1_long, family = binomial)
+  twinmodels[[i]] = glm(formula, data = df_rq1_long, family = binomial, na.action = na.omit)
   # V_CR = clubSandwich::vcovCR(twinmodels[[i]], cluster = twinmodels[[i]]$data$famid, type = "CR2")
 
   # clubSandwich::coef_test(twinmodels[[i]], vcov = V_CR, test = "z")
@@ -167,17 +184,27 @@ for (i in seq_along(rq1y_twin)){
 
 To get standard errors for our predictions... we will need to so something a bit more complex. 
 
-I've removed the intercept from 
+I've removed the intercept from predictions
+
+** Predictions for participants at cohorts 3-4 at specific timepoints are kept in here!! **
+
+
 
 ```{r}
 
 twinmodels_predictions = list()
 
 for (i in seq_along(rq1y_twin)){
-  twinmodels_predictions[[i]] = twinmodels[[i]]$data
-
-  twinmodels_predictions[[i]]$prediction = twinmodels[[i]] %>% predict(., type = "link") - twinmodels[[i]]$coefficients[1] # removed intercept term
-
+  twinmodels_predictions[[i]] = twinmodels[[i]]$data 
+  
+  twinmodels_predictions[[i]]$prediction = twinmodels[[i]] %>% 
+    predict(
+      ., 
+      newdata = df_rq1_long,
+      type = "link", 
+      na.action = na.pass,
+    ) - twinmodels[[i]]$coefficients[1] # removed intercept term
+  
 }
 names(twinmodels_predictions) = rq1y_twin
 
@@ -297,7 +324,7 @@ glm_model_comparison_results_df %>%
     legend.position = "bottom"
   )
 
-ggsave(file.path("plots", "1_rq1_variable_importance_twin-level.pdf"), width = 14, height = 7)
+save_plot("1_rq1_variable_importance_twin-level", width = 14, height = 7)
 
 ```
 
@@ -415,19 +442,20 @@ ggplot(circular_data) +
 
 #### Cricular Heatmap
 
+
 ```{r}
+rq1y_twin_labels_clean_extrashort2 = paste0(rq1y_twin_labels_clean_extrashort, " ")
 
 # Alternative circular heatmap approach
 heatmap_data = glm_model_comparison_results_df %>%
   filter(Variables_Dropped != "None") %>%
   mutate(
-    outcome_labeled = rq1y_twin_labels_clean[match(outcome, rq1y_twin1)],
-    outcome_labeled = factor(outcome_labeled, levels = rq1y_twin_labels_clean),
+    outcome_labeled = rq1y_twin_labels_clean_extrashort2[match(outcome, rq1y_twin1)],
+    outcome_labeled = factor(outcome_labeled, levels = rq1y_twin_labels_clean_extrashort2),
     Variables_wrapped = str_wrap(Variables_full, width = 8),
     # Set Delta_AUC to NA if not significant, otherwise keep original negative value
     # Set to grey for specific variables
     Delta_AUC_fill = case_when(
-      Variables_Dropped %in% c("astress", "adrink", "atwmed1") ~ -999,  # Special value for grey
       Wald_p < 0.05 ~ abs(Delta_AUC),
       TRUE ~ NA
     )
@@ -442,38 +470,35 @@ heatmap_data = glm_model_comparison_results_df %>%
 
 # Add empty variables to create gap
 n_vars = length(levels(heatmap_data$Variables_wrapped))
-gap_vars = paste0("GAP_", 1:2)  # Create 3 empty segments for gap
-all_vars = c(levels(heatmap_data$Variables_wrapped), gap_vars)
+all_vars = c(levels(heatmap_data$Variables_wrapped))
 
 heatmap_data$Variables_wrapped = factor(heatmap_data$Variables_wrapped, levels = all_vars)
 
-# Create custom y-axis labels in the gap
-n_outcomes = length(levels(heatmap_data$outcome_labeled))
-gap_middle = length(levels(heatmap_data$Variables_wrapped)) - 1.5  # Center of the gap
+# # Create custom y-axis labels in the gap
+# n_outcomes = length(levels(heatmap_data$outcome_labeled))
+# gap_middle = length(levels(heatmap_data$Variables_wrapped)) - 1.5  # Center of the gap
 
-y_labels_data = data.frame(
-  x = 0,
-  y = seq_along(levels(heatmap_data$outcome_labeled)),  # Match tile positions exactly
-  label = levels(heatmap_data$outcome_labeled)
-)
+# y_labels_data = data.frame(
+#   x = 0.01,
+#   y = seq_along(levels(heatmap_data$outcome_labeled)),  # Match tile positions exactly
+#   label = levels(heatmap_data$outcome_labeled)
+# )
 
 ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_tile(aes(fill = Delta_AUC_fill, 
-                color = ifelse(Variables_Dropped %in% c("astress", "adrink", "atwmed1"), "lightgrey", "black")), 
+                color = ifelse(Variables_Dropped %in% c("astress", "adrink", "atwmed1", "alookels"), "azure2", "black")), 
             size = .5) +
   scale_color_identity() +
-  geom_text(aes(label = ifelse(Wald_p < 0.05, gsub("^0\\.", ".", sprintf("%.3f", Delta_AUC)), "")), 
-            size = 1.5, 
-            color = "white") +
+  geom_text(
+    aes(label = ifelse(Wald_p < 0.05, 
+                       gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", Delta_AUC)), "")
+    ), 
+    size = 2.3, 
+    color = "white"
+  ) +
   # Add custom y-axis labels in the gap
-  coord_polar(theta = "x", start = -.05, direction = 1) +
-  geom_text(data = y_labels_data, 
-            aes(x = x, y = y, label = label),
-            inherit.aes = FALSE,
-            size = 2.7, 
-            hjust = 1,
-            angle = -10) +
-  scale_x_discrete(drop = FALSE, labels = function(x) ifelse(grepl("GAP_", x), "", x)) +  # Hide GAP labels
+  coord_polar(theta = "x", start = 0, direction = 1) +
+  # scale_x_discrete(drop = FALSE, labels = function(x) ifelse(grepl("GAP_", x), "", x)) +  # Hide GAP labels
   scale_fill_gradient(
     na.value = "white",
     low = "#f48c84", 
@@ -484,15 +509,88 @@ ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
   # labs(title = "Variable Importance Heatmap") +
   theme_minimal() +
   theme(
-    axis.text.x = element_text(angle = 0, size = 8),
+    axis.text.x = element_text(angle = 0, size = 11),
     axis.text.y = element_blank(),  # Hide default y-axis labels
     axis.title = element_blank(),
     panel.grid = element_blank()
-  )
+  ) +
+  {
+    y_positions = seq_along(levels(heatmap_data$outcome_labeled))
+    labels = levels(heatmap_data$outcome_labeled)
+    
+    lapply(seq_along(labels), function(i) {
+      annotate("text", x = 0.5, y = y_positions[i],
+               label = labels[i], size = 2.8, hjust = 1, angle = 7)
+    })
+  }
 
-ggsave(file.path("plots", "1_rq1_heatmap_twinparticipationpredictors.pdf"), width = 8, height = 8)
+
+save_plot("1_rq1_heatmap_twinparticipationpredictors", width = 8, height = 8)
 
 ```
+
+### AUC and Variance Explained Plots
+
+```{r}
+
+model_metrics = do.call("rbind.data.frame", glm_model_comparison_results) %>%
+  filter(Variables_full=="None") %>%
+  select(-contains("Delta"),-contains("Wald")) %>%
+  mutate(
+    outcome = rq1y_twin_labels_clean[match(.$outcome, rq1y_twin1)],
+    outcome = factor(outcome, levels = rq1y_twin_labels_clean)
+  ) 
+
+model_metrics
+
+plot_data = model_metrics %>%
+  select(outcome, AUC, mcfad_r2) %>%
+  mutate(
+    AUC_scaled = -(AUC - 0.5),
+    R2_scaled = mcfad_r2 * 2.6
+  ) %>%
+  pivot_longer(cols = c(AUC_scaled, R2_scaled), names_to = "metric", values_to = "value_scaled") %>%
+  mutate(
+    metric_label = case_when(
+      metric == "AUC_scaled" ~ "AUC",
+      metric == "R2_scaled" ~ "McFadden's R²"
+    ),
+    original_value = ifelse(metric == "AUC_scaled", AUC, mcfad_r2),
+    label_value    = case_when(
+      metric == "AUC_scaled" ~ gbtoolbox::apa_num(original_value,3),
+      metric == "R2_scaled" ~ paste0(gbtoolbox::apa_num(original_value*100,2),"%")
+    )
+  )
+
+ggplot(plot_data, aes(y = outcome, x = value_scaled, fill = metric_label)) +
+  geom_col(width = 0.7, alpha = 0.8) +
+  geom_text(aes(label = label_value), 
+            hjust = ifelse(plot_data$metric == "AUC_scaled", 1.1, -0.1),
+            size = 2.5) +
+  scale_fill_manual(values = c("AUC" = "#5e3c99", "McFadden's R²" = "#e66101")) +
+  labs(
+    title = NULL,
+    x = NULL,
+    y = NULL,
+    fill = NULL
+  ) +
+  theme_minimal() +
+  coord_cartesian(clip = "off") +
+  theme(
+    legend.position = "bottom",
+    axis.text.y = element_text(size = 10, angle = 45, margin = margin(r = 10, unit = "pt")),
+    # panel.grid.major.x = element_line(color = "grey90"),
+    panel.grid = element_blank(),
+    plot.margin = margin(t = 20, r = 20, b = 50, l = 20, unit = "pt"),
+    axis.text.x = element_blank()  
+  ) +
+  geom_vline(xintercept = 0, color = "black", size = 0.5)
+
+
+save_plot("1_rq1_twinlevel_prediction_accuracy", width = 5, height = 8)
+
+```
+
 
 # Family-Level Logistic Regressions on each outcome
 
@@ -622,7 +720,7 @@ glm_model_comparison_results_df %>%
   )
 
 
-ggsave(file.path("plots", "1_rq1_variable_importance.pdf"), width = 14, height = 7)
+save_plot("1_rq1_variable_importance", width = 14, height = 7)
 
 ```
 
@@ -784,7 +882,7 @@ plot_data %>%
     plot.title = element_text(hjust = 0.5)
   )
 
-ggsave(file.path("plots", "1_prediction_accuracy.pdf"), width = 9, height = 6)
+save_plot("1_prediction_accuracy", width = 9, height = 6)
 
 ```
 
@@ -875,7 +973,7 @@ df_rq1x %>%
   as_tibble() %>%
   ggmice::plot_pattern(., rotate = TRUE)
 
-ggsave(file.path("plots","1_rq1_misssing_data_pattern.pdf"), width = 12, height = 30)
+save_plot("1_rq1_misssing_data_pattern", width = 12, height = 30)
 
 df_rq1_imputed %>%
   select(rq1x) %>%
@@ -884,7 +982,7 @@ df_rq1_imputed %>%
   as_tibble() %>%
   ggmice::plot_pattern(., rotate = TRUE)
 
-ggsave(file.path("plots","1_rq1_misssing_data_pattern_imputed.pdf"), width = 12, height = 30)
+save_plot("1_rq1_misssing_data_pattern_imputed", width = 12, height = 30)
 
 ```
 

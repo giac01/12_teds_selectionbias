@@ -1,3 +1,9 @@
+save_plot <- function(filename, width = 5, height = 8, plot = last_plot()) {
+  ggsave(file.path("plots", "pdfs", paste0(filename, ".pdf")), plot, width = width, height = height)
+  ggsave(file.path("plots", "pngs", paste0(filename, ".png")), plot, width = width, height = height, bg = "transparent", dpi = 600)
+}
+
+
 rename_from_labels <- function(df) {
   # Get current column names
   old_names <- names(df)
