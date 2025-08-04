@@ -212,6 +212,9 @@ twinmodels_predictions = bind_rows(twinmodels_predictions, .id = "outcome")
 
 twinmodels_predictions %>% 
   select(famid, outcome, prediction) %>% 
+  mutate(
+    outcome = rq1y_twin_labels_clean_extrashort[match(.$outcome, rq1y_twin)]
+  ) %>%
   group_by(outcome) %>%
   filter(!duplicated(famid)) %>%
   pivot_wider(
@@ -220,12 +223,15 @@ twinmodels_predictions %>%
     id_cols     = "famid"
   ) %>%
   data.frame() %>%
+  select(-famid) %>%
   gbtoolbox::plot_correlations(
     sample_size = FALSE
   ) + 
   labs(
     subtitle = "Correlation between predicted probability (type = link) across outcomes"
   )
+
+save_plot("1_rq1_predicted_probability_plots", width = 8, height = 8)
 
 
 ```
@@ -268,7 +274,8 @@ variable_importance_order = glm_model_comparison_results_df %>%
 
 glm_model_comparison_results_df = glm_model_comparison_results_df %>%
   mutate(
-    Variables_full = factor(Variables_full, levels = variable_importance_order)
+    Variables_full = factor(Variables_full, levels = variable_importance_order),
+    var_outcome = paste(Variables_Dropped, outcome, sep = "_")
   )
 
 # Plotting code
@@ -327,6 +334,8 @@ glm_model_comparison_results_df %>%
 save_plot("1_rq1_variable_importance_twin-level", width = 14, height = 7)
 
 ```
+
+
 
 #### Calc variable importance for plotting
 
@@ -486,16 +495,17 @@ heatmap_data$Variables_wrapped = factor(heatmap_data$Variables_wrapped, levels =
 
 ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_tile(aes(fill = Delta_AUC_fill, 
-                color = ifelse(Variables_Dropped %in% c("astress", "adrink", "atwmed1", "alookels"), "azure2", "black")), 
+                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1", "pollution1998pca", "adrink", "adadagetw"), "azure2", "black")), 
             size = .5) +
   scale_color_identity() +
   geom_text(
     aes(label = ifelse(Wald_p < 0.05, 
-                       gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", Delta_AUC)), "")
+                       gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", Delta_AUC)), ""),
+        size = ifelse(outcome_labeled %in% c("Y2","Y3"), 1.2, 2.4)
     ), 
-    size = 2.3, 
     color = "white"
   ) +
+  scale_size_identity() +
   # Add custom y-axis labels in the gap
   coord_polar(theta = "x", start = 0, direction = 1) +
   # scale_x_discrete(drop = FALSE, labels = function(x) ifelse(grepl("GAP_", x), "", x)) +  # Hide GAP labels
@@ -506,13 +516,21 @@ ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
     limits = c(0, max(heatmap_data$Delta_AUC_fill, na.rm = TRUE)),
     guide = "none"
   ) +
-  # labs(title = "Variable Importance Heatmap") +
+  labs(
+    tag = "B",
+    title = "Variable Importance Heatmap",
+    subtitle = "Values indicate change in AUC when variable is removed;\n colors indicate statistical significance"
+  ) +
   theme_minimal() +
   theme(
     axis.text.x = element_text(angle = 0, size = 11),
     axis.text.y = element_blank(),  # Hide default y-axis labels
     axis.title = element_blank(),
-    panel.grid = element_blank()
+    panel.grid = element_blank(),
+    plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
+    plot.tag.position = "topleft",
+    plot.title = element_text(hjust = 0.5, size = 16),
+    plot.subtitle = element_text(hjust = 0.5, size = 13.5, margin = margin(b = 0))
   ) +
   {
     y_positions = seq_along(levels(heatmap_data$outcome_labeled))
@@ -537,8 +555,8 @@ model_metrics = do.call("rbind.data.frame", glm_model_comparison_results) %>%
   filter(Variables_full=="None") %>%
   select(-contains("Delta"),-contains("Wald")) %>%
   mutate(
-    outcome = rq1y_twin_labels_clean[match(.$outcome, rq1y_twin1)],
-    outcome = factor(outcome, levels = rq1y_twin_labels_clean)
+    outcome = rq1y_twin_labels_clean_extrashort[match(.$outcome, rq1y_twin1)],
+    outcome = factor(outcome, levels = rq1y_twin_labels_clean_extrashort)
   ) 
 
 model_metrics
@@ -569,7 +587,9 @@ ggplot(plot_data, aes(y = outcome, x = value_scaled, fill = metric_label)) +
             size = 2.5) +
   scale_fill_manual(values = c("AUC" = "#5e3c99", "McFadden's R²" = "#e66101")) +
   labs(
-    title = NULL,
+    tag = "A",
+    title = "Participation Prediction Accuracy",
+    # subtitle = "Accuracy in predicting \nparticipation at each Time Point",
     x = NULL,
     y = NULL,
     fill = NULL
@@ -578,11 +598,14 @@ ggplot(plot_data, aes(y = outcome, x = value_scaled, fill = metric_label)) +
   coord_cartesian(clip = "off") +
   theme(
     legend.position = "bottom",
-    axis.text.y = element_text(size = 10, angle = 45, margin = margin(r = 10, unit = "pt")),
+    axis.text.y = element_text(size = 10.5, angle = 0, margin = margin(r = 10, unit = "pt"), color = "black"),
     # panel.grid.major.x = element_line(color = "grey90"),
     panel.grid = element_blank(),
     plot.margin = margin(t = 20, r = 20, b = 50, l = 20, unit = "pt"),
-    axis.text.x = element_blank()  
+    axis.text.x = element_blank(),
+    plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
+    plot.tag.position = "topleft",
+    plot.title = element_text(hjust = 0.5, size = 16)
   ) +
   geom_vline(xintercept = 0, color = "black", size = 0.5)
 
@@ -590,6 +613,193 @@ ggplot(plot_data, aes(y = outcome, x = value_scaled, fill = metric_label)) +
 save_plot("1_rq1_twinlevel_prediction_accuracy", width = 5, height = 8)
 
 ```
+
+
+### Twin-Level Logistic Regression Coefficients
+
+```{r}
+
+# Extract all coefficients from twin models and combine
+twinmodels_results0 = do.call(rbind, lapply(1:length(twinmodels), function(i) {
+    vcov_robust = clubSandwich::vcovCR(twinmodels[[i]], 
+                                    cluster = twinmodels[[i]]$data$famid, 
+                                    type = "CR2") 
+    coefs       = clubSandwich::conf_int(twinmodels[[i]], vcov = vcov_robust, test = "naive-tp")
+
+    coefs$outcome = rq1y_twin1[i] 
+  return(coefs)
+}))
+
+twinmodels_results = twinmodels_results0 %>%
+  data.frame() %>%
+  dplyr::rename(term = "Coef") %>%
+  `rownames<-`(NULL)
+
+
+# # Extract all coefficients from twin models and combine
+# twinmodels_results = do.call(rbind, lapply(1:length(twinmodels), function(i) {
+#   coefs = broom::tidy(twinmodels[[i]], conf.int = FALSE) %>%
+#     select(-std.error, -statistic, -p.value)
+#   coefs$outcome = rq1y_twin1[i]
+#   return(coefs)
+# }))
+
+twinmodels_results$var = str_extract(twinmodels_results$term, paste0("^(", paste(rq1x, collapse = "|"), ")"))
+twinmodels_results$var[twinmodels_results0$Coef == "(Intercept)"] = "Intercept"
+twinmodels_results$var_outcome = paste(twinmodels_results$var,twinmodels_results$outcome, sep = "_")
+# Bonferonni-holm corrected p-value
+twinmodels_results$Wald_p = glm_model_comparison_results_df$Wald_p[match(twinmodels_results$var_outcome,glm_model_comparison_results_df$var_outcome)]
+
+twinmodels_results %>%
+    mutate(
+      outcome = rq1y_twin_labels_clean_extrashort[match(.$outcome, rq1y_twin1)],
+      term = case_when(
+        term == "(Intercept)" ~ "Intercept",
+        term == "sex1" ~ "Twin Sex (Male)",
+        term == "amumagetw" ~ "Mother age at birth",
+        term == "adadagetw" ~ "Father age at birth",
+        term == "aadultscohabiting biological parent with other" ~ "Household Type: Cohabiting parent",
+        term == "aadultssingle parent" ~ "Household Type: Single parent",
+        term == "zygos2" ~ "Zygosity (DZ)",
+        term == "amedtot" ~ "Mother medical risk",
+        str_starts(term, "afasoc2") & str_detect(term, "^afasoc2\\d$") ~ paste0("Father employment: Level ", str_sub(term, -1)),
+        term == "afasoc2caring for children at home" ~ "Father employment: Caring for children",
+        term == "afasoc2no job" ~ "Father employment: No job",
+        term == "afahqualno qualifications" ~ "Father education: No qualifications",
+        term == "afahqualCSE grade 2-5 or O-level/GCSE grade D-G" ~ "Father education: CSE/GCSE D-G",
+        term == "afahqualA-level or S-level" ~ "Father education: A-level",
+        term == "afahqualHNC" ~ "Father education: HNC",
+        term == "afahqualHND" ~ "Father education: HND",
+        term == "afahqualundergraduate degree" ~ "Father education: Undergraduate",
+        term == "afahqualpostgraduate qualification" ~ "Father education: Postgraduate",
+        str_starts(term, "amosoc2") & str_detect(term, "^amosoc2\\d$") ~ paste0("Mother employment: Level ", str_sub(term, -1)),
+        term == "amosoc2no job" ~ "Mother employment: No job",
+        term == "amohqualCSE grade 2-5 or O-level/GCSE grade D-G" ~ "Mother education: CSE/GCSE D-G",
+        term == "amohqualCSE grade 1 or O-level/GCSE grade A-C" ~ "Mother education: CSE/GCSE A-C",
+        term == "amohqualA-level or S-level" ~ "Mother education: A-level",
+        term == "amohqualHNC" ~ "Mother education: HNC",
+        term == "amohqualHND" ~ "Mother education: HND",
+        term == "amohqualundergraduate degree" ~ "Mother education: Undergraduate",
+        term == "amohqualpostgraduate qualification" ~ "Mother education: Postgraduate",
+        term == "atwmed1" ~ "Twin medical risk",
+        term == "aethniccAsian" ~ "Ethnic origin: Asian",
+        term == "aethniccBlack" ~ "Ethnic origin: Black",
+        term == "aethniccMixed race" ~ "Ethnic origin: Mixed race",
+        term == "aethniccOther" ~ "Ethnic origin: Other",
+        term == "alangEnglish" ~ "Language: English only",
+        term == "alangEnglish + other" ~ "Language: English + other",
+        str_starts(term, "anoldsib") & str_detect(term, "\\d+$") ~ paste0("Older siblings: ", str_extract(term, "\\d+")),
+        term == "anoldsib5 or more" ~ "Older siblings: 5+",
+        term == "anyngsib1" ~ "Younger siblings: 1",
+        term == "anyngsib2 or more" ~ "Younger siblings: 2+",
+        term == "atwclub1" ~ "Twins club member",
+        term == "alookels1" ~ "Childcare by others",
+        term == "asmoke1" ~ "Smoking in pregnancy",
+        term == "adrink1" ~ "Alcohol in pregnancy",
+        term == "astress1" ~ "Severe stress in pregnancy",
+        term == "cens01pop98density" ~ "Population density",
+        term == "pollution1998pca" ~ "Pollution index",
+        TRUE ~ term
+      )
+    ) %>%
+  mutate(
+    beta = gbtoolbox::apa_num(beta, n_decimal_places = 3),
+    CI_L = gbtoolbox::apa_num(CI_L, n_decimal_places = 3),
+    CI_U = gbtoolbox::apa_num(CI_U, n_decimal_places = 3),
+    SE   = gbtoolbox::apa_num(SE,   n_decimal_places = 3),
+    Wald_p_clean = gbtoolbox::apa_num(Wald_p, n_decimal_places = 3),
+
+    table_val = paste0(beta,"\n[",CI_L,",\n",CI_U,"]\np=",Wald_p_clean,"\nSE=", SE = SE)
+  ) %>%
+  select(term, table_val, Wald_p, outcome) %>%
+  pivot_wider(
+    id_cols = term,
+    values_from = c("table_val", "Wald_p"),
+    names_from = outcome
+  ) %>%
+  gt() %>%
+  tab_style(
+    style = cell_text(whitespace = "pre-wrap"),
+    locations = cells_body(columns = starts_with("table_val"))
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y2", rows = Wald_p_Y2 < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y3", rows = Wald_p_Y3 < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y4", rows = Wald_p_Y4 < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y7", rows = Wald_p_Y7 < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y9", rows = Wald_p_Y9 < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y10", rows = Wald_p_Y10 < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y12 (web test)", rows = `Wald_p_Y12 (web test)` < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y12 (q'aire)", rows = `Wald_p_Y12 (q'aire)` < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y16 (web)", rows = `Wald_p_Y16 (web)` < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y16 (q'aire)", rows = `Wald_p_Y16 (q'aire)` < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y18", rows = Wald_p_Y18 < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y21", rows = Wald_p_Y21 < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y26 (q'aire)", rows = `Wald_p_Y26 (q'aire)` < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Y26 (web test)", rows = `Wald_p_Y26 (web test)` < 0.05)
+  ) %>%
+  cols_hide(columns = starts_with("Wald_p")) %>%
+  cols_label_with(
+    fn = function(x) str_remove(x, "table_val_")
+  ) %>%
+  tab_options(
+      table.width = "50%",
+      table.font.size = "8px"
+    ) %>%
+      cols_width(
+      term ~ px(65),
+      starts_with("table_val") ~ px(40)
+    ) %>%
+  tab_source_note(
+    source_note = "Note: Confidence intervals calculated using cluster robust standard errors clustered by family, calculated using the clubSandwich R package with CR2 (bias-reduced linearization) adjustment and naive-tp small sample adjustment. Cluster robust Wald tests were used to calculate using the ClubSandwich R package. Note that for dummy variables, Wald tests were performed by constraining all dummy variables in a given set to zero - therefore dummy variables derived from the same categorical variable have the same p-values."
+  ) 
+
+
+
+```
+
+
+# Plot Marginal Effects of Education
 
 
 # Family-Level Logistic Regressions on each outcome
