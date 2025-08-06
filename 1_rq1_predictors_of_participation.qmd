@@ -799,7 +799,54 @@ twinmodels_results %>%
 ```
 
 
-## Plot Marginal Effects of Education
+## Plot Marginal Effects of maternal education
+
+```{r}
+
+library(marginaleffects)
+
+# Calculate average predictions for maternal education variables
+
+# Calculate predictions for all models
+all_predictions = map_dfr(1:length(twinmodels), function(i) {
+  data_grid = datagrid(
+    model = twinmodels[[i]],
+    amohqual = unique
+  )
+  
+  predictions(
+    twinmodels[[i]],
+    newdata = data_grid,
+    type = "response"
+  ) %>% 
+    data.frame() %>%
+    mutate(
+      outcome = rq1y_twin_labels_clean_extrashort[i],
+      amohqual = factor(amohqual, levels = levels(df$amohqual))
+    )
+})
+
+# Plot all predictions together
+all_predictions %>%
+  mutate(
+    outcome = factor(outcome, levels = rq1y_twin_labels_clean_extrashort)
+  ) %>%
+  ggplot(aes(x = amohqual, y = estimate, group = outcome, color = outcome)) + 
+  geom_point() + 
+  geom_line() + 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title = "Predicted Participation by Maternal Education Level",
+    subtitle = "Across all study timepoints",
+    x = "Maternal Education Level",
+    y = "Predicted Probability",
+    color = "Study Wave",
+    caption = "Note: Predictions calculated using logistic regression models fitted separately for each study wave.\nAll other covariates held at their observed means (continuous) or modes (categorical).\nPredictions computed using the marginaleffects R package."
+  )
+
+```
+
 
 
 # Descriptive Information
