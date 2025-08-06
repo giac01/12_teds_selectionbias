@@ -32,21 +32,30 @@ source("0_lists_of_variables.R")
 
 df0 = haven::read_sav(file.path("data","732 GB FINAL 20250714.sav"))
 
-# Adding variables into df0 so we can look up their labels later (not for analysis use) 
+original_colnames = colnames(df0)
+
+# Adding variables into df0 so we can look up their labels later (not for use in analysis ) 
 
 df0$pollution1998pca = 0
-df0$amohqualn = 0
-df0$amohqualn1 = 0
-df0$amohqualn2 = 0
+df0$amohqualn        = 0
+df0$amohqualn1       = 0
+df0$amohqualn2       = 0
+df0$asingle          = 0
+df0$anoldsibn        = 0
+df0$anyngsibn        = 0
 
 attr(df0[["pollution1998pca"]], "label") = "Principal Component of 1998 pollution variables"
-attr(df0[["amohqualn"]], "label")  = "Maternal Education"
-attr(df0[["amohqualn1"]], "label") = "Maternal Education"
-attr(df0[["amohqualn2"]], "label") = "Maternal Education"
+attr(df0[["amohqualn"]],        "label") = "Maternal Education (formatted as numeric)"
+attr(df0[["amohqualn1"]],       "label") = "Maternal Education (formatted as numeric variable)"
+attr(df0[["amohqualn2"]],       "label") = "Maternal Education (formatted as numeric variable)"
+attr(df0[["asingle"]],          "label") = "Single Parent"
+attr(df0[["anoldsibn"]],        "label") = "Number of older siblings (formatted as numeric variable)"
+attr(df0[["anyngsibn"]],        "label") = "Number of younger siblings (formatted as numeric variable)"
+
 
 df = df0
 
-# Apply participant filter -----------------------------------------------------
+# Apply participant filter (exlcude1) ------------------------------------------
 
 df = df %>%
   filter(exclude1 == 0) %>%
@@ -156,12 +165,18 @@ edu = c(              "npks3tall1", "pcexgcsecoregrdm1", "u1chqualp1", "zmhhqual
 
 hyp = c("lcsdqhypt1",               "pcbhsdqhypt1",     "u1csdqhypt1",            "zmhsdqhypt1") # SDQ Hyperactivity scores
 
-con = c("lcsdqcont1",               "pcbhsdqcont1",     "u1csdqcont1",            "zmhsdqcont1")
+con = c("lcsdqcont1",               "pcbhsdqcont1",     "u1csdqcont1",            "zmhsdqcont1") # SDQ conduct disorder
+
+per = c("lcsdqpert1",               "pcbhsdqpert1",     "u1csdqpert1",            "zmhsdqpert1") # SDQ peer problems
+
+ext = c("lsdqext1",                  "psdqext1",        "usdqext1",               "zsdqext1")
 
 rq5y = c(
   gca,
   edu,
-  mfq
+  mfq,
+  gad,
+  ext
   )
 
 rq5y_prefix = str_remove(rq5y, "1$")
@@ -173,22 +188,23 @@ rq5y_12 = paste0(rep(rq5y_prefix, each = 2), c("1", "2"))
 # df %>%
 #   select(all_of(rq5y))
 
-# Variable fixes and formatting ------------------------------------------------
-
-df %>% 
-  select(all_of(starts_with(rq1y_twin)))
+# Edit and create variables  ---------------------------------------------------
 
 df = df %>%
   mutate(across(starts_with(rq1y_twin), ~ replace_na(.x, 0)))
 
 df$gsevenyr[is.na(df$gsevenyr)] = 0
-
 df$heightyr[is.na(df$heightyr)] = 0
 
 df$aadults   = haven::as_factor(df$aadults, levels = "label") %>%
   droplevels(c( "unknown or other","biological mother with missing partner details") )
 df$asingle   = (as.character(df$aadults)=="single parent") %>% as.numeric()
 df$asingle[which(df$aadults=="biological mother with missing partner details")] = NA
+
+df$asingle   = factor(df$asingle, levels = 0:1, labels = c("cohabiting biological mother and father / cohabiting biological parent with other","single parent"))
+
+table(df$asingle, df$aadults)
+
 df$aalgzyg   = haven::as_factor(df$aalgzyg)
 df$afaclas   = haven::as_factor(df$afaclas)
 df$afajob    = haven::as_factor(df$afajob)
@@ -249,10 +265,17 @@ df$zygos      = haven::as_factor(df$zygos)
 df$sexzyg      = haven::as_factor(df$sexzyg)
 df$x3zygos     = haven::as_factor(df$x3zygos)
 
-df$lsdqext = df$lcsdqcont1   + df$lcsdqhypt1       # Age 12 SDQ Externalising Score
-df$psdqext = df$pcbhsdqcont1 + df$pcbhsdqhypt1     # Age 16 SDQ Externalising Score
-df$usdqext = df$u1csdqcont1  + df$u1csdqhypt1
-df$zsdqext = df$zmhsdqcont1  + df$zmhsdqhypt1
+## Create SDQ Externalising Scores ---------------------------------------------
+
+df$lsdqext1 = as.numeric(df$lcsdqcont1   + df$lcsdqhypt1)       # Age 12 SDQ Externalising Score
+df$psdqext1 = as.numeric(df$pcbhsdqcont1 + df$pcbhsdqhypt1)     # Age 16 SDQ Externalising Score
+df$usdqext1 = as.numeric(df$u1csdqcont1  + df$u1csdqhypt1)
+df$zsdqext1 = as.numeric(df$zmhsdqcont1  + df$zmhsdqhypt1)
+
+df$lsdqext2 = as.numeric(df$lcsdqcont2   + df$lcsdqhypt2)       
+df$psdqext2 = as.numeric(df$pcbhsdqcont2 + df$pcbhsdqhypt2)     
+df$usdqext2 = as.numeric(df$u1csdqcont2  + df$u1csdqhypt2)   
+df$zsdqext2 = as.numeric(df$zmhsdqcont2  + df$zmhsdqhypt2)
 
 ## Recode job variables --------------------------------------------------------
 
@@ -294,8 +317,7 @@ attr(df$afasoc2, "label") = "Father SOC employment level (1st Contact), 1-9"
 # table(df_singleparent$afajob, useNA = "always")
 # table(df_singleparent$amojob, useNA = "always")
 
-# Create other variables -------------------------------------------------------
-
+## Pollution PCA score ---------------------------------------------------------
 
 x = df %>%
   select(c(pollution1998pm10, pollution1998pm25, pollution1998no2, pollution1998nox, pollution1998benzene,
@@ -336,9 +358,6 @@ df_rq1x = df_rq1 %>%
 
 df_rq1y = df_rq1 %>% 
   select(all_of(rq1y)) 
-
-df_rq5 = df %>%
-  select(any_of(rq5z))
 
 # Create Labels ----------------------------------------------------------------
 
@@ -430,24 +449,53 @@ rq2y_labels_short = c(
   "Prosocial behavior"
 )
 
+rq5y_labels = rq5y %>% var_to_label()
+
 rq5y_labels_short = c(
-  "Yr12: Cognitive ability",
-  "Yr14: Cognitive ability", 
-  "Yr16: Cognitive ability",
-  "Yr21: G-game total score",
-  "Yr14: KS3 academic achievement",
-  "Yr16: GCSE core subjects grade",
-  "Yr21: Highest qualification",
-  "Yr26: Highest qualification",
-  "Yr12: Depression (MFQ)",
-  "Yr16: Depression (MFQ)", 
-  "Yr21: Depression (MFQ)",
-  "Yr26: Depression (MFQ)"
+  "Y12: Cognitive ability",
+  "Y14: Cognitive ability", 
+  "Y16: Cognitive ability",
+  "Y21: G-game total score",
+  "Y14: KS3 academic achievement",
+  "Y16: GCSE core subjects grade",
+  "Y21: Highest qualification",
+  "Y26: Highest qualification",
+  "Y12: Depression (MFQ)",
+  "Y16: Depression (MFQ)", 
+  "Y21: Depression (MFQ)",
+  "Y26: Depression (MFQ)",
+  "Y21: Anxiety (GAD-D)",
+  "Y26: Anxiety (GAD-D)",
+  "Y12: Externalising",
+  "Y16: Externalising",
+  "Y21: Externalising",
+  "Y26: Externalising"
 )
+
+cbind(rq5y_labels, rq5y_labels_short)
 
 mfq_labels = df %>% 
   select(all_of(mfq)) %>%
   sapply(., function(x) attr(x, "label"))
+
+## Check Labels and variables match --------------------------------------------
+
+testthat::test_that("Label lengths match variable lengths", {
+  testthat::expect_equal(length(rq1x), length(rq1x_labels))
+  testthat::expect_equal(length(rq1x), length(rq1x_labels_clean))
+  
+  testthat::expect_equal(length(rq1y), length(rq1y_labels))
+  testthat::expect_equal(length(rq1y), length(rq1y_labels_clean))
+  
+  testthat::expect_equal(length(rq2y), length(rq2y_labels))
+  testthat::expect_equal(length(rq2y), length(rq2y_labels_short))
+  
+  testthat::expect_equal(length(rq5y), length(rq5y_labels_short))
+  testthat::expect_equal(length(rq5y), length(rq5y_prefix))
+  
+  testthat::expect_true(all(rq5z %in% colnames(df)))
+  
+})
 
 # Define Participant Exclusion Lists -------------------------------------------
 

@@ -2,9 +2,9 @@
 
 source("0_load_data.R")
 
-number_imputations = 5
+number_imputations = 8
 
-number_iterations = 20
+number_iterations = 50
 
 # Set up imputation  -------------------------------------------------------------------
 df_impute = df %>%
@@ -18,18 +18,22 @@ df_impute = df %>%
     twin,
     randomfamid,
     # randomtwinid,
-    rq5_exclude_pps, 
     x3zygos,
     all_of(rq5z),
     starts_with(rq5y_prefix)
+  ) %>%
+  select(
+    -contains("sdqext")
   )
 
 df_split = split(df_impute, df_impute$sexzyg)
 
+sapply(df_split, nrow)
+
 # Set up predictor matrix ------------------------------------------------------
 
 if (TRUE){
-  miceinit = mice(df_impute, method = "pmm", m = 1, maxit = 0)
+  miceinit = mice(df_impute, method = "pmm", m = 1, maxit = 0) 
   
   meth = miceinit$method
   pred = miceinit$predictorMatrix
@@ -40,7 +44,7 @@ if (TRUE){
     "random",
     "randomfamid",
     # "randomtwinid",
-    "rq5_exclude_pps",
+    # "rq5_exclude_pps",
     "x3zygos"
   )
   
@@ -49,6 +53,11 @@ if (TRUE){
   pred[, exclude_vars] = 0
   
 }
+
+df_impute %>%
+  select(-any_of(exclude_vars)) %>%
+  colnames() %>%
+  saveRDS(file.path("results","5_1_imputation_variables.Rds"))
 
 # miceinit$loggedEvents
 
@@ -67,19 +76,21 @@ df_impute %>%
 ta = Sys.time()
 
 imputed_mice = lapply(df_split, function(input_df)
-  mice(
+  mice::futuremice(
     input_df, 
+    n.core = parallel::detectCores(),
     m = number_imputations, 
     maxit = number_iterations, 
     method = meth,
-    predictorMatrix = pred,
-    ignore = input_df$rq5_exclude_pps
+    predictorMatrix = pred
   )
 )
 
 tb = Sys.time()  # first run was 9.7 minutes
 
 tb-ta  # 3.14 hours to do 24 imputations
+
+# 19.19 min
 
 # lapply(imputed_mice, function(x) x$loggedEvents)
 
@@ -100,7 +111,20 @@ df_rq5_imputed = do.call(rbind, completed_list) %>%
   arrange(.imp, randomfamid) %>%
   select(-.id) # .id is the rowname in each imputed dataset, created by complete() - not useful. 
 
+# Create Externalising scores & remove auxillary variables
+
 df_rq5_imputed = df_rq5_imputed %>%
+  mutate(
+    lsdqext1 = as.numeric(lcsdqcont1   + lcsdqhypt1),  
+    psdqext1 = as.numeric(pcbhsdqcont1 + pcbhsdqhypt1),    
+    usdqext1 = as.numeric(u1csdqcont1  + u1csdqhypt1),
+    zsdqext1 = as.numeric(zmhsdqcont1  + zmhsdqhypt1),
+    
+    lsdqext2 = as.numeric(lcsdqcont2   + lcsdqhypt2),       
+    psdqext2 = as.numeric(pcbhsdqcont2 + pcbhsdqhypt2),     
+    usdqext2 = as.numeric(u1csdqcont2  + u1csdqhypt2),
+    zsdqext2 = as.numeric(zmhsdqcont2  + zmhsdqhypt2)
+  ) %>%
   select(
     .imp,
     sexzyg,
@@ -108,11 +132,14 @@ df_rq5_imputed = df_rq5_imputed %>%
     twin,
     randomfamid,
     # randomtwinid,
-    rq5_exclude_pps, 
+    # rq5_exclude_pps,
     x3zygos,
     # all_of(rq5z),
     starts_with(rq5y_prefix)
-  )
+  ) 
+
+# colnames(df_rq5_imputed)
+# df_rq5_imputed$zsdqext2
 
 testthat::test_that("Imputed dataset preserves all original rows and families", {
   expect_equal(nrow(df_impute), nrow(filter(df_rq5_imputed, .imp == 1)))
@@ -154,6 +181,12 @@ testthat::test_that("check random variable has been correctly recoded",{
   
   testthat::expect_equal(0, n_mismatch)
 })
+
+testthat::test_that("Imputed dataset preserves all original rows and families", {
+  
+  expect_true(all(rq5y %in% colnames(df_rq5_imputed)))
+})
+
 
 # Verify the final dataset
 # if (!identical(nrow(df),nrow(filter(df_rq5_imputed, .imp ==1)))) stop("error")
