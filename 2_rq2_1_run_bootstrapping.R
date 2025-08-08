@@ -1,18 +1,31 @@
+# Docker container info --------------------------------------------------------
+
+# bignardig/tidyverse442:v4
+
 # Load Data --------------------------------------------------------------------
 
 source("0_load_data.R")
 
-number_bootstraps = 5000
+number_bootstraps = 5000 # 5000 takes around 6.2 hours
 
-rq1y = rq1y_short # Remove year 2 time point from comparison list 
+## Only keep time points where all participants were eligible ------------------
+remove_timepoints = c("btwdata","ctwdata", "gcdata","icdata","jcdata","pcwebdata") 
+remove_timepoints = match(remove_timepoints, rq1y_twin)
+
+rq1y_twin                         = rq1y_twin[-remove_timepoints]
+rq1y_twin1                        = rq1y_twin1[-remove_timepoints]
+rq1y_twin2                        = rq1y_twin2[-remove_timepoints]
+rq1y_twin_labels                  = rq1y_twin_labels[-remove_timepoints]
+rq1y_twin_labels_clean            = rq1y_twin_labels_clean[-remove_timepoints]
+rq1y_twin_labels_clean_extrashort = rq1y_twin_labels_clean_extrashort[-remove_timepoints]
 
 # Create Attritioned Datasets --------------------------------------------------
 
 attritioned_datasets = list()
 
-for (i in seq_along(rq1y)){
+for (i in seq_along(rq1y_twin1)){
   
-  filter = as.numeric(df[[rq1y[i]]])==0
+  filter = as.numeric(df[[rq1y_twin1[i]]])==0 # 1 = present (Y), 2 = not-present (N)
   
   attritioned_datasets[[i]] = df %>% 
     select("randomfamid", "twin", "random", "x3zygos", all_of(rq2y_all))
@@ -47,7 +60,7 @@ print(tb - ta)
 # Reset to sequential processing
 plan(sequential)
 
-names(variable_comparisons) = rq1y
+names(variable_comparisons) = rq1y_twin1
 
 saveRDS(variable_comparisons, file = file.path("results", "2_variable_comparisons.Rds"))
 
@@ -64,7 +77,7 @@ for(i in 1:length(variable_comparisons_df)){
       rbind,
       variable_comparisons_df[[i]][[j]]
     )
-    variable_comparisons_df[[i]][[j]]$dataset  = rq1y[i]
+    variable_comparisons_df[[i]][[j]]$dataset  = rq1y_twin1[i]
     variable_comparisons_df[[i]][[j]]$stat = c("md","smd","h","var")[j]
     variable_comparisons_df[[i]][[j]]$variable = rq2y_labels
     rownames(variable_comparisons_df[[i]][[j]]) = NULL
@@ -118,7 +131,7 @@ future.globals = list(
   number_bootstraps = number_bootstraps,
   calc_ace    = calc_ace,
   i = i,
-  rq1y = rq1y,
+  rq1y = rq1y_twin1,
   .mean_qi_pd = .mean_qi_pd,
   compare_ace = compare_ace  # if this is a custom function
 ),

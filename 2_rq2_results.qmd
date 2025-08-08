@@ -16,22 +16,30 @@ editor: source
 ---
 
 ```{r}
+#| output: false
 
 source("0_load_data.R")
+rm(rq1y, rq1y_labels, rq1y_labels_clean)
 
-rq1y = rq1y[-1] # Remove year 2 time point from comparison list 
+## Only keep time points where all participants were eligible 
 
-rq1y_labels = rq1y_labels[-1]
+remove_timepoints = c("btwdata","ctwdata", "gcdata","icdata","jcdata","pcwebdata") 
+remove_timepoints = match(remove_timepoints, rq1y_twin)
 
-rq1y_labels_clean = rq1y_labels_clean[-1]
+rq1y_twin                         = rq1y_twin[-remove_timepoints]
+rq1y_twin1                        = rq1y_twin1[-remove_timepoints]
+rq1y_twin2                        = rq1y_twin2[-remove_timepoints]
+rq1y_twin_labels                  = rq1y_twin_labels[-remove_timepoints]
+rq1y_twin_labels_clean            = rq1y_twin_labels_clean[-remove_timepoints]
+rq1y_twin_labels_clean_extrashort = rq1y_twin_labels_clean_extrashort[-remove_timepoints]
 
-rq1y_labels_clean[8]
 
 ```
 
 # Descriptive Statistics
 
 ```{r}
+
 df %>%
   select(all_of(rq2y)) %>%
   # select(where(is.numeric)) %>%
@@ -56,9 +64,9 @@ To remove participants, I've set the rows to NA rather than remove the rows, so 
 
 attritioned_datasets = list()
 
-for (i in seq_along(rq1y)){
+for (i in seq_along(rq1y_twin1)){
   
-  filter = as.numeric(df[[rq1y[i]]])==0
+  filter = as.numeric(df[[rq1y_twin1[i]]])==0 # 1 = present (Y), 2 = not-present (N)
   
   attritioned_datasets[[i]] = df %>% 
     select(all_of(rq2y))
@@ -75,23 +83,41 @@ original_dataset = df %>%
 
 # Compare univariate distributions
 
-Load Results
+## Load Results
 
 I ran the bootstrapped analyses in the script [2_rq2_run_bootstrapping.R](2_rq2_run_bootstrapping.R){target="_blank"}.
 
 ```{r}
+original_variances = sapply(rq2y, function(x) stats::var(df[[x]], na.rm = TRUE))
 
 variable_comparisons    = readRDS(file = file.path("results", "2_variable_comparisons.Rds"))
 
-variable_comparisons_df = readRDS(file = file.path("results", "2_variable_comparisons_df.Rds"))
+variable_comparisons_df0 = readRDS(file = file.path("results", "2_variable_comparisons_df.Rds"))
 
 # variable_comparisons_df = do.call("rbind.data.frame", variable_comparisons_df)
 
-variable_comparisons_df = variable_comparisons_df %>% 
+readRDS(file = file.path("results", "2_variable_comparisons_df.Rds")) %>% head()
+
+variable_comparisons_df = variable_comparisons_df0 %>% 
   mutate(
-    dataset = rq1y_labels_clean[match(.$dataset, rq1y)],
+    dataset = rq1y_twin_labels_clean[match(.$dataset, rq1y_twin1)],
     variable = rq2y_labels_short[match(.$variable, rq2y_labels)]
     ) %>%
+  # Rescale variance vlalues
+  pivot_longer(cols = starts_with("y")) %>%
+  mutate(
+    var_constant = original_variances[match(.$variable,rq2y_labels_short)],
+    value = case_when(
+      stat == "var" ~ value / var_constant,
+      TRUE ~ value
+    )
+  ) %>%
+  select(-var_constant) %>%
+  pivot_wider(
+    values_from = value, 
+    names_from  = name
+    # id_cols     = c("dataset", "variable")
+  ) %>%
   group_by(dataset, stat) %>%
   mutate(
     pval_adj = stats::p.adjust(pval, method = "holm")
@@ -118,7 +144,337 @@ variable_comparisons_df = variable_comparisons_df %>%
 
 ```
 
-Plot Hellingers and SMD
+## Create GT Results table
+
+```{r}
+
+variable_comparisons_df %>% 
+  filter(stat!="h") %>%
+  select(-starts_with("."),-pd, -pval) %>%
+  pivot_wider(
+    names_from = "stat",
+    values_from = c("y","ymin","ymax","pval_adj"),
+    id_cols = c("variable", "dataset")
+  ) %>%
+  dplyr::rename( Outcome = "variable") %>%
+  gt(groupname_col = "dataset") %>%
+  tab_options(
+    table.width = px(800)
+    # table.border.top.style = "none",
+    # table.border.bottom.style = "none",
+    # column_labels.border.bottom.style = "solid",
+    # column_labels.border.bottom.width = px(1),
+    # column_labels.border.bottom.color = "black",
+    # table_body.border.bottom.style = "none",
+    # table_body.vlines.style = "none",
+    # row_group.border.bottom.style = "none"
+  ) %>%
+  
+  # Create column spanners (nested headers)
+  tab_spanner(
+    label = "Mean Difference",
+    columns = c(y_md, ymin_md, ymax_md, pval_adj_md)
+  ) %>%
+  tab_spanner(
+    label = "Standardized Mean Difference", 
+    columns = c(y_smd, ymin_smd, ymax_smd, pval_adj_smd)
+  ) %>%
+  tab_spanner(
+    label = "Variance % Change",
+    columns = c(y_var, ymin_var, ymax_var, pval_adj_var)
+  ) %>%
+  
+  # Rename columns under each spanner
+  cols_label(
+    y_md = "Est", ymin_md = "LB", ymax_md = "UB", pval_adj_md = "p",
+    y_smd = "Est", ymin_smd = "LB", ymax_smd = "UB", pval_adj_smd = "p", 
+    y_var = "Est", ymin_var = "LB", ymax_var = "UB", pval_adj_var = "p"
+  ) %>%
+  
+  # Format numbers
+  fmt(
+    columns = !contains("var") & !contains("Outcome"),
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>% 
+  fmt(
+    columns = "pval_adj_var",
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>% 
+  fmt_percent(
+    columns = c("y_var", "ymin_var","ymax_var"),
+    decimals = 2,
+    drop_trailing_zeros = FALSE,
+    drop_trailing_dec_mark = FALSE
+  ) %>%
+  # Styling - uniform font size
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_column_spanners()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_body()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10), align = "center"),
+    locations = cells_row_groups()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_footnotes()
+  ) %>%
+  
+  # Highlight significant results - positive effects (light green)
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),  # Light green for positive effects
+    locations = cells_body(
+      columns = c(y_md, ymin_md, ymax_md, pval_adj_md),
+      rows = pval_adj_md < 0.05 & y_md > 0
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),  # Light green for positive effects
+    locations = cells_body(
+      columns = c(y_smd, ymin_smd, ymax_smd, pval_adj_smd),
+      rows = pval_adj_smd < 0.05 & y_smd > 0
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),  # Light green for positive effects
+    locations = cells_body(
+      columns = c(y_var, ymin_var, ymax_var, pval_adj_var),
+      rows = pval_adj_var < 0.05 & y_var > 0
+    )
+  ) %>%
+  
+  # Highlight significant results - negative effects (light red)
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),  # Light red for negative effects
+    locations = cells_body(
+      columns = c(y_md, ymin_md, ymax_md, pval_adj_md),
+      rows = pval_adj_md < 0.05 & y_md < 0
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),  # Light red for negative effects
+    locations = cells_body(
+      columns = c(y_smd, ymin_smd, ymax_smd, pval_adj_smd),
+      rows = pval_adj_smd < 0.05 & y_smd < 0
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),  # Light red for negative effects
+    locations = cells_body(
+      columns = c(y_var, ymin_var, ymax_var, pval_adj_var),
+      rows = pval_adj_var < 0.05 & y_var < 0
+    )
+  ) %>%
+  
+  # Add footnotes
+  tab_footnote(
+    footnote = md("<em>Note.</em> Est = Estimate, LB = Lower Bound 95% Confidence Interval, UB = Upper Bound 95% Confidence Interval. Significant (p<sub>Bonferroni-Holm</sub>) effects are highlighted in green (increases) or red (decreases)."),
+    # locations = cells_column_spanners(),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each participation group",
+    locations = cells_column_labels(columns = contains("pval_adj")),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = md("Standardized mean difference = (Mean<sub>original</sub> - Mean<sub>attritioned</sub>) / SD<sub>original</sub>"),
+    locations = cells_column_spanners(spanners = "Standardized Mean Difference"),
+    placement = "right"
+  ) %>%
+    tab_footnote(
+    footnote = md("Percentage change = (Var<sub>attritioned</sub> - Var<sub>original</sub>) / Var<sub>original</sub>"),
+    locations = cells_column_spanners(spanners = "Variance % Change"),
+    placement = "right"
+  ) %>%
+  opt_footnote_marks(marks = c("*", "†","‡"))
+
+
+```
+
+## Create circular heatmaps for changes in means and variances
+
+### Standardised Mean Differences 
+
+```{r}
+  # Create circular heatmap for SMD
+   heatmap_data_smd = variable_comparisons_df %>%
+    filter(stat == "smd") %>%
+    mutate(
+      outcome_labeled = rq1y_twin_labels_clean_extrashort[match(dataset,rq1y_twin_labels_clean)],
+      outcome_labeled = factor(outcome_labeled, levels = rq1y_twin_labels_clean_extrashort),
+      Variables_wrapped = str_wrap(variable, width = 8),
+      # Set fill value to NA if not significant, otherwise keep original sign
+      fill_value = case_when(
+        pval_adj < 0.05 ~ y,
+        TRUE ~ NA
+      )
+    ) %>%
+    # Order variables by number of significant effects
+    group_by(variable) %>%
+    mutate(n_significant = sum(pval_adj < 0.05)) %>%
+    ungroup() %>%
+    mutate(
+      Variables_wrapped = factor(Variables_wrapped,
+                                levels = unique(Variables_wrapped[order(-n_significant)]))
+    )
+
+  ggplot(heatmap_data_smd, aes(x = Variables_wrapped, y = outcome_labeled)) +
+    geom_tile(aes(fill = fill_value, 
+                  color = ifelse(variable %in% c("Emotional problems", "Prosocial behavior"), "azure2", "black")), 
+              size = 0.5) +
+    scale_color_identity() +
+    geom_text(
+      aes(label = ifelse(pval_adj < 0.05,
+                         gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", y)), ""),
+          size = ifelse(outcome_labeled == "Y4", 2, 3.5)
+      ),
+      color = "black"
+    ) +
+    scale_size_identity() +
+    coord_polar(theta = "x", start = 0, direction = 1, clip = "off") +
+    scale_fill_gradient2(
+      low = "#2166ac", 
+      mid = "white", 
+      high = "#d73027",
+      midpoint = 0,
+      # limits = c(-.1, 
+      #            max(heatmap_data_smd$fill_value, na.rm = TRUE)),
+      na.value = "white",
+      guide = "none"
+    ) +
+    labs(
+      title = "Standardised Mean Difference",
+      subtitle = expression(frac(bar(X)[attritioned] - bar(X)[original], SD[original])),
+      tag = "A"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 0, size = 11),
+      axis.text.y = element_blank(),
+      axis.title = element_blank(),
+      panel.grid = element_blank(),
+      panel.background = element_blank(),
+      plot.background = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 16),
+      plot.subtitle = element_text(hjust = 0.5, size = 13.5, margin = margin(b = -20)),
+      plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
+      plot.tag.position = "topleft",
+      plot.margin = margin(2, 10, -33, 10)
+    ) +
+    {
+      y_positions = seq_along(levels(heatmap_data_smd$outcome_labeled))
+      labels = levels(heatmap_data_smd$outcome_labeled)
+
+      lapply(seq_along(labels), function(i) {
+        annotate("text", x = 0.5, y = y_positions[i], 
+                 label = paste0(labels[i], " "), 
+                 size = 3.7, 
+                 hjust = 1, angle = 7)
+      })
+    }
+
+  save_plot("2_rq2_circular_heatmap_smd", width = 8, height = 8)
+
+
+
+
+
+```
+
+### Variance Differences
+
+```{r}
+  # Create circular heatmap for variance differences
+   heatmap_data_var = variable_comparisons_df %>%
+    filter(stat == "var") %>%
+    mutate(
+      outcome_labeled = rq1y_twin_labels_clean_extrashort[match(dataset, rq1y_twin_labels_clean)],
+      outcome_labeled = factor(outcome_labeled, levels = rq1y_twin_labels_clean_extrashort),
+      Variables_wrapped = str_wrap(variable, width = 8),
+      # Set fill value to NA if not significant, otherwise keep original sign
+      fill_value = case_when(
+        pval_adj < 0.05 ~ y,
+        TRUE ~ NA
+      )
+    ) %>%
+    # Order variables by number of significant effects
+    group_by(variable) %>%
+    mutate(n_significant = sum(pval_adj < 0.05)) %>%
+    ungroup() %>%
+    mutate(
+      Variables_wrapped = factor(Variables_wrapped,
+                                levels = unique(Variables_wrapped[order(-n_significant)]))
+    )
+
+  ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
+    geom_tile(aes(fill = fill_value, 
+                  color = ifelse(variable %in% c("Emotional problems", "Prosocial behavior", "Hyperactivity", "Grammar"), "azure2", "black")), 
+              size = 0.5) +
+    scale_color_identity() +
+    geom_text(
+      aes(label = ifelse(pval_adj < 0.05,
+                         paste0(sprintf("%.1f", y * 100), "%"), ""),
+          size = ifelse(outcome_labeled == "Y4", 2, 3.5)
+      ),
+      color = "black"
+    ) +
+    scale_size_identity() +
+    coord_polar(theta = "x", start = 0, direction = 1, clip = "off") +
+    scale_fill_gradient2(
+      low = "#2166ac", 
+      mid = "white", 
+      high = "#d73027",
+      midpoint = 0,
+      limits = c(-max(abs(heatmap_data_var$fill_value), na.rm = TRUE), 
+                 max(abs(heatmap_data_var$fill_value), na.rm = TRUE)),
+      na.value = "white",
+      guide = "none"
+    ) +
+    labs(
+      title = "Variance Percentage Change",
+      subtitle = expression(frac(Var[attritioned] - Var[original], Var[original]) %*% 100),
+      tag = "B"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 0, size = 11),
+      axis.text.y = element_blank(),
+      axis.title = element_blank(),
+      panel.grid = element_blank(),
+      panel.background = element_blank(),
+      plot.background = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 16),
+      plot.subtitle = element_text(hjust = 0.5, size = 13.5, margin = margin(b = -20)),
+      plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
+      plot.tag.position = "topleft",
+      plot.margin = margin(2, 10, -33, 10)
+    ) +
+    {
+      y_positions = seq_along(levels(heatmap_data_var$outcome_labeled))
+      labels = levels(heatmap_data_var$outcome_labeled)
+
+      lapply(seq_along(labels), function(i) {
+        annotate("text", x = 0.5, y = y_positions[i],
+                 label = paste0(labels[i], " "), size = 3.7, hjust = 1, angle = 7)
+      })
+    }
+
+  save_plot("2_rq2_circular_heatmap_var", width = 8, height = 8)
+
+```
+
+
+
+## Plot Hellingers and SMD
 
 ```{r}
 
@@ -137,7 +493,7 @@ variable_comparisons_df %>%
     title = "Attritioned - Original Variable Means (standardised mean differences)"
   )
 
-ggsave(file.path("plots","2_difference_means.pdf"), width = 8, height = 6)
+save_plot("2_difference_means", width = 8, height = 6)
 
 ```
 
@@ -150,14 +506,13 @@ attritioned_datasets_long = attritioned_datasets
 
 for (i in seq_along(attritioned_datasets_long)){
   attritioned_datasets_long[[i]] = gather(as.data.frame(as.matrix(attritioned_datasets[[i]])))
-  attritioned_datasets_long[[i]]$dataset = rq1y[i]
+  attritioned_datasets_long[[i]]$dataset = rq1y_twin1[i]
 }
 
 x = original_dataset %>%
     as.matrix() %>% as.data.frame() %>%
     gather() %>%
     mutate(dataset = "original")
-
 
 attritioned_datasets_long = c(attritioned_datasets_long, list(x))
 
@@ -198,7 +553,7 @@ y_var = str_extract(x, "\\S+$")
 rm(test_correlation_matrix,x)
 ```
 
-Plot Code:
+## Plot changes in correlations
 
 ```{r}
 
@@ -216,25 +571,43 @@ library(patchwork)
 plots = lapply(1:length(correlation_comparisons), function(i) {
   correlation_comparisons[[i]] %>%
     plot_lower_triangular_matrix(
-      title = var_to_label(rq1y)[i] %>% 
+      title = var_to_label(rq1y_twin1)[i] %>% 
         str_remove(", 1Y 0N") %>%
         stringr::str_wrap(., width = 35),
       
-     caption = paste0("Variable name: ", rq1y[i])
+     caption = paste0("Variable name: ", rq1y_twin1[i])
     )
 })
 
-combined_plot = wrap_plots(plots, ncol = 3)  # Adjust ncol as needed
+patchwork::wrap_plots(
+  plots,
+  ncol = 3) 
+  # Adjust ncol as needed
 
-ggsave(
-  filename = file.path("plots","2_rq2_2_correlations.pdf"), width = 17, height = 14,
-  plot = combined_plot)
+save_plot(
+  "2_rq2_2_correlations", width = 18, height = 18)
   
   
 
 ```
 
-[📊 View Full Resolution Correlation Plots (PDF)](plots/2_rq2_2_correlations.pdf)
+[📊 View Full Resolution Correlation Plots (PDF)](plots/pdfs/2_rq2_2_correlations.pdf)
+
+## Plot Original Correlations between variables
+
+```{r}
+
+df %>%
+  select(rq2y) %>%
+  data.frame() %>%
+  `colnames<-`(rq2y_labels_short) %>%
+   gbtoolbox::plot_correlations()
+
+save_plot(
+  "2_rq2_2_correlations_orignal", width = 8, height = 8)
+
+```
+
 
 # Compare ACE estimates between original and attritioned datasets
 
@@ -301,7 +674,7 @@ Ternery Plot
 
 rm(points_data, estimate_data, coordinates, var_colors)
 
-pdf(file.path("plots","2_2_ace_ternary_plot.pdf"), width = 7, height = 7)
+pdf(file.path("plots","pdfs","2_2_ace_ternary_plot.pdf"), width = 7, height = 7)
 
 # Non-attritioned ACE estimates
 original_ace_estimates = boot_results_original_df_summary %>%
@@ -363,7 +736,7 @@ dev.off()
 
 ```
 
-[View ACE Ternary Plot](plots/2_2_ace_ternary_plot.pdf)
+[View ACE Ternary Plot](plots/pdfs/2_2_ace_ternary_plot.pdf)
 
 
 Why are the ACE estimates weird? 
@@ -412,15 +785,32 @@ df %>%
 
 # How predictive are our variables of later attrittion?
 
+## Correlations
+
+```{r}
+
+sapply(rq2y, function(x)
+  sapply(rq1y_twin1, function(y)
+         cor(df[[x]],df[[y]], use = "pairwise.complete.obs")
+  )) %>%
+  `colnames<-`(rq2y_labels_short) %>%
+  `rownames<-`(rq1y_twin_labels_clean_extrashort) %>%
+  knitr::kable(digits = 3)
+
+```
+
+
+## Regression Modelling 
+
 ```{r}
 
 
 
 models = list()
 
-for (i in seq_along(rq1y)){
-  cat(i, "/", length(rq1y),"\n")
-  formula <- as.formula(paste(rq1y[i], "~", paste(rq2y, collapse = "+")))
+for (i in seq_along(rq1y_twin1)){
+  cat(i, "/", length(rq1y_twin1),"\n")
+  formula <- as.formula(paste(rq1y_twin1[i], "~", paste(rq2y, collapse = "+")))
   models[[i]] = glm(formula, data = df, family = binomial, na.action = "na.omit")
 }
 
@@ -448,7 +838,7 @@ model_metrics = data.frame(
   AUC = sapply(models, calc_auc),
   R2 = sapply(models, function(x) performance::r2(x)$R2)
 ) %>%
-  mutate(outcome = clean_rq1y_label(var_to_label(outcome)))
+  mutate(outcome = rq1y_twin_labels_clean[match(.$outcome, rq1y_twin1)])
 
 # First, order the outcomes chronologically by extracting year numbers
 model_metrics_ordered = model_metrics %>%
@@ -509,11 +899,11 @@ plot_data %>%
     plot.title = element_text(hjust = 0.5)
   )
 
-ggsave(file.path("plots", "2_prediction_accuracy.pdf"), width = 9, height = 6)
+save_plot("2_prediction_accuracy", width = 9, height = 6)
 
 ```
 
-## Full model results 
+### Full model results 
 
 ```{r}
 
@@ -538,7 +928,9 @@ models_results %>%
 ```
 
 
-## Variable Importance Calculations
+### Variable Importance Calculations
+
+This code should be checked again before use! 
 
 ```{r}
 glm_model_comparison_results = lapply(models, glm_model_comparison)
@@ -572,9 +964,8 @@ glm_model_comparison_results_df = glm_model_comparison_results_df %>%
 # Plotting code
 glm_model_comparison_results_df %>%
   mutate(
-    outcome_labeled = var_to_label(outcome),
-    outcome_labeled = outcome_labeled %>% str_remove("data.*"),
-    outcome_labeled = factor(outcome_labeled, levels =  str_remove(var_to_label(rq1y),"data.*")),
+    Variables_full = rq2y_labels_short[match(.$Variables_full, rq2y_labels)],
+    outcome_labeled = rq1y_twin_labels_clean_extrashort[match(.$outcome, rq1y_twin1)],
     criterion       = Delta_AUC,
     sig_level = case_when(
       LRT_p < 0.001 ~ "p < 0.001",
@@ -612,9 +1003,33 @@ glm_model_comparison_results_df %>%
   )
 
 
-ggsave(file.path("plots", "2_rq2_variable_importance.pdf"), width = 14, height = 7)
+save_plot("2_rq2_variable_importance", width = 14, height = 7)
 ```
 
+
+# Comparison of maternal education scores
+
+```{r}
+
+df %>% 
+  # group_by(zcdata1) %>%
+  summarise(
+    mean = mean(amohqualn, na.rm = TRUE),
+    var  = stats::var(amohqualn1, na.rm = TRUE),
+    sd  = stats::sd(amohqualn1, na.rm = TRUE)
+    )
+
+
+df %>% 
+  group_by(zcdata1) %>%
+  summarise(
+    mean = mean(amohqualn, na.rm = TRUE),
+    var  = stats::var(amohqualn1, na.rm = TRUE),
+    sd   = stats::sd(amohqualn1, na.rm = TRUE)
+    
+    )
+
+```
 
 
 # Random / Code Checks
