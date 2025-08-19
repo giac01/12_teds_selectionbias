@@ -91,7 +91,7 @@ rq1x = c(
          "asmoke",
          "adrink",
          "astress",
-         "cens01pop98density",
+         # "cens01pop98density",                                                # This has a lot of missing data, for some reason....
          "pollution1998pca"
 )
 
@@ -384,7 +384,7 @@ rq1x_labels_clean = c(
   "Smoking in pregnancy",
   "Alcohol in pregnancy",
   "Severe stress in pregnancy",
-  "Population density",
+  # "Population density",
   "Pollution index"
 )
 

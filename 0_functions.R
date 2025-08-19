@@ -283,12 +283,6 @@ compare_correlation = function(df1, df2){
   
 }
 
-# df1 = df[c("randomfamid",rq5y)]
-# df2 = imputed_datasets[[1]][c("randomfamid",rq5y)]
-# B = 3
-# debug(.boot_compare_df)
-# .boot_compare_df(df1,df2, B = 10)
-
 .boot_compare_df = function(df1, df2, B = 100){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
   
   # Initialize results structure
@@ -1153,3 +1147,98 @@ glm_model_comparison_robust = function(full_model, cluster_var = "famid") {
   
   return(comparison_df)
 }
+
+# Weighted differences analysis ------------------------------------------------
+
+compare_md_weighted = function(
+    dfy = df_y_boot, 
+    w = df_weights[,missingcode_table_univariate$missingcode]
+){
+  
+  means_unweighted = sapply(dfy, function(x) mean(x, na.rm = TRUE))
+  means_weighted   = sapply(seq_along(dfy),
+                            function(i) {
+                              x = dfy[[i]]
+                              we = w[,i]
+                              complete_cases = complete.cases(x, we)
+                              
+                              if (sum(complete_cases) == 0) NA else
+                                stats::weighted.mean(x[complete_cases], we[complete_cases])
+                            })
+  
+  means_weighted - means_unweighted
+  
+}
+
+compare_smd_weighted = function(
+    dfy = df_y_boot, 
+    w = df_weights[,missingcode_table_univariate$missingcode]
+){
+  
+  means_unweighted = sapply(dfy, function(x) mean(x, na.rm = TRUE))
+  sd_unweighted    = sapply(dfy, function(x) sd(x, na.rm = TRUE))
+  means_weighted   = sapply(seq_along(dfy),
+                            function(i) {
+                              x = dfy[[i]]
+                              we = w[,i]
+                              complete_cases = complete.cases(x, we)
+                              
+                              if (sum(complete_cases) == 0) NA else
+                                stats::weighted.mean(x[complete_cases], we[complete_cases])
+                            })
+  
+  (means_weighted - means_unweighted) / sd_unweighted
+  
+}
+
+compare_var_weighted = function(
+    dfy = df_y_boot, 
+    w = df_weights[,missingcode_table_univariate$missingcode]
+){
+  
+  var_unweighted = sapply(dfy,            function(x) sd(x, na.rm = TRUE)^2)
+  var_weighted   = sapply(seq_along(dfy),
+                          function(i) {
+                            x = dfy[[i]]
+                            we = w[,i]
+                            complete_cases = complete.cases(x, we)
+                            
+                            if (sum(complete_cases) == 0) NA else
+                              Hmisc::wtd.var(x[complete_cases], we[complete_cases])
+                          })
+  
+  var_weighted - var_unweighted
+  
+}
+
+compare_correlation_weighted = function(
+    dfy = df_y_boot, 
+    w = df_weights,
+    # sets of variables to calculate pairwise correlations with: 
+    x_var = missingcode_table[,"x_var"],
+    y_var = missingcode_table[,"y_var"]
+){
+  
+  correlations_unweighted = sapply(
+    seq_along(x_var), function(i) 
+      cor(
+        dfy[[x_var[i]]], dfy[[y_var[i]]], 
+        use = "pairwise.complete.obs"
+      )
+  )
+  
+  correlations_weighted   = sapply(seq_along(x_var),
+                                   function(i) {
+                                     x = as.numeric(dfy[[x_var[i]]])
+                                     y = as.numeric(dfy[[y_var[i]]])
+                                     we = w[,i]
+                                     complete_cases = complete.cases(x, y, we)
+                                     
+                                     if (sum(complete_cases) == 0) NA else
+                                       weights::wtd.cors(x[complete_cases],y[complete_cases], we[complete_cases])
+                                   })
+  
+  correlations_weighted - correlations_unweighted
+  
+}
+
