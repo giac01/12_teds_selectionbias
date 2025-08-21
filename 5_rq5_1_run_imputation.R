@@ -2,9 +2,9 @@
 
 source("0_load_data.R")
 
-number_imputations = 8
+number_imputations = 16 
 
-number_iterations = 50
+number_iterations = 50 
 
 # Set up imputation  -------------------------------------------------------------------
 df_impute = df %>%
@@ -23,7 +23,7 @@ df_impute = df %>%
     starts_with(rq5y_prefix)
   ) %>%
   select(
-    -contains("sdqext")
+    -contains("sdqext"),
   )
 
 df_split = split(df_impute, df_impute$sexzyg)
@@ -78,7 +78,7 @@ ta = Sys.time()
 imputed_mice = lapply(df_split, function(input_df)
   mice::futuremice(
     input_df, 
-    n.core = parallel::detectCores(),
+    n.core = 8,
     m = number_imputations, 
     maxit = number_iterations, 
     method = meth,

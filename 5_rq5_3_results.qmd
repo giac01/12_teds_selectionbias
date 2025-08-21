@@ -781,10 +781,11 @@ df_rq5_imputed$ncg1
 
 imputed_mice %>% length()
 
-plot(imputed_mice[[1]], y = rq5y, layout = c(4,6))
+plot(imputed_mice[[4]], layout = c(4,6))
 
 plot(imputed_mice[[3]], y = rq5y, layout = c(4,6))
 
+rq5y_labels_short[!(rq5y %in% colnames(imputed_mice[[1]]$data))]
 
 ```
 

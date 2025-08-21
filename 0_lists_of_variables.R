@@ -7,7 +7,7 @@ rq5z = c(
   "cohort",
   # "aonsby",
 
-  "pollution1998pca",
+  # "pollution1998pca",
   
   
   ## First Contact Variables -------------------------------------------------
@@ -15,13 +15,13 @@ rq5z = c(
   # Family Structure
   "amumagetw",    # Maternal age at twin birth
   # "adadagetw",    # Paternal age at twin birth
-  # "aadults",      # Number of adults in household
-  "asingle",        # derived froma adults (1 = single parent, 0 = other, NA = missing partner details)
+  "aadults",      # Number of adults in household
+  # "asingle",        # derived froma adults (1 = single parent, 0 = other, NA = missing partner details)
   
   # Zygosity 
 
   # Maternal Medical Risk Factors
-  "amedtot",      # Maternal medical risk factors total
+  # "amedtot",      # Maternal medical risk factors total
   
   # Parental Socioeconomic Variables
   # "afaclas",      # Father's social class
@@ -31,15 +31,16 @@ rq5z = c(
   # "afawork",      # Father's work status
   # "afahqual",     # Father's highest qualification
   # "amoclas",      # Mother's social class                                     - mostly missing data
-  "amojob",       # Mother's job
+  # "amojob",       # Mother's job
+  "amosoc2",
   # "amosoc",       # Mother's socioeconomic status                             - mostly missing data
   # "amospq",       # Mother's socioeconomic position qualifications
   # "amowork",      # Mother's work status                                      - removing this as rare cases of apprentices and foreman seem to lead to errors!
   "amohqualn",     # Mother's highest qualification (numeric)
   
   # Twin Medical Risk Factors (twin 1 only)
-  "atwmed1",      # Twin 1 medical risk factors
-  "atwmed2",
+  # "atwmed1",      # Twin 1 medical risk factors
+  # "atwmed2",
   
   # Environment and Demographics
   # "aethnic",      # Ethnicity of twins
@@ -48,7 +49,7 @@ rq5z = c(
   "anoldsibn",     # Number of older siblings
   "anyngsibn",     # Number of younger siblings
   "atwclub",      # Membership in Twins Club
-  "alookels",     # Twins looked after by anyone else
+  # "alookels",     # Twins looked after by anyone else
   
   # Postcode Linked Data
   "cens01pop98density",  # Population density                                   
@@ -58,7 +59,7 @@ rq5z = c(
   # "agenpro1",     # Twin 1 has genetic problems
   
   # Maternal Pregnancy Variables                                                - removed as they are captured in amedtot
-  # "asmoke",       # Maternal smoking during pregnancy
+  "asmoke",       # Maternal smoking during pregnancy
   # "adrink",       # Maternal drinking during pregnancy
   # "astress"      # Maternal stress during pregnancy
   
@@ -119,14 +120,14 @@ rq5z = c(
   # "dsdqbeht2",    # Total behavior problems
   "dsdqcont1",    # Conduct
   "dsdqcont2",    # Conduct
-  "dsdqemot1",    # Emotion
-  "dsdqemot2",    # Emotion
+  # "dsdqemot1",    # Emotion
+  # "dsdqemot2",    # Emotion
   "dsdqhypt1",    # Hyperactivity
   "dsdqhypt2",    # Hyperactivity
-  "dsdqpert1",    # Peer problems
-  "dsdqpert2",    # Peer problems
-  "dsdqprot1",    # Prosocial
-  "dsdqprot2",    # Prosocial
+  # "dsdqpert1",    # Peer problems
+  # "dsdqpert2",    # Peer problems
+  # "dsdqprot1",    # Prosocial
+  # "dsdqprot2",    # Prosocial
   
   # Anxiety measures
   "danxt1",       # ARBQ Anxiety-Related Behaviors
@@ -138,8 +139,8 @@ rq5z = c(
   ## Year 7 Variables ------------------------------------------
   
   # Reading test
-  "gtowt1",       # TOWRE reading test composite
-  "gtowt2",       # TOWRE reading test composite
+  # "gtowt1",       # TOWRE reading test composite
+  # "gtowt2",       # TOWRE reading test composite
   # 
   # # Cognitive test scores
   # "gcongrt1",     # Cognitive grammar
@@ -170,16 +171,16 @@ rq5z = c(
   # "gteng2",       # English
   
   # SDQ scales (Year 7)
-  "gpsdqprot1",   # Prosocial
-  "gpsdqprot2",   # Prosocial
+  # "gpsdqprot1",   # Prosocial
+  # "gpsdqprot2",   # Prosocial
   "gpsdqhypt1",   # Hyperactivity
   "gpsdqhypt2",   # Hyperactivity
   "gpsdqcont1",   # Conduct
   "gpsdqcont2",   # Conduct
-  "gpsdqpert1",   # Peer problems
-  "gpsdqpert2",   # Peer problems
-  "gpsdqemot1",   # Emotion
-  "gpsdqemot2",   # Emotion
+  # "gpsdqpert1",   # Peer problems
+  # "gpsdqpert2",   # Peer problems
+  # "gpsdqemot1",   # Emotion
+  # "gpsdqemot2",   # Emotion
   # "gpsdqbeht1",   # Total behavior problems
   # "gpsdqbeht2",   # Total behavior problems
   
@@ -224,26 +225,26 @@ rq5z = c(
   # Twin-reported SDQ
   "icsdqcont1",   # Conduct
   "icsdqcont2",   # Conduct
-  "icsdqemot1",   # Emotion
-  "icsdqemot2",   # Emotion
+  # "icsdqemot1",   # Emotion
+  # "icsdqemot2",   # Emotion
   "icsdqhypt1",   # Hyperactivity
   "icsdqhypt2",   # Hyperactivity
-  "icsdqpert1",   # Peer problems
-  "icsdqpert2",   # Peer problems
-  "icsdqprot1",   # Prosocial
-  "icsdqprot2",   # Prosocial
-  
+  # "icsdqpert1",   # Peer problems
+  # "icsdqpert2",   # Peer problems
+  # "icsdqprot1",   # Prosocial
+  # "icsdqprot2",   # Prosocial
+  # 
   # Parent-reported SDQ
-  "ipsdqprot1",   # Prosocial
-  "ipsdqprot2",   # Prosocial
+  # "ipsdqprot1",   # Prosocial
+  # "ipsdqprot2",   # Prosocial
   "ipsdqhypt1",   # Hyperactivity
   "ipsdqhypt2",   # Hyperactivity
   "ipsdqcont1",   # Conduct
   "ipsdqcont2",   # Conduct
-  "ipsdqpert1",   # Peer problems
-  "ipsdqpert2",   # Peer problems
-  "ipsdqemot1",   # Emotion
-  "ipsdqemot2",   # Emotion
+  # "ipsdqpert1",   # Peer problems
+  # "ipsdqpert2",   # Peer problems
+  # "ipsdqemot1",   # Emotion
+  # "ipsdqemot2",   # Emotion
   # "ipsdqbeht1",   # Total behavior problems
   
   # Parent Negative Feelings
@@ -256,15 +257,15 @@ rq5z = c(
   
   # Household CHAOS
   "ipchatot",     # Parent-reported household chaos                             
-  "icchato1",     # Twin-reported household chaos
-  "icchato2",     # Twin-reported household chaos
+  # "icchato1",     # Twin-reported household chaos
+  # "icchato2",     # Twin-reported household chaos
   
   
   ## Year 10 Variables  -----------------------------------------
   
   # Web test total scores
-  "jartt1",       # Author recognition total
-  "jartt2",       # Author recognition total
+  # "jartt1",       # Author recognition total
+  # "jartt2",       # Author recognition total
   
   
   # Web test adjusted scores
@@ -300,11 +301,11 @@ rq5z = c(
   ## Year 12 Variables ---------------------------------------------------------
   
   # Twin web test scores
-  "lartot1",      # Author Recognition test
-  "lartot2",      # Author Recognition test
-  
-  "ltotot1",      # TOAL total score
-  "ltotot2",      # TOAL total score
+  # "lartot1",      # Author Recognition test
+  # "lartot2",      # Author Recognition test
+  # 
+  # "ltotot1",      # TOAL total score
+  # "ltotot2",      # TOAL total score
   
   # "ltottm1",      # Total time to complete batteries
   # "ltottm2",      # Total time to complete batteries
@@ -312,8 +313,8 @@ rq5z = c(
   # "lestcon2",     # Estimated connection type
   
   # TOWRE test composite
-  "ltowt1",       # TOWRE reading test
-  "ltowt2",       # TOWRE reading test
+  # "ltowt1",       # TOWRE reading test
+  # "ltowt2",       # TOWRE reading test
   
   # Cognitive ability composites 
   # "lcg1",         # General cognitive ability
@@ -340,28 +341,28 @@ rq5z = c(
   # "lt2ac2",       # 2-subject mean (teacher-reported)
   
   # Twin-reported SDQ
-  "lcsdqprot1",   # Prosocial
-  "lcsdqprot2",   # Prosocial
+  # "lcsdqprot1",   # Prosocial
+  # "lcsdqprot2",   # Prosocial
   "lcsdqhypt1",   # Hyperactivity
   "lcsdqhypt2",   # Hyperactivity
   "lcsdqcont1",   # Conduct
   "lcsdqcont2",   # Conduct
-  "lcsdqpert1",   # Peer problems
-  "lcsdqpert2",   # Peer problems
-  "lcsdqemot1",   # Emotion
-  "lcsdqemot2",   # Emotion
-  
+  # "lcsdqpert1",   # Peer problems
+  # "lcsdqpert2",   # Peer problems
+  # "lcsdqemot1",   # Emotion
+  # "lcsdqemot2",   # Emotion
+  # 
   # Parent-reported SDQ
-  "lpsdqprot1",   # Prosocial
-  "lpsdqprot2",   # Prosocial
+  # "lpsdqprot1",   # Prosocial
+  # "lpsdqprot2",   # Prosocial
   "lpsdqhypt1",   # Hyperactivity
   "lpsdqhypt2",   # Hyperactivity
   "lpsdqcont1",   # Conduct
   "lpsdqcont2",   # Conduct
-  "lpsdqpert1",   # Peer problems
-  "lpsdqpert2",   # Peer problems
-  "lpsdqemot1",   # Emotion
-  "lpsdqemot2",   # Emotion
+  # "lpsdqpert1",   # Peer problems
+  # "lpsdqpert2",   # Peer problems
+  # "lpsdqemot1",   # Emotion
+  # "lpsdqemot2",   # Emotion
   # "lpsdqbeht1",   # Total behavior problems
   # "lpsdqbeht2",   # Total behavior problems
   
@@ -394,8 +395,8 @@ rq5z = c(
   # Twin web tests adjusted scores
   # "nrvtota1",     # Ravens adjusted
   # "nrvtota2",     # Ravens adjusted
-  "nsctota1",     # Adjusted total score for the Science web test
-  "nsctota2",     # Adjusted total score for the Science web test
+  # "nsctota1",     # Adjusted total score for the Science web test
+  # "nsctota2",     # Adjusted total score for the Science web test
   # "nvctota1",     # Vocabulary adjusted
   # "nvctota2",     # Vocabulary adjusted
   
@@ -471,17 +472,17 @@ rq5z = c(
   # "ppbhmfqt2",    # MFQ - parent report                                       - ONLY TWIN 2 is missing for some reason!!!
   
   # Twin-reported SDQ
-  "pcbhsdqemot1", # Emotion
-  "pcbhsdqemot2", # Emotion
+  # "pcbhsdqemot1", # Emotion
+  # "pcbhsdqemot2", # Emotion
   "pcbhsdqcont1", # Conduct
   "pcbhsdqcont2", # Conduct
   "pcbhsdqhypt1", # Hyperactivity
   "pcbhsdqhypt2", # Hyperactivity
-  "pcbhsdqpert1", # Peer problems
-  "pcbhsdqpert2", # Peer problems
-  "pcbhsdqprot1", # Prosocial
-  "pcbhsdqprot2", # Prosocial
-  
+  # "pcbhsdqpert1", # Peer problems
+  # "pcbhsdqpert2", # Peer problems
+  # "pcbhsdqprot1", # Prosocial
+  # "pcbhsdqprot2", # Prosocial
+  # 
   # Parent-reported SDQ
   # "ppbhsdqbeht1", # Total behavior problems
   # "ppbhsdqbeht2", # Total behavior problems
@@ -489,8 +490,8 @@ rq5z = c(
   "ppbhsdqcont2", # Conduct
   "ppbhsdqhypt1", # Hyperactivity
   "ppbhsdqhypt2", # Hyperactivity
-  "ppbhsdqprot1", # Prosocial
-  "ppbhsdqprot2", # Prosocial
+  # "ppbhsdqprot1", # Prosocial
+  # "ppbhsdqprot2", # Prosocial
   
   # ARBQ Anxiety-Related Behaviors
   "ppbhanxt1",    # Anxiety - parent report
@@ -501,36 +502,36 @@ rq5z = c(
   # "ppbhconnt2",   # Conners ADHD - parent report                                - ONLY TWIN 2 missing!!
   
   # Household CHAOS
-  "pcchatot1",    # Twin-reported household chaos
+  "pcchatot1",     # Twin-reported household chaos
   "pcchatot2",     # Twin-reported household chaos
   
   ## Year 21 variables ----------------------------------------------------
   
   # Twin-reported SDQ
-  "u1csdqemot1", # Emotion
-  "u1csdqemot2", # Emotion
+  # "u1csdqemot1", # Emotion
+  # "u1csdqemot2", # Emotion
   "u1csdqcont1", # Conduct
   "u1csdqcont2", # Conduct
   "u1csdqhypt1", # Hyperactivity
   "u1csdqhypt2", # Hyperactivity
-  "u1csdqpert1", # Peer problems
-  "u1csdqpert2", # Peer problems
-  "u1csdqprot1", # Prosocial
-  "u1csdqprot2", # Prosocial
+  # "u1csdqpert1", # Peer problems
+  # "u1csdqpert2", # Peer problems
+  # "u1csdqprot1", # Prosocial
+  # "u1csdqprot2", # Prosocial
   
   ## Year 26 variables ----------------------------------------------------
   
   # Twin-reported SDQ
-  "zmhsdqemot1", # Emotion
-  "zmhsdqemot2", # Emotion
+  # "zmhsdqemot1", # Emotion
+  # "zmhsdqemot2", # Emotion
   "zmhsdqcont1", # Conduct
   "zmhsdqcont2", # Conduct
   "zmhsdqhypt1", # Hyperactivity
-  "zmhsdqhypt2", # Hyperactivity
-  "zmhsdqpert1", # Peer problems
-  "zmhsdqpert2", # Peer problems
-  "zmhsdqprot1", # Prosocial
-  "zmhsdqprot2" # Prosocial
+  "zmhsdqhypt2" # Hyperactivity
+  # "zmhsdqpert1", # Peer problems
+  # "zmhsdqpert2", # Peer problems
+  # "zmhsdqprot1", # Prosocial
+  # "zmhsdqprot2" # Prosocial
   
   
 )
