@@ -1242,15 +1242,15 @@ compare_correlation_weighted = function(
   
 }
 
- # I COULD TRY TO MAKE THE INTERNAL VAR NAMES CLEARER?
 compare_ace_weighted = function(
   dfy    = df_y_boot_wide, 
   w      = df_weights_wide,                     # nxp matrix, with weights for each variable on each column
-  rq5y   = rq5y,
-  sexzyg = sexzyg
+  rq5y   = rq5y
   ){
-  
-  if (nrow(dfy) != nrow(w)) warning("input data doesn't match!")  
+  # browser()
+  umx::umx_set_silent(TRUE)
+
+  if (nrow(dfy) != nrow(w)) stop("input data doesn't match!")  
   
   w0 = w %>%
     select(starts_with("missing")) %>%
@@ -1260,7 +1260,7 @@ compare_ace_weighted = function(
   
   # Males Comparison
   
-  ace_unweighted_male = 
+  ace_unweighted_male =
   lapply(rq5y, function(var)
     umx::umxACE(
       selDVs = var,
@@ -1276,19 +1276,33 @@ compare_ace_weighted = function(
   names(ace_unweighted_male) = rq5y
   
   male_unweighted_estimates = sapply(ace_unweighted_male, function(x)
-    umxSummary(
-      x, 
-      digits = 8,
-      CIs = FALSE
-    )
-  )
+    x$output$estimate[3:5]^2 / sum(x$output$estimate[3:5]^2)
+    ) %>%
+    `rownames<-`(c("a","c","e"))
   
+  # Check results against alternative approaches (all good)
+  # male_unweighted_estimates_old = sapply(ace_unweighted_male, function(x)
+  #   as.numeric(umxSummary(
+  #     x,
+  #     digits = 8,
+  #     CIs = FALSE,
+  #     silent = TRUE
+  #   ) )^2
+  # )
+  # (male_unweighted_estimates- male_unweighted_estimates_old)
+
+  # umxSummary(ace_unweighted_male[[1]])
+  # dfy %>%
+  #   filter(sexzyg_1 %in% c("MZ male", "DZ male")) %>%
+  #   mutate(x3zygos = ifelse(sexzyg_1=="MZ male", "MZ", "DZ same sex")) %>%
+  #   calc_ace(data = ., var = "zmhhqual1_")
+
   male_unweighted_estimates = male_unweighted_estimates %>%
     data.frame() %>%
     rownames_to_column(var = "par") %>%
     pivot_longer(cols = !starts_with("par")) %>%
     mutate(
-      value = as.numeric(value)^2,
+      value = as.numeric(value),
       sex   = "male",
       group = "unweighted"
     )
@@ -1310,19 +1324,17 @@ compare_ace_weighted = function(
   names(ace_weighted_male) = rq5y
   
   male_weighted_estimates = sapply(ace_weighted_male, function(x)
-    umxSummary(
-      x, 
-      digits = 8,
-      CIs = FALSE
-    )
-  )
+    x$output$estimate[3:5]^2 / sum(x$output$estimate[3:5]^2)
+  ) %>%
+    `rownames<-`(c("a","c","e"))
+  
   
   male_weighted_estimates = male_weighted_estimates %>% 
     data.frame() %>%
     rownames_to_column(var = "par") %>%
     pivot_longer(cols = !starts_with("par")) %>%
     mutate(
-      value = as.numeric(value)^2,
+      value = as.numeric(value),
       sex   = "male",
       group = "weighted"
     )
@@ -1350,19 +1362,16 @@ compare_ace_weighted = function(
   names(ace_unweighted_female) = rq5y
   
  female_unweighted_estimates = sapply(ace_unweighted_female, function(x)
-    umxSummary(
-      x, 
-      digits = 8,
-      CIs = FALSE
-    )
-  )
+   x$output$estimate[3:5]^2 / sum(x$output$estimate[3:5]^2)
+ ) %>%
+   `rownames<-`(c("a","c","e"))
   
   female_unweighted_estimates = female_unweighted_estimates %>%
     data.frame() %>%
     rownames_to_column(var = "par") %>%
     pivot_longer(cols = !starts_with("par")) %>%
     mutate(
-      value = as.numeric(value)^2,
+      value = as.numeric(value),
       sex   = "female",
       group = "unweighted"
     )
@@ -1384,19 +1393,16 @@ compare_ace_weighted = function(
   names(ace_weighted_female) = rq5y
   
   female_weighted_estimates = sapply(ace_weighted_female, function(x)
-    umxSummary(
-      x, 
-      digits = 8,
-      CIs = FALSE
-    )
-  )
+    x$output$estimate[3:5]^2 / sum(x$output$estimate[3:5]^2)
+  ) %>%
+    `rownames<-`(c("a","c","e"))
   
   female_weighted_estimates = female_weighted_estimates %>% 
     data.frame() %>%
     rownames_to_column(var = "par") %>%
     pivot_longer(cols = !starts_with("par")) %>%
     mutate(
-      value = as.numeric(value)^2,
+      value = as.numeric(value),
       sex   = "female",
       group = "weighted"
     )
@@ -1404,7 +1410,7 @@ compare_ace_weighted = function(
   female_ace = rbind.data.frame(female_weighted_estimates, female_unweighted_estimates)
   
   female_ace_diff       = female_weighted_estimates
-  female_ace_diff$value = female_weighted_estimates$value - male_unweighted_estimates$value
+  female_ace_diff$value = female_weighted_estimates$value - female_unweighted_estimates$value
   
   out = list(
     male_ace,
@@ -1414,5 +1420,6 @@ compare_ace_weighted = function(
   )
   
 }
+
 
 

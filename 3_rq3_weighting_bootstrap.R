@@ -11,6 +11,7 @@
 source("0_load_data.R")
 
 B = 1600 # number of bootstraps 
+B = 8
 mice_iter = 10 # number of iterations for mice
 
 
@@ -232,7 +233,7 @@ compare_df_weighting = function(
     B            = NULL,                            # Number of bootstraps to perform
     save_weights = FALSE
     ){
-
+  
   if (nrow(df_y) != nrow(df_imputed_long)) warning("imputed and df nrows don't match")
   
   # Initialize results structure
@@ -256,9 +257,12 @@ compare_df_weighting = function(
     selected_rows = family_rows[as.character(boot_select_families)]
     selected_rows = unlist(selected_rows, use.names = FALSE)
     
-    df_y_boot     = df_y[selected_rows,]         # Data on outcome vars
-    df_miss_boot  = df_miss[selected_rows,]      # Data on whether there is missing data
-    df_x_boot     = df_x[selected_rows,]         # Baseline data to create propensity weights
+    df_y_boot        = df_y[selected_rows,]         # Data on outcome vars
+    df_miss_boot     = df_miss[selected_rows,]      # Data on whether there is missing data
+    df_x_boot        = df_x[selected_rows,]         # Baseline data to create propensity weights
+    randomfamid_boot = randomfamid[selected_rows]
+    random_boot      = random[selected_rows]
+    sexzyg_boot      = sexzyg[selected_rows]
     
     logistic_models = list()
     
@@ -281,7 +285,7 @@ compare_df_weighting = function(
       df_weights[,i]         = 1 / prediction
     
     }
-    
+
     # Univariate Results - mds, smds, vars
     boot_results$md        = compare_md_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
     boot_results$smd       = compare_smd_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
@@ -290,13 +294,20 @@ compare_df_weighting = function(
     boot_results$cor_resid = compare_correlation_weighted(df_y_boot, df_weights)
     
     # ACE results - (needs to be wide formatted)
+    # browser()
     
-    df_y_boot_wide = cbind.data.frame(randomfamid, random, sexzyg, df_y_boot) %>% 
-      mutate(random = random + 1) %>%
+    df_y_boot_wide = cbind.data.frame(random_boot, sexzyg_boot, df_y_boot) %>% 
+      mutate(
+        boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach  
+        random_boot  = random_boot + 1
+        ) %>%
+      rename(
+        sexzyg = "sexzyg_boot",
+      ) %>%
       pivot_wider(
-        id_cols      = randomfamid,
-        names_from   = random,
-        values_from  = -c(randomfamid, random),
+        id_cols      = boot_id,
+        names_from   = random_boot,
+        values_from  = -c(random_boot, boot_id),
         names_sep    = "_"
       )
     
@@ -304,27 +315,32 @@ compare_df_weighting = function(
     df_weights_wide = df_weights[,missingcode_table_univariate$missingcode] %>%
       data.frame() %>%
       mutate(
-        randomfamid  = randomfamid,
+        boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),
       ) %>%
-      group_by(randomfamid) %>%
+      group_by(boot_id) %>%
       summarise(across(everything(), function(x) mean(x^-1)^-1))
     
     # Supress messages is for annoying openMX output
     boot_results$ace = compare_ace_weighted(
         dfy    = df_y_boot_wide,
         w      = df_weights_wide,
-        rq5y    = rq5y,
-        sexzyg = sexzyg
+        rq5y    = rq5y
     )
   
   return(boot_results)
 }
 
-# set.seed(1)
-# test = compare_df_weighting( )
+set.seed(1)
+umx::umx_set_silent(value=TRUE)
+test = compare_df_weighting( )
+
+# test$ace[[1]] %>%
+#   # filter(name == "lcg1") %>%
+#   group_by(group, name) %>%
+#   summarise(sum = sum(value))
 
 # Set up parallel processing
-plan(multisession, workers = parallel::detectCores())
+plan(multisession, workers = parallel::detectCores()/2)
 
 ta = Sys.time()
 
