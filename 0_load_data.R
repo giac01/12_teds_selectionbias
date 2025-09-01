@@ -1,7 +1,10 @@
 # Load Libraries and Data ------------------------------------------------------
 
-rm(list=ls())
+rm(list=ls(all.names = TRUE))
 
+library(gbtoolbox)  # devtools::install_github("giac01/gbtoolbox")
+library(OpenMx)
+library(umx)
 library(ggh4x)
 library(gt)
 library(weights)
@@ -43,6 +46,10 @@ df0$amohqualn2       = 0
 df0$asingle          = 0
 df0$anoldsibn        = 0
 df0$anyngsibn        = 0
+df0$lsdqext1         = 0
+df0$psdqext1         = 0
+df0$usdqext1         = 0 
+df0$zsdqext1         = 0
 
 attr(df0[["pollution1998pca"]], "label") = "Principal Component of 1998 pollution variables"
 attr(df0[["amohqualn"]],        "label") = "Maternal Education (formatted as numeric)"
@@ -51,7 +58,10 @@ attr(df0[["amohqualn2"]],       "label") = "Maternal Education (formatted as num
 attr(df0[["asingle"]],          "label") = "Single Parent"
 attr(df0[["anoldsibn"]],        "label") = "Number of older siblings (formatted as numeric variable)"
 attr(df0[["anyngsibn"]],        "label") = "Number of younger siblings (formatted as numeric variable)"
-
+attr(df0[["lsdqext1"]], "label") = "SDQ Externalising scale at 12"
+attr(df0[["psdqext1"]], "label") = "SDQ Externalising scale at 16"
+attr(df0[["usdqext1"]], "label") = "SDQ Externalising scale at 21"
+attr(df0[["zsdqext1"]], "label") = "SDQ Externalising scale at 26"
 
 df = df0
 
@@ -328,6 +338,7 @@ x = df %>%
 
 df$pollution1998pca = as.numeric(x$scores)
 
+rm(x)
 # Reset attributes -------------------------------------------------------------
 
 all_vars = colnames(df)
@@ -545,5 +556,5 @@ exclude_fams_onesib = df %>%
   pull(randomfamid) %>%
   as.character()
 
-# saveRDS(df, file = file.path("data","df.Rds"))
+# saveRDS(df, file = file.path("data","df_old.Rds"))
 
