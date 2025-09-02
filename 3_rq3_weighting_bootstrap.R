@@ -1,6 +1,6 @@
 
 # Docker image  bignardig/tidyverse451:v5
-# CODE REVIEW STATUS: reviewed again 1/sep/25. Could check internal functions again? 
+# CODE REVIEW STATUS: reviewed again 1/sep/25. Might want to review ACE estimation method with Tom
 
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -230,8 +230,7 @@ compare_df_weighting = function(
     randomfamid  = pull(df, randomfamid),
     random       = pull(df, random),
     sexzyg       = pull(df, sexzyg),
-    B            = NULL,                            # Number of bootstraps to perform
-    save_weights = FALSE
+    B            = NULL
     ){
   
   if (nrow(df_y) != nrow(df_imputed_long)) warning("imputed and df nrows don't match")
@@ -347,7 +346,9 @@ ta = Sys.time()
 weighted_comparisons = future_lapply(1:B, function(i) {
   compare_df_weighting()
 }, 
-future.seed = 1)  
+future.seed = 1,
+future.packages = c("umx","OpenMX")
+)  
 
 tb = Sys.time()
 print(tb - ta)
@@ -403,4 +404,3 @@ bootstrap_summary = lapply(bootstrap_summary, function(x) bind_rows(x, .id = "va
 bootstrap_summary = bind_rows(bootstrap_summary, .id = "stat")
   
 saveRDS(bootstrap_summary, file = file.path("results", "3_weighted_comparisons_bootstrap.Rds"))
-

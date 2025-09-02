@@ -1242,6 +1242,50 @@ compare_correlation_weighted = function(
   
 }
 
+.safe_umxACE = function(
+    selDVs, 
+    mzData, 
+    dzData, 
+    sep = "_", 
+    equateMeans = FALSE, 
+    addCI = FALSE, 
+    intervals = FALSE, 
+    weightVar = NULL) {
+  tryCatch({
+    if (is.null(weightVar)) {
+      model = umx::umxACE(
+        selDVs = selDVs,
+        mzData = mzData,
+        dzData = dzData, 
+        sep = sep,
+        equateMeans = equateMeans,
+        addCI = addCI,
+        intervals = intervals
+      )
+    } else {
+      model = umx::umxACE(
+        selDVs = selDVs,
+        mzData = mzData,
+        dzData = dzData, 
+        sep = sep,
+        equateMeans = equateMeans,
+        addCI = addCI,
+        intervals = intervals,
+        weightVar = weightVar
+      )
+    }
+    
+    # Extract ACE estimates as proportions
+    estimates = model$output$estimate[3:5]^2 / sum(model$output$estimate[3:5]^2)
+    names(estimates) = c("a", "c", "e")
+    return(estimates)
+    
+  }, error = function(e) {
+    warning("umxACE failed for ", selDVs, ": ", e$message)
+    return(c(a = NA, c = NA, e = NA))
+  })
+}
+
 compare_ace_weighted = function(
   dfy    = df_y_boot_wide, 
   w      = df_weights_wide,                     # nxp matrix, with weights for each variable on each column
@@ -1260,24 +1304,13 @@ compare_ace_weighted = function(
   
   # Males Comparison
   
-  ace_unweighted_male =
-  lapply(rq5y, function(var)
-    umx::umxACE(
+  male_unweighted_estimates = sapply(rq5y, function(var)
+    .safe_umxACE(
       selDVs = var,
       mzData = filter(dfy, sexzyg_1 == "MZ male"),
-      dzData = filter(dfy, sexzyg_1 == "DZ male"), 
-      sep = "_",
-      equateMeans = FALSE,
-      addCI = FALSE,
-      intervals = FALSE
+      dzData = filter(dfy, sexzyg_1 == "DZ male")
     )
-  )
-
-  names(ace_unweighted_male) = rq5y
-  
-  male_unweighted_estimates = sapply(ace_unweighted_male, function(x)
-    x$output$estimate[3:5]^2 / sum(x$output$estimate[3:5]^2)
-    ) %>%
+  ) %>%
     `rownames<-`(c("a","c","e"))
   
   # Check results against alternative approaches (all good)
@@ -1307,26 +1340,16 @@ compare_ace_weighted = function(
       group = "unweighted"
     )
   
-  ace_weighted_male = 
-    lapply(seq_along(rq5y), function(i)
-      umx::umxACE(
-        selDVs = rq5y[i],
-        mzData = filter(dfy, sexzyg_1 == "MZ male"),
-        dzData = filter(dfy, sexzyg_1 == "DZ male"), 
-        sep = "_",
-        equateMeans = FALSE,
-        addCI = FALSE,
-        intervals = FALSE,
-        weightVar = paste0("w",i)
-      )
+  male_weighted_estimates = sapply(seq_along(rq5y), function(i)
+    .safe_umxACE(
+      selDVs = rq5y[i],
+      mzData = filter(dfy, sexzyg_1 == "MZ male"),
+      dzData = filter(dfy, sexzyg_1 == "DZ male"),
+      weightVar = paste0("w",i)
     )
-  
-  names(ace_weighted_male) = rq5y
-  
-  male_weighted_estimates = sapply(ace_weighted_male, function(x)
-    x$output$estimate[3:5]^2 / sum(x$output$estimate[3:5]^2)
   ) %>%
-    `rownames<-`(c("a","c","e"))
+    `rownames<-`(c("a","c","e")) %>%
+    `colnames<-`(rq5y)
   
   
   male_weighted_estimates = male_weighted_estimates %>% 
@@ -1346,25 +1369,14 @@ compare_ace_weighted = function(
   
   # Females Comparison
   
-  ace_unweighted_female = 
-    lapply(rq5y, function(var)
-      umx::umxACE(
-        selDVs = var,
-        mzData = filter(dfy, sexzyg_1 == "MZ female"),
-        dzData = filter(dfy, sexzyg_1 == "DZ female"), 
-        sep = "_",
-        equateMeans = FALSE,
-        addCI = FALSE,
-        intervals = FALSE
-      )
+  female_unweighted_estimates = sapply(rq5y, function(var)
+    .safe_umxACE(
+      selDVs = var,
+      mzData = filter(dfy, sexzyg_1 == "MZ female"),
+      dzData = filter(dfy, sexzyg_1 == "DZ female")
     )
-  
-  names(ace_unweighted_female) = rq5y
-  
- female_unweighted_estimates = sapply(ace_unweighted_female, function(x)
-   x$output$estimate[3:5]^2 / sum(x$output$estimate[3:5]^2)
- ) %>%
-   `rownames<-`(c("a","c","e"))
+  ) %>%
+    `rownames<-`(c("a","c","e"))
   
   female_unweighted_estimates = female_unweighted_estimates %>%
     data.frame() %>%
@@ -1376,26 +1388,16 @@ compare_ace_weighted = function(
       group = "unweighted"
     )
   
-  ace_weighted_female = 
-    lapply(seq_along(rq5y), function(i)
-      umx::umxACE(
-        selDVs = rq5y[i],
-        mzData = filter(dfy, sexzyg_1 == "MZ female"),
-        dzData = filter(dfy, sexzyg_1 == "DZ female"), 
-        sep = "_",
-        equateMeans = FALSE,
-        addCI = FALSE,
-        intervals = FALSE,
-        weightVar = paste0("w",i)
-      )
+  female_weighted_estimates = sapply(seq_along(rq5y), function(i)
+    .safe_umxACE(
+      selDVs = rq5y[i],
+      mzData = filter(dfy, sexzyg_1 == "MZ female"),
+      dzData = filter(dfy, sexzyg_1 == "DZ female"),
+      weightVar = paste0("w",i)
     )
-  
-  names(ace_weighted_female) = rq5y
-  
-  female_weighted_estimates = sapply(ace_weighted_female, function(x)
-    x$output$estimate[3:5]^2 / sum(x$output$estimate[3:5]^2)
   ) %>%
-    `rownames<-`(c("a","c","e"))
+    `rownames<-`(c("a","c","e")) %>%
+    `colnames<-`(rq5y)
   
   female_weighted_estimates = female_weighted_estimates %>% 
     data.frame() %>%
