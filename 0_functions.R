@@ -191,140 +191,6 @@ clean_rq1y_label = function(x){
   )
 }
 
-compare_hellinger = function(df1, df2){
-  
-  # Figure out if each column should be treated as discerete or continuous 
-  
-  n_categories = apply(df2, 2, function(x) length(unique(x)))
-  
-  var_type     = ifelse(n_categories<200, "discrete", "continuous")
-  
-  out = vector() # vector of H values for each column in df1/df2 
-  
-  for(i in 1:ncol(df1)){
-    # print(var_type[i])
-    if (var_type[i]=="continuous"){
-      out[i] =.safe_hellinger(
-        cleanvar(df1[,i]),
-        cleanvar(df2[,i])
-      )
-    }
-    
-    if (var_type[i]=="discrete"){
-      out[i] = .hellinger_discrete(
-        cleanvar(df1[,i]),
-        cleanvar(df2[,i])
-      )
-    }
-  }
-  
-  return(out)
-  # return(
-  #   sapply(1:ncol(df1), function(i) 
-  #     .safe_hellinger(
-  #       cleanvar(df1[,i]),
-  #       cleanvar(df2[,i])
-  #     )
-  #   )
-  # )
-}
-
-calc_smd = function(x,y){
-  md        = mean(x, na.rm = TRUE) - mean(y, na.rm = TRUE)
-  # pooled_sd = sqrt((sd(x, na.rm = TRUE)^2 + sd(y, na.rm = TRUE)^2)/2)
-  sd_y      = sd(y, na.rm = TRUE)
-  return(md / sd_y)
-}
-
-calc_md = function(x,y){
-  md        = mean(x, na.rm = TRUE) - mean(y, na.rm = TRUE)
-  return(md)
-}
-
-compare_smd = function(df1, df2){
-  return(
-    sapply(1:ncol(df1), function(i) 
-      calc_smd(
-        cleanvar(df1[,i]),
-        cleanvar(df2[,i])
-      )
-    )
-  )
-}
-
-
-compare_md = function(df1, df2){
-  return(
-    sapply(1:ncol(df1), function(i) 
-      calc_md(
-        cleanvar(df1[,i]),
-        cleanvar(df2[,i])
-      )
-    )
-  )
-}
-
-compare_var = function(df1, df2){
-  return(
-    sapply(1:ncol(df1), function(i) 
-        stats::var(cleanvar(df1[,i])) - stats::var(cleanvar(df2[,i]))
-    )
-  )
-}
-
-compare_correlation = function(df1, df2){
-  df1_cor = cor(df1, use = "pairwise.complete.obs")
-  df2_cor = cor(df2, use = "pairwise.complete.obs")
-  
-  residuals = df1_cor - df2_cor
-  residuals = residuals[lower.tri(residuals)]
-  
-  return(residuals)
-  
-}
-
-.boot_compare_df = function(df1, df2, B = 100){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
-  
-  # Initialize results structure
-  boot_results = list(
-    md        = list(),
-    smd       = list(),
-    h         = list(),
-    var       = list(),
-    cor_resid = list(),
-    srmr      = list()
-  )
-  
-  for (i in 1:B){
-    df1_boot = df1
-    df2_boot = df2
-    
-    families             = na.omit(unique(df1_boot$randomfamid))
-    boot_select_families = sample(families, length(families), replace = TRUE)
-    
-    family_rows   = split(seq_len(nrow(df1_boot)), df1_boot$randomfamid)
-    selected_rows = family_rows[as.character(boot_select_families)]
-    selected_rows = unlist(selected_rows, use.names = FALSE)
-    
-    df1_boot = df1_boot[selected_rows,]
-    df2_boot = df2_boot[selected_rows,]
-    
-    df1_boot$randomfamid = NULL
-    df2_boot$randomfamid = NULL
-
-    # Store results by metric type
-    boot_results$md[[i]]        = compare_md(df1_boot, df2_boot)
-    boot_results$smd[[i]]       = compare_smd(df1_boot, df2_boot)
-    boot_results$h[[i]]         = compare_hellinger(df1_boot, df2_boot)
-    boot_results$var[[i]]       = compare_var(df1_boot, df2_boot)
-    boot_results$cor_resid[[i]] = compare_correlation(df1_boot, df2_boot)
-    boot_results$srmr[[i]]      = calc_srmr2(df1_boot, df2_boot)
-  }
-  
-  return(boot_results)
-}
-
-
 .mean_qi_pd = function(x, .width = .95){
   out      = ggdist::mean_qi(x, .width = .width, na.rm = TRUE)
   pd       = as.numeric(bayestestR::p_direction(x))
@@ -418,6 +284,18 @@ calc_srmr2 = function(df1, df2){
   
   srmr = sqrt(mean(r))
   return(srmr)
+}
+
+calc_smd = function(x,y){
+  md        = mean(x, na.rm = TRUE) - mean(y, na.rm = TRUE)
+  # pooled_sd = sqrt((sd(x, na.rm = TRUE)^2 + sd(y, na.rm = TRUE)^2)/2)
+  sd_y      = sd(y, na.rm = TRUE)
+  return(md / sd_y)
+}
+
+calc_md = function(x,y){
+  md        = mean(x, na.rm = TRUE) - mean(y, na.rm = TRUE)
+  return(md)
 }
 
 
@@ -1421,6 +1299,131 @@ compare_ace_weighted = function(
     female_ace_diff
   )
   
+}
+
+# Imputation Differences Analyses ----------------------------------------------
+
+compare_hellinger = function(df1, df2){
+  
+  # Figure out if each column should be treated as discerete or continuous 
+  
+  n_categories = apply(df2, 2, function(x) length(unique(x)))
+  
+  var_type     = ifelse(n_categories<200, "discrete", "continuous")
+  
+  out = vector() # vector of H values for each column in df1/df2 
+  
+  for(i in 1:ncol(df1)){
+    # print(var_type[i])
+    if (var_type[i]=="continuous"){
+      out[i] =.safe_hellinger(
+        cleanvar(df1[,i]),
+        cleanvar(df2[,i])
+      )
+    }
+    
+    if (var_type[i]=="discrete"){
+      out[i] = .hellinger_discrete(
+        cleanvar(df1[,i]),
+        cleanvar(df2[,i])
+      )
+    }
+  }
+  
+  return(out)
+  # return(
+  #   sapply(1:ncol(df1), function(i) 
+  #     .safe_hellinger(
+  #       cleanvar(df1[,i]),
+  #       cleanvar(df2[,i])
+  #     )
+  #   )
+  # )
+}
+
+
+
+compare_smd = function(df1, df2){
+  return(
+    sapply(1:ncol(df1), function(i) 
+      calc_smd(
+        cleanvar(df1[,i]),
+        cleanvar(df2[,i])
+      )
+    )
+  )
+}
+
+
+compare_md = function(df1, df2){
+  return(
+    sapply(1:ncol(df1), function(i) 
+      calc_md(
+        cleanvar(df1[,i]),
+        cleanvar(df2[,i])
+      )
+    )
+  )
+}
+
+compare_var = function(df1, df2){
+  return(
+    sapply(1:ncol(df1), function(i) 
+      stats::var(cleanvar(df1[,i])) - stats::var(cleanvar(df2[,i]))
+    )
+  )
+}
+
+compare_correlation = function(df1, df2){
+  df1_cor = cor(df1, use = "pairwise.complete.obs")
+  df2_cor = cor(df2, use = "pairwise.complete.obs")
+  
+  residuals = df1_cor - df2_cor
+  residuals = residuals[lower.tri(residuals)]
+  
+  return(residuals)
+  
+}
+
+.boot_compare_df = function(df1, df2, B = 100){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
+  
+  # Initialize results structure
+  boot_results = list(
+    md        = list(),
+    smd       = list(),
+    h         = list(),
+    var       = list(),
+    cor_resid = list(),
+    srmr      = list()
+  )
+  
+  for (i in 1:B){
+    df1_boot = df1
+    df2_boot = df2
+    
+    families             = na.omit(unique(df1_boot$randomfamid))
+    boot_select_families = sample(families, length(families), replace = TRUE)
+    
+    family_rows   = split(seq_len(nrow(df1_boot)), df1_boot$randomfamid)
+    selected_rows = family_rows[as.character(boot_select_families)]
+    selected_rows = unlist(selected_rows, use.names = FALSE)
+    
+    df1_boot = df1_boot[selected_rows,]
+    df2_boot = df2_boot[selected_rows,]
+    
+    df1_boot$randomfamid = NULL
+    df2_boot$randomfamid = NULL
+    
+    # Store results by metric type
+    boot_results$md[[i]]        = compare_md(df1_boot, df2_boot)
+    boot_results$smd[[i]]       = compare_smd(df1_boot, df2_boot)
+    boot_results$h[[i]]         = compare_hellinger(df1_boot, df2_boot)
+    boot_results$var[[i]]       = compare_var(df1_boot, df2_boot)
+    boot_results$cor_resid[[i]] = compare_correlation(df1_boot, df2_boot)
+    boot_results$srmr[[i]]      = calc_srmr2(df1_boot, df2_boot)
+  }
+  
+  return(boot_results)
 }
 
 
