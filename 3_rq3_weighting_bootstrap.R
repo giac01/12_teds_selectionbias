@@ -1,18 +1,25 @@
 
 # Docker image  bignardig/tidyverse451:v5
 # CODE REVIEW STATUS: reviewed again 1/sep/25. Might want to review ACE estimation method with Tom
-
+# Running using Rscript seemed to help with parellelisation
+# 3000 reps took 1.63 hours on 32 cores
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load data --------------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+Sys.setenv(OMP_NUM_THREADS = 1)
+Sys.setenv(MKL_NUM_THREADS = 1)
+Sys.setenv(OPENBLAS_NUM_THREADS = 1)
 
 
 source("0_load_data.R")
 
-B = 1600 # number of bootstraps 
-B = 8
-mice_iter = 10 # number of iterations for mice
+# ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# Arguments --------------------------------------------------------------------
+# ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+B = 3000 # number of bootstraps 
+mice_iter = 20 # number of iterations for mice
 
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -222,112 +229,7 @@ test_that("Imputed data matches original data structure and values", {
 # Main Analysis: Bootstrap weighting comparisons ------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-
-compare_df_weighting = function(
-    df_y         = select(df, all_of(rq5y)),                         # Data on outcome variables that we want to compare pre- and post- weighting
-    df_miss      = select(df, starts_with("missing")),
-    df_x         = select(df_imputed_long, all_of(rq1x)),                              # Explanatory variables used for creating weights (baseline data in our case)
-    randomfamid  = pull(df, randomfamid),
-    random       = pull(df, random),
-    sexzyg       = pull(df, sexzyg),
-    B            = NULL
-    ){
-  
-  if (nrow(df_y) != nrow(df_imputed_long)) warning("imputed and df nrows don't match")
-  
-  # Initialize results structure
-  boot_results = list(
-    md        = list(),
-    smd       = list(),
-    # h         = list(),
-    var       = list(),
-    cor_resid = list(),
-    ace       = list()
-    # srmr      = list()
-  )
-  
-  families                = na.omit(unique(randomfamid))
-  
-  if (length(families)*2 != nrow(df_imputed_long)) warning("length(families) != length(df_imputed_long)")
-  
-    boot_select_families = sample(families, length(families), replace = TRUE)
-    
-    family_rows   = split(seq_len(nrow(df_y)), randomfamid)
-    selected_rows = family_rows[as.character(boot_select_families)]
-    selected_rows = unlist(selected_rows, use.names = FALSE)
-    
-    df_y_boot        = df_y[selected_rows,]         # Data on outcome vars
-    df_miss_boot     = df_miss[selected_rows,]      # Data on whether there is missing data
-    df_x_boot        = df_x[selected_rows,]         # Baseline data to create propensity weights
-    randomfamid_boot = randomfamid[selected_rows]
-    random_boot      = random[selected_rows]
-    sexzyg_boot      = sexzyg[selected_rows]
-    
-    logistic_models = list()
-    
-    model_data    = cbind.data.frame(df_miss_boot, df_x_boot)
-    
-    df_weights    = matrix(data = NA, nrow = nrow(df_miss_boot), ncol = ncol(df_miss_boot))
-    
-    colnames(df_weights) = colnames(df_miss_boot)
-    
-    if(!all(sapply(model_data, function(x) length(which(is.na(x)))==0))) warning("Missing data in weights calculation")
-    
-    for (i in seq_along(df_miss_boot)){
-
-      formula                = as.formula(paste(colnames(df_miss_boot)[i], "~", paste(colnames(df_x_boot), collapse = "+")))
-      logistic_models[[i]]   = speedglm::speedglm(formula, data = model_data, family = binomial(), na.action = na.exclude, fitted = TRUE)  # this version of logistic regression takes almost half the time...
-      prediction             = predict(logistic_models[[i]], type = "response", na.action = na.exclude)
-      
-      if (length(prediction)!=nrow(df_miss_boot)) stop("error with predictions")
-      
-      df_weights[,i]         = 1 / prediction
-    
-    }
-
-    # Univariate Results - mds, smds, vars
-    boot_results$md        = compare_md_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
-    boot_results$smd       = compare_smd_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
-    boot_results$var       = compare_var_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
-    # Pairwise results - cors
-    boot_results$cor_resid = compare_correlation_weighted(df_y_boot, df_weights)
-    
-    # ACE results - (needs to be wide formatted)
-    # browser()
-    
-    df_y_boot_wide = cbind.data.frame(random_boot, sexzyg_boot, df_y_boot) %>% 
-      mutate(
-        boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach  
-        random_boot  = random_boot + 1
-        ) %>%
-      rename(
-        sexzyg = "sexzyg_boot",
-      ) %>%
-      pivot_wider(
-        id_cols      = boot_id,
-        names_from   = random_boot,
-        values_from  = -c(random_boot, boot_id),
-        names_sep    = "_"
-      )
-    
-    # Average probabilities over twins, then calculate weights 
-    df_weights_wide = df_weights[,missingcode_table_univariate$missingcode] %>%
-      data.frame() %>%
-      mutate(
-        boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),
-      ) %>%
-      group_by(boot_id) %>%
-      summarise(across(everything(), function(x) mean(x^-1)^-1))
-    
-    # Supress messages is for annoying openMX output
-    boot_results$ace = compare_ace_weighted(
-        dfy    = df_y_boot_wide,
-        w      = df_weights_wide,
-        rq5y    = rq5y
-    )
-  
-  return(boot_results)
-}
+# Could move this to 0_functions.R script! 
 
 set.seed(1)
 umx::umx_set_silent(value=TRUE)
@@ -338,8 +240,11 @@ test = compare_df_weighting( )
 #   group_by(group, name) %>%
 #   summarise(sum = sum(value))
 
+umx::umx_set_cores(cores = 1)
+print("start analysis")
+
 # Set up parallel processing
-plan(multisession, workers = parallel::detectCores()/2)
+plan(multisession, workers = 26)
 
 ta = Sys.time()
 

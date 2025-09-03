@@ -95,6 +95,10 @@ saveRDS(variable_comparisons_df, file = file.path("results", "2_variable_compari
 
 # Run ACE Analyses -------------------------------------------------------------
 
+# ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+# This section needs updating, as i've depreviated compare_ace - should use newer approach! 
+
 rq2y_prefix = rq2y_prefix[-1] # We don't want to analyse maternal education here as its shared between twins 
 
 # rq2y_prefix = rq2y_prefix[-1]
@@ -116,7 +120,7 @@ plan(multisession, workers = 12)
 ta = Sys.time()
 
 ace_comparisons = future_lapply(seq_along(rq2y_prefix), function(i) {
-  compare_ace(
+  compare_ace( 
     df2 = attritioned_datasets_twin1,
     df1 = original_dataset_twin1,
     var = rq2y_prefix[i],   # Variable that we want to calculate ACE estimates for 

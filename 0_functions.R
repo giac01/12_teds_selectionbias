@@ -1,3 +1,5 @@
+# Miscellaneous analysis functions ---------------------------------------------
+
 save_plot <- function(filename, width = 5, height = 8, plot = last_plot()) {
   ggsave(file.path("plots", "pdfs", paste0(filename, ".pdf")), plot, width = width, height = height)
   ggsave(file.path("plots", "pngs", paste0(filename, ".png")), plot, width = width, height = height, bg = "transparent", dpi = 600)
@@ -199,33 +201,6 @@ clean_rq1y_label = function(x){
   out$pval = pval
   return(out)
 }
-
-compare_df = function(df1, df2, B = 10){
-  
-  boot_results = .boot_compare_df(df1, df2, B = B)
-  
-  md_df   = do.call(rbind, boot_results$md)
-  smd_df  = do.call(rbind, boot_results$smd)
-  h_df    = do.call(rbind, boot_results$h)
-  var_df  = do.call(rbind, boot_results$var)
-  cor_df  = do.call(rbind, boot_results$cor_resid)
-  srmr_df = do.call(rbind, boot_results$srmr)
-  
-
-  bootstrap_iter = list(md_df, smd_df, h_df, var_df, cor_df, srmr_df)
-  names(bootstrap_iter) = c("md", "smd", "h", "var", "cor_resid", "srmr")
-  
-  bootstrap_summary = lapply(bootstrap_iter, function(df)
-    apply(df,2, function(xx).mean_qi_pd(xx))
-  )
-  
-  out = list(bootstrap_summary, bootstrap_iter)
-  
-  names(out) = c("bootstrap_summary", "bootstrap_iter")
-  
-  return(out)
-}
-
 
 .square <- function(x) {
   return(x^2)
@@ -613,7 +588,7 @@ calc_ace_binary = function(
 
 # THIS BOOTSTRAPPING CODE NEEDS TO BE UPDATED TO USE CLUSTER-BASED BOOTSTRAP! 
 # This function is used in rq2
-compare_ace = function(
+compare_ace_depreciated = function(
     var = var,
     B = 10,
     df1 = NULL, # Original dataset
@@ -710,7 +685,7 @@ compare_ace = function(
 # )
 
 # This function is used in rq5 
-compare_ace_imputation = function(
+compare_ace_imputation_depreciated = function(
     var = rq5y_prefix,
     df1 = NULL,            # original data
     B = 10,
@@ -1026,6 +1001,34 @@ glm_model_comparison_robust = function(full_model, cluster_var = "famid") {
   return(comparison_df)
 }
 
+# Attritioning Analysis --------------------------------------------------------
+# I think this function could be depreciated and I could just use .boot_compare_df instead...
+compare_df = function(df1, df2, B = 10){
+  
+  boot_results = .boot_compare_df(df1, df2, B = B)
+  
+  md_df   = do.call(rbind, boot_results$md)
+  smd_df  = do.call(rbind, boot_results$smd)
+  h_df    = do.call(rbind, boot_results$h)
+  var_df  = do.call(rbind, boot_results$var)
+  cor_df  = do.call(rbind, boot_results$cor_resid)
+  srmr_df = do.call(rbind, boot_results$srmr)
+  
+  
+  bootstrap_iter = list(md_df, smd_df, h_df, var_df, cor_df, srmr_df)
+  names(bootstrap_iter) = c("md", "smd", "h", "var", "cor_resid", "srmr")
+  
+  bootstrap_summary = lapply(bootstrap_iter, function(df)
+    apply(df,2, function(xx).mean_qi_pd(xx))
+  )
+  
+  out = list(bootstrap_summary, bootstrap_iter)
+  
+  names(out) = c("bootstrap_summary", "bootstrap_iter")
+  
+  return(out)
+}
+
 # Weighted differences analysis ------------------------------------------------
 
 compare_md_weighted = function(
@@ -1301,6 +1304,114 @@ compare_ace_weighted = function(
   
 }
 
+
+compare_df_weighting = function(
+    df_y         = select(df, all_of(rq5y)),                         # Data on outcome variables that we want to compare pre- and post- weighting
+    df_miss      = select(df, starts_with("missing")),
+    df_x         = select(df_imputed_long, all_of(rq1x)),                              # Explanatory variables used for creating weights (baseline data in our case)
+    randomfamid  = pull(df, randomfamid),
+    random       = pull(df, random),
+    sexzyg       = pull(df, sexzyg),
+    B            = NULL
+){
+  
+  if (nrow(df_y) != nrow(df_imputed_long)) warning("imputed and df nrows don't match")
+  
+  # Initialize results structure
+  boot_results = list(
+    md        = list(),
+    smd       = list(),
+    # h         = list(),
+    var       = list(),
+    cor_resid = list(),
+    ace       = list()
+    # srmr      = list()
+  )
+  
+  families                = na.omit(unique(randomfamid))
+  
+  if (length(families)*2 != nrow(df_imputed_long)) warning("length(families) != length(df_imputed_long)")
+  
+  boot_select_families = sample(families, length(families), replace = TRUE)
+  
+  family_rows   = split(seq_len(nrow(df_y)), randomfamid)
+  selected_rows = family_rows[as.character(boot_select_families)]
+  selected_rows = unlist(selected_rows, use.names = FALSE)
+  
+  df_y_boot        = df_y[selected_rows,]         # Data on outcome vars
+  df_miss_boot     = df_miss[selected_rows,]      # Data on whether there is missing data
+  df_x_boot        = df_x[selected_rows,]         # Baseline data to create propensity weights
+  randomfamid_boot = randomfamid[selected_rows]
+  random_boot      = random[selected_rows]
+  sexzyg_boot      = sexzyg[selected_rows]
+  
+  logistic_models = list()
+  
+  model_data    = cbind.data.frame(df_miss_boot, df_x_boot)
+  
+  df_weights    = matrix(data = NA, nrow = nrow(df_miss_boot), ncol = ncol(df_miss_boot))
+  
+  colnames(df_weights) = colnames(df_miss_boot)
+  
+  if(!all(sapply(model_data, function(x) length(which(is.na(x)))==0))) warning("Missing data in weights calculation")
+  
+  for (i in seq_along(df_miss_boot)){
+    
+    formula                = as.formula(paste(colnames(df_miss_boot)[i], "~", paste(colnames(df_x_boot), collapse = "+")))
+    logistic_models[[i]]   = speedglm::speedglm(formula, data = model_data, family = binomial(), na.action = na.exclude, fitted = TRUE)  # this version of logistic regression takes almost half the time...
+    prediction             = predict(logistic_models[[i]], type = "response", na.action = na.exclude)
+    
+    if (length(prediction)!=nrow(df_miss_boot)) stop("error with predictions")
+    
+    df_weights[,i]         = 1 / prediction
+    
+  }
+  
+  # Univariate Results - mds, smds, vars
+  boot_results$md        = compare_md_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
+  boot_results$smd       = compare_smd_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
+  boot_results$var       = compare_var_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
+  # Pairwise results - cors
+  boot_results$cor_resid = compare_correlation_weighted(df_y_boot, df_weights)
+  
+  # ACE results - (needs to be wide formatted)
+  # browser()
+  
+  df_y_boot_wide = cbind.data.frame(random_boot, sexzyg_boot, df_y_boot) %>% 
+    mutate(
+      boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach  
+      random_boot  = random_boot + 1
+    ) %>%
+    rename(
+      sexzyg = "sexzyg_boot",
+    ) %>%
+    pivot_wider(
+      id_cols      = boot_id,
+      names_from   = random_boot,
+      values_from  = -c(random_boot, boot_id),
+      names_sep    = "_"
+    )
+  
+  # Average probabilities over twins, then calculate weights 
+  df_weights_wide = df_weights[,missingcode_table_univariate$missingcode] %>%
+    data.frame() %>%
+    mutate(
+      boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),
+    ) %>%
+    group_by(boot_id) %>%
+    summarise(across(everything(), function(x) mean(x^-1)^-1))
+  
+  # Supress messages is for annoying openMX output
+  boot_results$ace = compare_ace_weighted(
+    dfy    = df_y_boot_wide,
+    w      = df_weights_wide,
+    rq5y    = rq5y
+  )
+  
+  return(boot_results)
+}
+
+
 # Imputation Differences Analyses ----------------------------------------------
 
 compare_hellinger = function(df1, df2){
@@ -1385,7 +1496,111 @@ compare_correlation = function(df1, df2){
   
 }
 
-.boot_compare_df = function(df1, df2, B = 100){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
+compare_ace = function(df1, df2, rq5y = rq5y) {
+  # browser()
+  
+  umx::umx_set_silent(TRUE)
+  
+  if (nrow(df1) != nrow(df2)) stop("df1 and df2 must have same number of rows!")
+  
+  # Males Comparison
+  male_df1_estimates = sapply(rq5y, function(var)
+    .safe_umxACE(
+      selDVs = var,
+      mzData = filter(df1, sexzyg_boot_1 == "MZ male"),
+      dzData = filter(df1, sexzyg_boot_1 == "DZ male")
+    )
+  ) %>%
+    `rownames<-`(c("a","c","e"))
+  
+  male_df1_estimates = male_df1_estimates %>%
+    data.frame() %>%
+    rownames_to_column(var = "par") %>%
+    pivot_longer(cols = !starts_with("par")) %>%
+    mutate(
+      value = as.numeric(value),
+      sex   = "male",
+      group = "df1"
+    )
+  
+  male_df2_estimates = sapply(rq5y, function(var)
+    .safe_umxACE(
+      selDVs = var,
+      mzData = filter(df2, sexzyg_boot_1 == "MZ male"),
+      dzData = filter(df2, sexzyg_boot_1 == "DZ male")
+    )
+  ) %>%
+    `rownames<-`(c("a","c","e"))
+  
+  male_df2_estimates = male_df2_estimates %>%
+    data.frame() %>%
+    rownames_to_column(var = "par") %>%
+    pivot_longer(cols = !starts_with("par")) %>%
+    mutate(
+      value = as.numeric(value),
+      sex   = "male",
+      group = "df2"
+    )
+  
+  male_ace = rbind.data.frame(male_df1_estimates, male_df2_estimates)
+  
+  male_ace_diff = male_df1_estimates
+  male_ace_diff$value = male_df1_estimates$value - male_df2_estimates$value
+  male_ace_diff$group = "diff"
+  
+  # Females Comparison
+  female_df1_estimates = sapply(rq5y, function(var)
+    .safe_umxACE(
+      selDVs = var,
+      mzData = filter(df1, sexzyg_boot_1 == "MZ female"),
+      dzData = filter(df1, sexzyg_boot_1 == "DZ female")
+    )
+  ) %>%
+    `rownames<-`(c("a","c","e"))
+  
+  female_df1_estimates = female_df1_estimates %>%
+    data.frame() %>%
+    rownames_to_column(var = "par") %>%
+    pivot_longer(cols = !starts_with("par")) %>%
+    mutate(
+      value = as.numeric(value),
+      sex   = "female",
+      group = "df1"
+    )
+  
+  female_df2_estimates = sapply(rq5y, function(var)
+    .safe_umxACE(
+      selDVs = var,
+      mzData = filter(df2, sexzyg_boot_1 == "MZ female"),
+      dzData = filter(df2, sexzyg_boot_1 == "DZ female")
+    )
+  ) %>%
+    `rownames<-`(c("a","c","e"))
+  
+  female_df2_estimates = female_df2_estimates %>%
+    data.frame() %>%
+    rownames_to_column(var = "par") %>%
+    pivot_longer(cols = !starts_with("par")) %>%
+    mutate(
+      value = as.numeric(value),
+      sex   = "female",
+      group = "df2"
+    )
+  
+  female_ace = rbind.data.frame(female_df1_estimates, female_df2_estimates)
+  
+  female_ace_diff = female_df1_estimates
+  female_ace_diff$value = female_df1_estimates$value - female_df2_estimates$value
+  female_ace_diff$group = "diff"
+  
+  return(list(
+    ace_estimates = rbind(male_ace, female_ace),
+    ace_differences = rbind.data.frame(male_ace_diff, female_ace_diff)
+  ))
+}
+
+
+.boot_compare_df = function(df1, df2, B = 100, rq5y = rq5y){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
   
   # Initialize results structure
   boot_results = list(
@@ -1397,31 +1612,85 @@ compare_correlation = function(df1, df2){
     srmr      = list()
   )
   
+  # browser()
+  
+  if ((names(table(table(df1$randomfamid)))!="2")) {stop("This function assumes that dataset only includes pairs of twins and no signletons")}
+  if ((names(table(table(df2$randomfamid)))!="2")) {stop("This function assumes that dataset only includes pairs of twins and no signletons")}
+  
+  
   for (i in 1:B){
+
     df1_boot = df1
     df2_boot = df2
-    
+
     families             = na.omit(unique(df1_boot$randomfamid))
     boot_select_families = sample(families, length(families), replace = TRUE)
-    
+
     family_rows   = split(seq_len(nrow(df1_boot)), df1_boot$randomfamid)
     selected_rows = family_rows[as.character(boot_select_families)]
     selected_rows = unlist(selected_rows, use.names = FALSE)
-    
+
     df1_boot = df1_boot[selected_rows,]
     df2_boot = df2_boot[selected_rows,]
-    
-    df1_boot$randomfamid = NULL
-    df2_boot$randomfamid = NULL
-    
+
+    df1_boot_subset = df1_boot
+    df2_boot_subset = df2_boot
+
+    df1_boot_subset[,c("randomfamid","sexzyg")] = NULL
+    df2_boot_subset[,c("randomfamid","sexzyg")] = NULL
+
     # Store results by metric type
-    boot_results$md[[i]]        = compare_md(df1_boot, df2_boot)
-    boot_results$smd[[i]]       = compare_smd(df1_boot, df2_boot)
-    boot_results$h[[i]]         = compare_hellinger(df1_boot, df2_boot)
-    boot_results$var[[i]]       = compare_var(df1_boot, df2_boot)
-    boot_results$cor_resid[[i]] = compare_correlation(df1_boot, df2_boot)
-    boot_results$srmr[[i]]      = calc_srmr2(df1_boot, df2_boot)
+    boot_results$md[[i]]        = compare_md(         df1_boot_subset, df2_boot_subset)
+    boot_results$smd[[i]]       = compare_smd(        df1_boot_subset, df2_boot_subset)
+    boot_results$h[[i]]         = compare_hellinger(  df1_boot_subset, df2_boot_subset)
+    boot_results$var[[i]]       = compare_var(        df1_boot_subset, df2_boot_subset)
+    boot_results$cor_resid[[i]] = compare_correlation(df1_boot_subset, df2_boot_subset)
+    boot_results$srmr[[i]]      = calc_srmr2(         df1_boot_subset, df2_boot_subset)
+
+    # Compare ACE estimates
+
+    df1_boot_wide =
+    df1_boot %>%
+      mutate(
+        boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach
+        random_boot  = as.numeric(duplicated(boot_id)) + 1
+      ) %>%
+        rename(
+          sexzyg_boot = "sexzyg",
+        ) %>%
+        pivot_wider(
+          id_cols      = boot_id,
+          names_from   = random_boot,
+          values_from  = -c(random_boot, boot_id),
+          names_sep    = "_"
+        )
+    
+    df2_boot_wide = df2_boot %>%
+      mutate(
+        boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach
+        random_boot  = as.numeric(duplicated(boot_id)) + 1
+      ) %>%
+      rename(
+        sexzyg_boot = "sexzyg",
+      ) %>%
+      pivot_wider(
+        id_cols      = boot_id,
+        names_from   = random_boot,
+        values_from  = -c(random_boot, boot_id),
+        names_sep    = "_"
+      )
+    
+    boot_results$ace[[i]]        = compare_ace(
+      df1  = df1_boot_wide, 
+      df2  = df2_boot_wide,
+      rq5y = rq5y
+      )
+
+   
+    
   }
+  
+  
   
   return(boot_results)
 }

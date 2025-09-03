@@ -2,7 +2,7 @@
 
 source("0_load_data.R")
 
-number_imputations = 16 
+number_imputations = 8 
 
 number_iterations = 50 
 
