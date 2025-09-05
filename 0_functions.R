@@ -199,6 +199,7 @@ clean_rq1y_label = function(x){
   pval     = bayestestR::pd_to_p(pd)
   out$pd   = pd
   out$pval = pval
+  out$n    = sum(!is.na(x))
   return(out)
 }
 
@@ -321,6 +322,8 @@ plot_lower_triangular_matrix <- function(
 
 ) {
   
+  warning("this function is depreciated - use the newer version!")
+  
   rq2y <- get("rq2y", envir = parent.frame())
   rq2y_labels_short <- get("rq2y_labels_short", envir = parent.frame())
   
@@ -370,7 +373,7 @@ plot_lower_triangular_matrix <- function(
   
   # Create the plot
   p <- ggplot(plot_data, aes(x = x, y = y, fill = fill_value)) +
-    geom_tile(color = "white", size = 0.5) +
+    geom_tile(color = "white", linewidth = 0.5) +
     scale_fill_gradient2(low = "#d73027", mid = "white", high = "darkgreen", 
                          midpoint = 0, name = "Correlation", 
                          limits = c(-0.1, 0.1), na.value = "white") +
@@ -440,6 +443,14 @@ plot_lower_triangular_matrix2 <- function(
     stop("Length of 'variables' and 'labels' must be equal.")
   }
   
+  if (!all(unique(data[[x_var_col]]) %in% variables)){
+    stop("variables input should match x_var_col input")
+  }
+  
+  if (!all(unique(data[[y_var_col]]) %in% variables)){
+    stop("variables input should match y_var_col input")
+  }
+  
   # Create a data frame for plotting
   plot_data <- data.frame()
   
@@ -474,7 +485,7 @@ plot_lower_triangular_matrix2 <- function(
   # browser()
   # Create the plot
   p <- ggplot(plot_data, aes(x = x, y = y, fill = fill_value)) +
-    geom_tile(color = "white", size = 0.5) +
+    geom_tile(color = "white", linewidth = 0.5) +
     scale_fill_gradient2(low = "#d73027", mid = "white", high = "darkgreen", 
                          midpoint = 0, name = "Correlation", 
                          # limits = c(-0.1, 0.1), 

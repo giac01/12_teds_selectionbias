@@ -17,26 +17,55 @@ editor: source
 
 # Load data
 
+docker container used: bignardig/tidyverse451:v5
+
 
 ```{r}
 #| output: false
 
 source("0_load_data.R")
 
-bootstrap_summary_df = readRDS(file = file.path("results", "5_bootstrap_summary_df.Rds"))
-boot_compare_results = readRDS(file = file.path("results", "5_boot_compare_results.Rds"))
-ace_comparisons      = readRDS(file = file.path("results", "5_ace_comparisons.Rds"))
+bootstrap_summary_df     = readRDS(file = file.path("results", "5_bootstrap_summary_df.Rds"))
+bootstrap_summary_df_ace = readRDS(file = file.path("results", "5_bootstrap_summary_df_ace.Rds"))
+boot_compare_results     = readRDS(file = file.path("results", "5_boot_compare_results.Rds"))
+# ace_comparisons      = readRDS(file = file.path("results", "5_ace_comparisons.Rds"))
 
-imputed_mice = readRDS(file.path("results","5_1imputed_mice.Rds"))
+imputed_mice             = readRDS(file.path("results","5_1imputed_mice.Rds")) # Less-cleaned MICE output (useful for getting diagnostics...)
+
+original_variances   = sapply(rq5y, function(v) sd(df[[v]], na.rm = TRUE)^2)
+
+bootstrap_summary_df = bootstrap_summary_df %>%
+  group_by(parameter) %>%
+  mutate(
+    pval_adj = stats::p.adjust(pval, method = "holm"),
+    var_constant = original_variances[match(outcome,rq5y)]
+  ) %>%
+  ungroup() %>%
+  mutate(
+    y = case_when(
+      parameter == "var" ~ y / var_constant,
+      TRUE ~ y
+    ),
+    ymin = case_when(
+      parameter == "var" ~ ymin / var_constant,
+      TRUE ~ ymin
+    ),
+    ymax = case_when(
+      parameter == "var" ~ ymax / var_constant,
+      TRUE ~ ymax
+    ),
+  ) %>%
+  ungroup()
+
 
 ```
 
-## Load imputed dataset
+## Load imputed dataset (cominbed)
 
 ```{r}
 
 # Load the imputed dataset
-df_rq5_imputed <- readRDS(file.path("data", "df_rq5_imputed.Rds"))
+df_rq5_imputed <- readRDS(file.path("data", "df_rq5_imputed.Rds")) # Cleaned and put-together imputed data
 
 # Sample size
 
@@ -51,8 +80,8 @@ original_dataset <- df %>%
   filter(!(randomfamid %in% rq5_exclude_fams_2)) %>%                            # Exclude fams with less than 30% data on all imputed data (excluding baseline data)
   select(all_of(rq5y)) 
 
-imputed_dataset <- df_rq5_imputed %>%
-  select(all_of(rq5y))
+# imputed_dataset <- df_rq5_imputed %>%
+#   select(all_of(rq5y))
 
 ```
 
@@ -73,7 +102,7 @@ df %>%
     sample_size = FALSE
   )
 
-ggsave(filename = file.path("plots","5_3_plot_correlations_rq5y.pdf"), width = 5.3, height = 5.3)
+save_plot("5_3_descriptive_plot_correlations_rq5y", width = 5.3, height = 5.3)
 
 df %>%
   select(amohqualn,all_of(rq5y)) %>%
@@ -84,7 +113,7 @@ df %>%
     cluster_variables = FALSE
     )
 
-ggsave(filename = file.path("plots","5_3_plot_missing_correlations_rq5y.pdf"), width = 5.3, height = 5.3)
+save_plot("5_3_descriptive_plot_missing_correlations_rq5y", width = 5.3, height = 5.3)
 
 # takes a long time to run with all the vairables in 
 if(FALSE){
@@ -153,14 +182,13 @@ df %>%
     var_label = factor(var_label, levels = var_label)
   ) %>%                                                                          #pull(var_label) %>% duplicated() %>% table()
   arrange(percent_notmissing) %>%
-  
   ggplot(aes(x = percent_notmissing, y = var_label)) + 
   geom_col() +
   geom_vline(aes(xintercept=.2)) +
   theme_bw() +
   labs(x="Percent of not-missing data", y = NULL)
 # 
-ggsave(file.path("plots", "5_3_missing_data_frequency_auxillaryvars.pdf"), height = 32, width = 12)
+save_plot("5_3_descriptive_missing_data_frequency_auxillaryvars", width = 12, height = 32)
 
 df %>%
   select(any_of(rq5y)) %>%
@@ -169,7 +197,7 @@ df %>%
   as.data.frame() %>%
   rownames_to_column() %>%
   `colnames<-`(c("var","percent_notmissing")) %>%
-  mutate(var_label = factor(var, levels = rq5y, labels = rq5y_labels_short)) %>%
+  mutate(var_label = factor(var, levels = rev(rq5y), labels = rev(rq5y_labels_short))) %>%
   ggplot(aes(x = percent_notmissing, y = var_label)) + 
   geom_col() +
   geom_vline(aes(xintercept=.2)) +
@@ -177,12 +205,12 @@ df %>%
   theme_bw() +
   labs(x="Percent of not-missing data", y = NULL)
 
-ggsave(file.path("plots", "5_3_missing_data_frequency.pdf"), height = 32, width = 12)
+save_plot("5_3_descriptive_missing_data_frequency", width = 12, height = 32)
 
 df %>%
   select(cohort, any_of(rq5y)) %>%
   pivot_longer(cols = -cohort, names_to = "var", values_to = "value") %>%
-  mutate(var = factor(var, levels = rq5y, labels = rq5y_labels_short)) %>%
+  mutate(var = factor(var, levels = rev(rq5y), labels = rev(rq5y_labels_short))) %>%
   group_by(cohort, var) %>%
   summarise(
     total_n = dplyr::n(),
@@ -221,7 +249,7 @@ df %>%
   ) + 
   guides(fill = guide_legend(reverse = TRUE))
 
-ggsave(file.path("plots", "5_3_missing_data_frequency_bycohort.pdf"), height = 13, width = 8)
+save_plot("5_3_descriptive_missing_data_frequency_bycohort", width = 8, height = 13)
 
 
 ``` 
@@ -318,7 +346,7 @@ df %>%
 
 ```
 
-### Number of missing cells per participant for rq5y variables
+## Number of missing cells per participant for rq5y variables
 
 For the variables `r var_to_label(rq5y)`, how many cells is each participant missing. 
 
@@ -354,28 +382,7 @@ df %>%
 ```
 
 
-## How well can we predict missingness in the outcomes? 
-
-```{r}
-
-
-
-```
-
-# Compare univariate distributions (means, variances, pdfs)
-
-
-### Test for reliability of imputation
-
- to add 
- 
-```{r}
-
-
-
-```
-
-### Plot illustration showing how imputation works
+## Plot illustrating showing how imputation works
 
 ```{r}
 
@@ -394,194 +401,150 @@ df_rq5_imputed %>%
   ) + 
   theme_bw()
 
-ggsave(file = file.path("plots", "5_3_imputation_distribution.pdf"), width = 9, height = 6)
+save_plot("5_3_descriptive_imputation_distribution.pdf", width = 9, height = 6)
 
 df$lcg1 %>% sd(na.rm  =T)
 
 ```
 
-## Compare univariate distributions
+
+# Changes in means and variances
+
+## GT table
 
 ```{r}
 
-# Calculate comparisons using existing functions
-smd_values        = compare_smd(imputed_dataset, original_dataset)
-md_values         = compare_md(imputed_dataset, original_dataset)
-var_values        = compare_var(imputed_dataset, original_dataset)
-hellinger_values  = compare_hellinger(imputed_dataset, original_dataset)
-var_values        = compare_var(imputed_dataset, original_dataset)
+library(gt)
 
-# Create results dataframe
-comparison_results <- data.frame(
-  variable = names(original_dataset),
-  label    = var_to_label(names(original_dataset)),
-  smd = smd_values,
-  md = md_values,
-  var = var_values,
-  hellinger = hellinger_values,
-  stringsAsFactors = FALSE
-)
-# Display results
-comparison_results %>%
-  select(-variable) %>%
-  arrange(desc(abs(smd))) %>%
-  knitr::kable(caption = "Comparison of Original vs Imputed Data (POOLED ANALYSIS - NO CIS)", digits = 2)
-
-```
-
-
-## Plot distribution comparisons
-
-[Click here for full-size plot](plots/5_rq5_histogram_comparison.pdf){target="_blank"}
-
-
-```{r}
-
-# Create long format data for plotting
-original_long <- original_dataset %>%
-  mutate(dataset = "Original") %>%
-  pivot_longer(cols = -dataset, names_to = "variable", values_to = "value")
-
-imputed_long <- imputed_dataset %>%
-  # slice(1:1000) %>%
-  mutate(dataset = "Imputed") %>%
-  pivot_longer(cols = -dataset, names_to = "variable", values_to = "value")
-
-combined_long <- bind_rows(original_long, imputed_long) %>%
-  filter(!is.na(value)) %>%
-  mutate(
-    variable_label = factor(variable, levels = rq5y, labels = rq5y_labels_short)
+bootstrap_summary_df %>%
+  filter(parameter %in% c("md", "smd", "var")) %>%
+  mutate(outcome = rq5y_labels_short[match(.$outcome, rq5y)]) %>%
+  # group_by(parameter) %>%
+  # mutate(pval_adj = stats::p.adjust(pval, method = "holm")) %>%
+  select(-pd,-pval, -n) %>%
+  select(-starts_with(".")) %>%
+  pivot_wider(
+    values_from = c("y","ymin","ymax","pval_adj"),
+    names_from = c("parameter")
+  ) %>%
+  # Arrange columns in order: md, smd, var
+  select(outcome, 
+         y_md, pval_adj_md, ymin_md, ymax_md,
+         y_smd, pval_adj_smd, ymin_smd, ymax_smd,
+         y_var, pval_adj_var, ymin_var, ymax_var) %>%
+  gt() %>%
+  fmt(
+    columns = !contains("parameter") & !contains("outcome"),
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+  fmt(
+    columns = "pval_adj_var",
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+  fmt_percent(
+    columns = c("y_var", "ymin_var", "ymax_var"),
+    decimals = 2,
+    drop_trailing_zeros = FALSE,
+    drop_trailing_dec_mark = FALSE
+  ) %>%  # Format numeric columns
+  # fmt_number(columns = starts_with("y_"), decimals = 3) %>%
+  # fmt_number(columns = starts_with("ymin_"), decimals = 3) %>%
+  # fmt_number(columns = starts_with("ymax_"), decimals = 3) %>%
+  # fmt_scientific(columns = starts_with("pval_adj_"), decimals = 3)
+  # Color code based on significance - separate rules for each statistic
+  tab_style(
+    style = list(cell_fill(color = "#ffcccc")),
+    locations = cells_body(
+      columns = c(y_md, pval_adj_md, ymin_md, ymax_md),
+      rows = pval_adj_md < 0.05 & y_md < 0
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_fill(color = "#ccffcc")),
+    locations = cells_body(
+      columns = c(y_md, pval_adj_md, ymin_md, ymax_md),
+      rows = pval_adj_md < 0.05 & y_md > 0
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_fill(color = "#ffcccc")),
+    locations = cells_body(
+      columns = c(y_smd, pval_adj_smd, ymin_smd, ymax_smd),
+      rows = pval_adj_smd < 0.05 & y_smd < 0
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_fill(color = "#ccffcc")),
+    locations = cells_body(
+      columns = c(y_smd, pval_adj_smd, ymin_smd, ymax_smd),
+      rows = pval_adj_smd < 0.05 & y_smd > 0
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_fill(color = "#ffcccc")),
+    locations = cells_body(
+      columns = c(y_var, pval_adj_var, ymin_var, ymax_var),
+      rows = pval_adj_var < 0.05 & y_var < 0
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_fill(color = "#ccffcc")),
+    locations = cells_body(
+      columns = c(y_var, pval_adj_var, ymin_var, ymax_var),
+      rows = pval_adj_var < 0.05 & y_var > 0
+    )
+  ) %>%
+  # Add column labels
+  cols_label(
+    outcome = "Variable",
+    y_md = "Est", pval_adj_md = "p", ymin_md = "LB", ymax_md = "UB",
+    y_smd = "Est", pval_adj_smd = "p", ymin_smd = "LB", ymax_smd = "UB", 
+    y_var = "Est", pval_adj_var = "p", ymin_var = "LB", ymax_var = "UB"
+  ) %>%
+  # Add overarching CI headers
+  tab_spanner(label = "95% CI", columns = c(ymin_md, ymax_md), id = "ci_md") %>%
+  tab_spanner(label = "95% CI", columns = c(ymin_smd, ymax_smd), id = "ci_smd") %>%
+  tab_spanner(label = "95% CI", columns = c(ymin_var, ymax_var), id = "ci_var") %>%
+  # Add spanning headers for each statistic with formulas - simple format
+  tab_spanner(label = md("Mean Difference<br>X̄<sub>imputed</sub> - X̄<sub>unimputed</sub>"), columns = c(y_md, pval_adj_md, ymin_md, ymax_md), id = "md_main") %>%
+  tab_spanner(label = md("Standardized Mean Difference<br>(X̄<sub>imputed</sub> - X̄<sub>unimputed</sub>) /<br>σ<sub>unimputed</sub>"), columns = c(y_smd, pval_adj_smd, ymin_smd, ymax_smd), id = "smd_main") %>%
+  tab_spanner(label = md("Variance % Change<br>(σ²<sub>imputed</sub> - σ²<sub>unimputed</sub>) /<br>σ²<sub>unimputed</sub> × 100"), columns = c(y_var, pval_adj_var, ymin_var, ymax_var), id = "var_main") %>%
+  # Add footnote for p-values
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each statistic type (Mean Difference, SMD, Variance Difference, etc.",
+    locations = cells_column_labels(columns = contains("pval_adj")),
+    placement = "right"
+  ) %>%
+  # Style table - uniform formatting for spanners
+  tab_style(
+    style = cell_text(size = px(10), v_align = "middle"),
+    locations = cells_column_spanners(spanners = c("md_main", "smd_main", "var_main"))
+  ) %>%
+  tab_options(
+    column_labels.padding = px(0),
+    table.font.size = px(9)
+  ) %>%
+  # Standardize column widths
+  cols_width(
+    outcome ~ px(80),
+    c(y_md, y_smd, y_var) ~ px( 45),
+    c(pval_adj_md, pval_adj_smd, pval_adj_var) ~ px(38),
+    c(ymin_md, ymax_md, ymin_smd, ymax_smd, ymin_var, ymax_var) ~ px(45)
   )
-
-
-
-combined_long %>%
-  ggplot(aes(x = value, fill = dataset)) +
-  geom_histogram(aes(y = after_stat(density * 100)),
-                 alpha = .7, position = "identity", bins = 10,
-                 color = "black", size = 0.2) +
-  facet_wrap(~variable_label, scales = "free", ncol = 4) +
-  scale_fill_manual(values = c("Original" = "#1f77b4", "Imputed" = "#ff7f0e")) +
-  theme_minimal() +
-  theme(
-    strip.text = element_text(size = 8, face = "bold"),
-    legend.position = "bottom",
-    panel.grid.minor = element_blank(),
-    panel.background = element_rect(fill = "grey98")
-  ) +
-  labs(
-    title = "Distribution Comparison: Original vs Imputed Data",
-    x = "Value",
-    y = "Density (%)",
-    fill = "Dataset"
-  )
-
-ggsave(file.path("plots", "5_rq5_histogram_comparison.pdf"), width = 12, height = 9)
+  # tab_style(
+  #   style = cell_borders(sides = "right", color = "gray", weight = px(1)),
+  #   locations = cells_body(columns = c(ymax_md, ymax_smd))
+  # )
 
 ```
 
-## Plot comparison statistics
-
-[Click here for full-size plot](plots/5_rq5_distribution_comparison.pdf){target="_blank"}
-
-```{r}
-
-outcome_order <- bootstrap_summary_df %>%
-    mutate(outcome = rq5y_labels_short[match(.$outcome, rq5y)]) %>%
-    filter(parameter == "smd") %>%
-    arrange((abs(y))) %>%
-    mutate(outcome = str_remove(outcome, "1$")) %>%
-    pull(outcome)
-
-  bootstrap_summary_df %>%
-    # Clean up outcome labels (remove the "1" suffix)
-    mutate(outcome = rq5y_labels_short[match(.$outcome, rq5y)]) %>%
-    # Create ordered factors
-    mutate(
-      # Order parameters as requested
-      parameter = factor(parameter, levels = c("smd", "md", "var", "h")),
-      # Order outcomes based on SMD values
-      outcome = factor(outcome, levels = outcome_order)
-    ) %>%
-    ggplot(aes(x = outcome, y = y)) +
-    geom_col(aes(fill = parameter), alpha = 1) +
-    geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.3) +
-    geom_hline(yintercept = 0, col = "black", linetype = "dashed") +
-    facet_wrap(~ parameter, scales = "free_x", nrow = 1) +
-    coord_flip() +
-    labs(
-      title = "Bootstrap Differences by Parameter",
-      subtitle = "Imputed vs Original Data",
-      x = "Outcome Variable",
-      y = "Effect Size",
-      fill = "Parameter"
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position = "none",
-      strip.text = element_text(face = "bold"),
-      axis.text.y = element_text(size = 8)
-    ) +
-    scale_fill_discrete() 
-
-ggsave(file.path("plots", "5_rq5_distribution_comparison.pdf"), width = 9, height = 6)
-
-```
-
-# Compare correlations
 
 
-## Clean results
+# Changes in correlations
+
+## plot of imputed correlations
 
 ```{r}
-
-boot_compare_cor_df = do.call(rbind, lapply(seq_along(boot_compare_results), function(i) {
-  result_df = t(as.data.frame(boot_compare_results[[i]]$cor_resid))
-  result_df = data.frame(.imp = i, .boot = 1:nrow(result_df), result_df, row.names = NULL)
-  return(result_df)
-}))
-
-boot_compare_srmr_df = do.call(rbind, lapply(seq_along(boot_compare_results), function(i) {
-  result_df = t(as.data.frame(boot_compare_results[[i]]$srmr))
-  result_df = data.frame(.imp = i, .boot = 1:nrow(result_df), srmr = result_df, row.names = NULL)
-  return(result_df)
-}))
-
-boot_correlation_results = boot_compare_cor_df %>%
-  select(-.imp, -.boot) %>%
-  apply(.,2, function(xx) .mean_qi_pd(xx)) %>%
-  list_rbind()
-
-boot_srmr_results = boot_compare_srmr_df %>%
-  pull(srmr) %>%
-  .mean_qi_pd()
-
-```
-
-## Results
-
-[Click here for full-size plot](plots/5_rq5_correlation_differences.pdf){target="_blank"}
-
-```{r}
-
-# # Calculate SRMR using existing function
-# srmr <- calc_srmr2(original_dataset, imputed_dataset)
-# 
-# # Also calculate correlation matrices for visualization
-# cor_original <- cor(original_dataset, use = "complete.obs")
-# cor_imputed <- cor(imputed_dataset, use = "complete.obs")
-# 
-# cat("SRMR (correlation structure difference):", round(srmr, 4), "\n")
-# cat("SRMR < 0.05 indicates good fit\n")
-# cat("SRMR < 0.08 indicates acceptable fit\n")
-
-# Prepare correlation data for plotting (following RQ2 approach)
-# Calculate correlation residuals 
-# cor_residuals <- compare_correlation(original_dataset, imputed_dataset)
-
-
-
-# Create matrix positions for correlation plot (adapted from RQ2)
 test_correlation_matrix = matrix(
   nrow = length(rq5y),
   ncol = length(rq5y)
@@ -589,141 +552,215 @@ test_correlation_matrix = matrix(
 
 for(i in seq_along(rq5y)){
   for(j in seq_along(rq5y)){
-    test_correlation_matrix[i,j] = paste(rq5y[i], rq5y[j], collapse = " ")
+    test_correlation_matrix[i,j] = paste(rq5y[i], rq5y[j], sep = "-")
   }
 }
 
-x = test_correlation_matrix[lower.tri(test_correlation_matrix)]
-x_var = str_extract(x, "^\\S+")
-y_var = str_extract(x, "\\S+$")
+vars = test_correlation_matrix[lower.tri(test_correlation_matrix, diag = FALSE)]
 
-rm(test_correlation_matrix, x)
+  x_var = str_extract(vars, "^[^-]+")
+  y_var = str_extract(vars, "[^-]+$")
+  missingcode = paste0("missing",1:length(vars))
+  
+  
+cor_df = do.call(rbind, lapply(seq_along(boot_compare_results), function(i) {
+  result_df = t(as.data.frame(boot_compare_results[[i]]$cor_resid))
+  result_df = data.frame(.imp = i, .boot = 1:nrow(result_df), result_df, row.names = NULL)
+  return(result_df)
+}))
 
-# Create correlation comparison dataframe
-correlation_comparison <- data.frame(
-  x_var = x_var,
-  y_var = y_var,
-  boot_correlation_results,
-  stringsAsFactors = FALSE
-)
-
-# Set variables for plotting function
-rq2y <- rq5y  # Temporary assignment for compatibility with plotting function
-rq2y_labels_short <- rq5y_labels_short
-
-# Plot correlation differences using RQ2 approach
-# debug(plot_lower_triangular_matrix2)
-
-correlation_plot <- correlation_comparison %>%
-  plot_lower_triangular_matrix2(
-    .,
-    variables   = rq5y,
-    labels      = rq5y_labels_short,
-    title       = "Correlation Differences (Imputed - Original)",
-    caption     = "RQ5: Imputation vs Original Data",
-    p_col       = "pval",
-    p_threshold = 1.0  
+bootstrap_summary_cor = apply(select(cor_df,-c(.imp,.boot)),2, function(xx) .mean_qi_pd(xx)) %>%
+  bind_rows() %>%
+  ungroup() %>%
+  mutate(
+    vars  = vars,
+    x_var = x_var,
+    y_var = y_var,
+    # x_var = rq5y_labels_short[match(x_var,rq5y)],
+    # y_var = rq5y_labels_short[match(y_var,rq5y)],
+    pval_adj = stats::p.adjust(pval, method = "holm")
   )
 
-ggsave(file.path("plots", "5_rq5_correlation_differences.pdf"), width = 10, height = 8)
+if (length(vars) != nrow(bootstrap_summary_cor)) stop("error")
 
-# Clean up temporary variables
-rm(rq2y, rq2y_labels_short)
+bootstrap_summary_cor %>% arrange(desc(abs(y)))
 
+# Reusing a function from rq2y, which uses these two variables (hard-coded in the function):
+# rq2y = rq5y                          
+# rq2y_labels_short = rq5y_labels_short
 
-# cor.test(imputed_dataset$uc)
-
-```
-
-
-## Ignore for now
-
-```{r}
-#| include: false
-
-# cbind(rq5y, rq5y_labels_short, var_to_label(rq5y))
-# 
-# cor.test(df$ucgt1, df$pcg1)
-# 
-# missing_data_pps = df %>%
-#   filter(is.na(ucgt1) | is.na(pcg1)) %>%
-#   mutate(
-#     randomtwinid2 = paste0(randomfamid, random)
-#   ) %>% 
-#   pull(randomtwinid2)
-# 
-# df_rq5_imputed %>%
-#   mutate(
-#     missing = .$randomtwinid2 %in% missing_data_pps
-#   ) %>%
-#   filter(.imp ==1) %>%
-#   ggplot(aes(x = ucgt1, y = pcg1, col = missing)) + 
-#   geom_point(alpha = .1) + 
-#   facet_wrap(~missing)
-# 
-#   df_rq5_imputed %>%
-#     filter(.imp == 1) %>%
-#     mutate(
-#       missing = randomtwinid2 %in% missing_data_pps
-#     ) %>%
-#     group_by(missing) %>%
-#     summarise(
-#       correlation = cor(ucgt1, pcg1, use = "pairwise.complete.obs"),
-#       .groups = "drop"
-#     )
-# 
-# cor.test(original_dataset$ucgt1, original_dataset$pcg1)
-# cor.test(imputed_dataset$ucgt1, imputed_dataset$pcg1)
-# 
-
-
-
-```
-
-
-# ACE Model Comparisons
-
-```{r}
-
-ace_comparisons$boot_results_differences_summary %>%
-  mutate(
-    outcome = var_to_label(paste0(outcome,"1")),
-    outcome = factor(outcome, levels = var_to_label(rq5y), labels = rq5y_labels_short)
-    ) %>%
-  ggplot(aes(y = y, ymin = ymin, ymax = ymax, x = outcome, group = parameter, fill = parameter)) + 
-  geom_col(position = "dodge") + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
-
-
-ace_comparisons$boot_results_original_summary %>%
-  select(outcome, parameter, y) %>%
-  mutate(
-    outcome = var_to_label(paste0(outcome,"1")),
-    outcome = factor(outcome, levels = var_to_label(rq5y), labels = rq5y_labels_short)
-    ) %>%
-  arrange(outcome) %>%
-  pivot_wider(names_from = parameter, values_from = y) %>%
-  knitr::kable(digits =2)
-
-
-ace_comparisons$boot_results_imputed_summary %>%
-  select(outcome, parameter, y) %>%
-  mutate(
-    outcome = var_to_label(paste0(outcome,"1")),
-    outcome = factor(outcome, levels = var_to_label(rq5y), labels = rq5y_labels_short)
-    ) %>%
-  arrange(outcome) %>%
-  pivot_wider(names_from = parameter, values_from = y) %>%
-  knitr::kable(digits =2)
+bootstrap_summary_cor %>%
+  # filter(x_var!=y_var) %>%             # These correlations should probs be removed from bootstrap code! 
+  plot_lower_triangular_matrix2(
+    variables = rq5y,
+    labels    = rq5y_labels_short,
+    method    = "none"
+  ) +
+  labs(
+    title = "Correlation Change",
+    subtitle = expression(r[imputed] - r[original]),
+    caption = NULL,
+    tag = "B"
+  ) +
+  theme(
+      plot.title = element_text(hjust = 0.5, size = 16),
+      plot.subtitle = element_text(hjust = 0.5, size = 13.5, margin = margin(b = 0)),
+      plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
+      plot.tag.position = "topleft",
+      panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  ) 
   
 
+save_plot("5_correlation_residuals", width = 8, height = 8)
+  
+
+
 ```
 
-
-Lets try to understand what is happening to the correlations... 
+## plot of unimputed correlations
 
 ```{r}
 
+df %>%
+  select(all_of(rq5y)) %>%
+  data.frame() %>%
+  `colnames<-`(rq5y_labels_short) %>%
+  gbtoolbox::plot_correlations(
+    confidence_interval = FALSE,
+    text_size_r = 1.6,
+    abs_colour = FALSE
+  ) +
+    labs(
+    title = "Unimputed Pairwise correlations",
+    subtitle = "Below Diagonal: Correlations.  Diagonal: Univariate Sample Sizes.  Above Diagonal: Pairwise Sample Sizes",
+    caption = NULL,
+    tag = "A"
+  ) +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "plain"),
+      plot.subtitle = element_text(hjust = 0, size = 8, margin = margin(b = 0)),
+      plot.caption = element_text(hjust = 1, size = 8),
+      plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
+      plot.tag.position = "topleft"
+  ) 
+  
+save_plot("5_correlations_unimputed", width = 8, height = 8)
+
+```
+
+
+
+# ACE Component Comparison Plot
+
+```{r}
+
+bootstrap_summary_df_ace %>%
+  filter(group == "Difference") %>% 
+  group_by(sex, par) %>%
+  mutate(
+    pval_adj = stats::p.adjust(pval, method = "holm"),
+    name     = rq5y_labels_short[match(name, rq5y)]
+  ) %>%
+  ungroup() %>%
+  arrange(pval_adj) %>%
+  knitr::kable()
+
+
+bootstrap_summary_df_ace %>%
+  group_by(sex, par, group) %>%
+  mutate(
+    pval = stats::p.adjust(pval, method = "holm"),
+  ) %>%
+  ungroup() %>%
+  select(-starts_with("."), -n, -pd) %>%
+  mutate(name_clean = rq5y_labels_short[match(name, rq5y)]) %>%
+  pivot_wider(
+    id_cols = c(par, name_clean, sex),
+    names_from = group,
+    values_from = c(y, ymin, ymax, pval),
+    names_sep = "_"
+  ) %>%
+  select(-ymin_Original, -ymax_Original, -ymin_Imputed, -ymax_Imputed, -pval_Original, -pval_Imputed) %>%
+  select(name_clean, par, y_Original, y_Imputed, y_Difference, ymin_Difference, ymax_Difference, pval_Difference, sex) %>%
+  arrange(sex, name_clean, par,y_Imputed) %>%
+  mutate(par = toupper(par)) %>%
+  gt(groupname_col = "sex") %>%
+  fmt_number(decimals = 3) %>%
+  tab_row_group(
+    label = "Male", 
+    rows = sex == "male"
+  ) %>%
+  tab_row_group(
+    label = "Female",
+    rows = sex == "female" 
+  ) %>%
+  cols_hide(sex) %>%
+  cols_label(
+    name_clean = "Variable",
+    par = "", 
+    y_Original = "Original",
+    y_Imputed = "Imputed",
+    y_Difference = "Diff",
+    ymin_Difference = "Lower",
+    ymax_Difference = "Upper", 
+    pval_Difference = "p"
+  ) %>%
+  tab_spanner(
+    label = "95% CI",
+    columns = c(ymin_Difference, ymax_Difference)
+  ) %>%
+  tab_spanner(
+    label = "Estimates", 
+    columns = c(y_Imputed, y_Original)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "lightgreen"),
+    locations = cells_body(
+      columns = everything(),
+      rows = pval_Difference < 0.05
+    )
+  ) %>%
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each sex and parameter (A, C or E) group",
+    locations = cells_column_labels(columns = pval_Difference)
+  )
+
+```
+
+
+```{r}
+
+bootstrap_summary_df_ace %>%
+  filter(group != "Difference") %>%
+  mutate(
+    name = factor(rq5y_labels_short[match(name, rq5y)], levels = rq5y_labels_short),
+    group = ifelse(group == "Imputed", "I", "O"),
+    group = factor(group, levels = c("I", "O")),
+    sex = str_to_title(sex),
+    par = toupper(par)
+  ) %>%
+  ggplot(aes(x = group, y = y, fill = par)) +
+  geom_col(position = "stack", alpha = 1) +
+  facet_grid(sex ~ name, switch = "x") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = .5),
+    strip.text = element_text(size = 8),
+    strip.text.x = element_text(angle = 90, hjust = 1, vjust = .5),
+    strip.text.y = element_text(angle = 0),
+    strip.placement = "outside",
+    panel.grid = element_blank()
+  ) +
+  labs(
+    x = "Imputed (I) or Original (Non-Imputed; O) ACE Estimates",
+    y = "Proportion",
+    # title = "ACE Estimates: Imputed vs Original Estimates",
+    fill = "Component"
+  ) +
+  scale_fill_manual(values = c("A" = "#d73027", "C" = "#fee08b", "E" = "#4575b4")) +
+  coord_cartesian(ylim = c(0, 1)) 
+
+save_plot("5_ace_comparison", width = 8, height = 5)
 
 ```
 
@@ -742,7 +779,8 @@ p1 = df %>%
   gbtoolbox::plot_correlations(
     confidence_interval =  FALSE,
     sample_size = TRUE,
-    textadjust = 1
+    text_size_r = 1.5,
+    text_size_axis = 8.5
   ) + 
   labs(title = "Original (non-imputed data)")
 
@@ -756,13 +794,14 @@ p2 = df_rq5_imputed %>%
   gbtoolbox::plot_correlations(
     confidence_interval =  FALSE,
     sample_size = TRUE,
-    textadjust = 1
+    text_size_r = 1.5,
+    text_size_axis = 8.5
   ) +
   labs(title = "Imputed data")
 
 p1 + p2
 
-ggsave(filename = file.path("plots","5_3_correlation_comparison.pdf"), width = 5.3*2, height = 5.3)
+save_plot("5_3_correlation_comparison", width = 5.3*2, height = 5.3)
 
 
 
@@ -771,7 +810,7 @@ df_rq5_imputed %>%
   sapply(., function(x) length(which(!is.na(x))))
 
 
-df_rq5_imputed$ncg1
+# df_rq5_imputed$ncg1
 
 ```
 
@@ -783,7 +822,7 @@ imputed_mice %>% length()
 
 plot(imputed_mice[[4]], layout = c(4,6))
 
-plot(imputed_mice[[3]], y = rq5y, layout = c(4,6))
+# plot(imputed_mice[[3]], y = rq5y, layout = c(4,6))
 
 rq5y_labels_short[!(rq5y %in% colnames(imputed_mice[[1]]$data))]
 

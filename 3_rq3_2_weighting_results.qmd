@@ -1,0 +1,438 @@
+---
+title: "RQ3: weighting"
+format: 
+  html:
+    embed-resources: true
+    fig-width: 8
+    fig-height: 8
+    code-link: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    toc: true
+    grid:
+      body-width: 900px
+editor: source
+---
+
+# To do 
+
+docker container used: bignardig/tidyverse451:v5
+
+# Load data
+
+
+```{r}
+#| output: false
+
+source("0_load_data.R")
+
+weighted_comparisons = readRDS(file = file.path("results", "3_weighted_comparisons.Rds"))
+
+cat("Number bootstraps:", length(weighted_comparisons))
+
+bootstrap_summary    = readRDS(file = file.path("results", "3_weighted_comparisons_bootstrap.Rds"))
+
+original_variances   = sapply(rq5y, function(v) sd(df[[v]], na.rm = TRUE)^2)
+
+bootstrap_summary = bootstrap_summary %>%
+  group_by(stat) %>%
+  mutate(
+    pval_adj = stats::p.adjust(pval, method = "holm"),
+    var_constant = original_variances[match(var,rq5y)]
+  ) %>%
+  ungroup() %>%
+  mutate(
+    y = case_when(
+      stat == "var" ~ y / var_constant,
+      TRUE ~ y
+    ),
+    ymin = case_when(
+      stat == "var" ~ ymin / var_constant,
+      TRUE ~ ymin
+    ),
+    ymax = case_when(
+      stat == "var" ~ ymax / var_constant,
+      TRUE ~ ymax
+    ),
+  ) %>%
+  ungroup()
+
+```
+
+# Changes in means and variances
+
+## GT table
+
+```{r}
+
+library(gt)
+
+bootstrap_summary %>%
+  filter(stat %in% c("md", "smd", "var")) %>%
+  mutate(var = rq5y_labels_short[match(.$var, rq5y)]) %>%
+  select(-pd,-pval) %>%
+  select(-starts_with(".")) %>%
+  pivot_wider(
+    values_from = c("y","ymin","ymax","pval_adj"),
+    names_from = c("stat")
+  ) %>%
+  # Arrange columns in order: md, smd, var
+  select(var, 
+         y_md, pval_adj_md, ymin_md, ymax_md,
+         y_smd, pval_adj_smd, ymin_smd, ymax_smd,
+         y_var, pval_adj_var, ymin_var, ymax_var) %>%
+  gt() %>%
+  fmt(
+    columns = !contains("var") & !contains("Variable"),
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+  fmt(
+    columns = "pval_adj_var",
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+  fmt_percent(
+    columns = c("y_var", "ymin_var", "ymax_var"),
+    decimals = 2,
+    drop_trailing_zeros = FALSE,
+    drop_trailing_dec_mark = FALSE
+  ) %>%  # Format numeric columns
+  # fmt_number(columns = starts_with("y_"), decimals = 3) %>%
+  # fmt_number(columns = starts_with("ymin_"), decimals = 3) %>%
+  # fmt_number(columns = starts_with("ymax_"), decimals = 3) %>%
+  # fmt_scientific(columns = starts_with("pval_adj_"), decimals = 3)
+  # Color code based on significance - separate rules for each statistic
+  tab_style(
+    style = list(cell_fill(color = "#ffcccc")),
+    locations = cells_body(
+      columns = c(y_md, pval_adj_md, ymin_md, ymax_md),
+      rows = pval_adj_md < 0.05 & y_md < 0
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_fill(color = "#ccffcc")),
+    locations = cells_body(
+      columns = c(y_md, pval_adj_md, ymin_md, ymax_md),
+      rows = pval_adj_md < 0.05 & y_md > 0
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_fill(color = "#ffcccc")),
+    locations = cells_body(
+      columns = c(y_smd, pval_adj_smd, ymin_smd, ymax_smd),
+      rows = pval_adj_smd < 0.05 & y_smd < 0
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_fill(color = "#ccffcc")),
+    locations = cells_body(
+      columns = c(y_smd, pval_adj_smd, ymin_smd, ymax_smd),
+      rows = pval_adj_smd < 0.05 & y_smd > 0
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_fill(color = "#ffcccc")),
+    locations = cells_body(
+      columns = c(y_var, pval_adj_var, ymin_var, ymax_var),
+      rows = pval_adj_var < 0.05 & y_var < 0
+    )
+  ) %>%
+  tab_style(
+    style = list(cell_fill(color = "#ccffcc")),
+    locations = cells_body(
+      columns = c(y_var, pval_adj_var, ymin_var, ymax_var),
+      rows = pval_adj_var < 0.05 & y_var > 0
+    )
+  ) %>%
+  # Add column labels
+  cols_label(
+    var = "Variable",
+    y_md = "Est", pval_adj_md = "p", ymin_md = "LB", ymax_md = "UB",
+    y_smd = "Est", pval_adj_smd = "p", ymin_smd = "LB", ymax_smd = "UB", 
+    y_var = "Est", pval_adj_var = "p", ymin_var = "LB", ymax_var = "UB"
+  ) %>%
+  # Add overarching CI headers
+  tab_spanner(label = "95% CI", columns = c(ymin_md, ymax_md), id = "ci_md") %>%
+  tab_spanner(label = "95% CI", columns = c(ymin_smd, ymax_smd), id = "ci_smd") %>%
+  tab_spanner(label = "95% CI", columns = c(ymin_var, ymax_var), id = "ci_var") %>%
+  # Add spanning headers for each statistic with formulas - simple format
+  tab_spanner(label = md("Mean Difference<br>X̄<sub>weighted</sub> - X̄<sub>unweighted</sub>"), columns = c(y_md, pval_adj_md, ymin_md, ymax_md), id = "md_main") %>%
+  tab_spanner(label = md("Standardized Mean Difference<br>(X̄<sub>weighted</sub> - X̄<sub>unweighted</sub>) /<br>σ<sub>unweighted</sub>"), columns = c(y_smd, pval_adj_smd, ymin_smd, ymax_smd), id = "smd_main") %>%
+  tab_spanner(label = md("Variance % Change<br>(σ²<sub>weighted</sub> - σ²<sub>unweighted</sub>) /<br>σ²<sub>unweighted</sub> × 100"), columns = c(y_var, pval_adj_var, ymin_var, ymax_var), id = "var_main") %>%
+  # Add footnote for p-values
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each statistic type (Mean Difference, SMD, Variance Difference, etc.",
+    locations = cells_column_labels(columns = contains("pval_adj")),
+    placement = "right"
+  ) %>%
+  # Style table - uniform formatting for spanners
+  tab_style(
+    style = cell_text(size = px(10), v_align = "middle"),
+    locations = cells_column_spanners(spanners = c("md_main", "smd_main", "var_main"))
+  ) %>%
+  tab_options(
+    column_labels.padding = px(0),
+    table.font.size = px(9)
+  ) %>%
+  # Standardize column widths
+  cols_width(
+    var ~ px(80),
+    c(y_md, y_smd, y_var) ~ px( 45),
+    c(pval_adj_md, pval_adj_smd, pval_adj_var) ~ px(38),
+    c(ymin_md, ymax_md, ymin_smd, ymax_smd, ymin_var, ymax_var) ~ px(45)
+  )
+  # tab_style(
+  #   style = cell_borders(sides = "right", color = "gray", weight = px(1)),
+  #   locations = cells_body(columns = c(ymax_md, ymax_smd))
+  # )
+
+```
+
+
+# Changes in correlations
+
+## plot
+
+```{r}
+
+test_correlation_matrix = matrix(
+  nrow = length(rq5y),
+  ncol = length(rq5y)
+)
+
+for(i in seq_along(rq5y)){
+  for(j in seq_along(rq5y)){
+    test_correlation_matrix[i,j] = paste(rq5y[i], rq5y[j], sep = "-")
+  }
+}
+
+vars = test_correlation_matrix[lower.tri(test_correlation_matrix, diag = FALSE)]
+
+  x_var = str_extract(vars, "^[^-]+")
+  y_var = str_extract(vars, "[^-]+$")
+  missingcode = paste0("missing",1:length(vars))
+
+# Reusing a function from rq2y, which uses these two variables (hard-coded in the function):
+rq2y = rq5y                          
+rq2y_labels_short = rq5y_labels_short
+
+bootstrap_summary %>%
+  filter(stat == "cor_resid") %>%
+  mutate(
+    xvar = str_extract(var, "^[^-]+"),
+    yvar = str_extract(var, "[^-]+$")
+  ) %>%
+  filter(xvar!=yvar) %>%             # These correlations should probs be removed from bootstrap code! 
+  plot_lower_triangular_matrix() +
+  labs(
+    title = "Correlation Change",
+    subtitle = expression(r[weighted] - r[original]),
+    caption = NULL,
+    tag = "B"
+  ) +
+  theme(
+      plot.title = element_text(hjust = 0.5, size = 16),
+      plot.subtitle = element_text(hjust = 0.5, size = 13.5, margin = margin(b = 0)),
+      plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
+      plot.tag.position = "topleft",
+      panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  ) 
+  
+
+save_plot("3_correlation_residuals", width = 8, height = 8)
+  
+
+
+```
+
+
+## plot - original correlations
+
+```{r}
+
+df %>%
+  select(all_of(rq5y)) %>%
+  data.frame() %>%
+  `colnames<-`(rq5y_labels_short) %>%
+  gbtoolbox::plot_correlations(
+    confidence_interval = FALSE,
+    text_size_r = 1.6,
+    abs_colour = FALSE
+  ) +
+    labs(
+    title = "Unweighted Pairwise correlations",
+    subtitle = "Below Diagonal: Correlations.  Diagonal: Univariate Sample Sizes.  Above Diagonal: Pairwise Sample Sizes",
+    caption = NULL,
+    tag = "A"
+  ) +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "plain"),
+      plot.subtitle = element_text(hjust = 0, size = 8, margin = margin(b = 0)),
+      plot.caption = element_text(hjust = 1, size = 8),
+      plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
+      plot.tag.position = "topleft"
+  ) 
+  
+save_plot("3_correlations_unweighted", width = 8, height = 8)
+
+```
+
+
+# Changes in ACE estimates 
+
+```{r}
+
+
+ace_results = lapply(weighted_comparisons, function(x) x$ace)
+ace_results = lapply(ace_results, function(x) {
+    x[[2]]$group = "difference"
+    x[[4]]$group = "difference"
+    return(x)
+  })
+ace_results = lapply(ace_results, function(x) do.call(rbind, x))
+ace_results = do.call(rbind, ace_results)
+
+ace_results_summary = ace_results %>%
+  group_by(par, name, sex, group) %>%
+    summarise(
+    .mean_qi_pd(value),
+    .groups = "drop"
+  )
+
+
+
+
+
+```
+
+## Table
+
+need to think more about how p-value correction could be applied
+```{r}
+
+ace_results_summary %>%
+  group_by(sex, par, group) %>%
+  mutate(
+    pval = stats::p.adjust(pval, method = "holm"),
+  ) %>%
+  ungroup() %>%
+  select(-starts_with("."), -n, -pd) %>%
+  mutate(name_clean = rq5y_labels_short[match(name, rq5y)]) %>%
+  pivot_wider(
+    id_cols = c(par, name_clean, sex),
+    names_from = group,
+    values_from = c(y, ymin, ymax, pval),
+    names_sep = "_"
+  ) %>%
+  select(-ymin_weighted, -ymax_weighted, -ymin_unweighted, -ymax_unweighted, -pval_weighted, -pval_unweighted) %>%
+  select(name_clean, par, y_weighted, y_unweighted, y_difference, ymin_difference, ymax_difference, pval_difference, sex) %>%
+  arrange(sex, name_clean, par) %>%
+  mutate(par = toupper(par)) %>%
+  gt(groupname_col = "sex") %>%
+  fmt_number(decimals = 3) %>%
+  tab_row_group(
+    label = "Male", 
+    rows = sex == "male"
+  ) %>%
+  tab_row_group(
+    label = "Female",
+    rows = sex == "female" 
+  ) %>%
+  cols_hide(sex) %>%
+  cols_label(
+    name_clean = "Variable",
+    par = "", 
+    y_weighted = "Weighted",
+    y_unweighted = "Unweighted",
+    y_difference = "Diff",
+    ymin_difference = "Lower",
+    ymax_difference = "Upper", 
+    pval_difference = "p"
+  ) %>%
+  tab_spanner(
+    label = "95% CI",
+    columns = c(ymin_difference, ymax_difference)
+  ) %>%
+  tab_spanner(
+    label = "Estimates", 
+    columns = c(y_weighted, y_unweighted)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "lightgreen"),
+    locations = cells_body(
+      columns = everything(),
+      rows = pval_difference < 0.05
+    )
+  ) %>%
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each sex and parameter (A, C or E) group",
+    locations = cells_column_labels(columns = pval_difference)
+  )
+
+```
+
+## Plot
+
+```{r}
+ace_results_summary %>%
+  filter(group != "difference") %>%
+  mutate(
+    name = factor(rq5y_labels_short[match(name, rq5y)], levels = rq5y_labels_short),
+    group = ifelse(group == "weighted", "W", "O"),
+    group = factor(group, levels = c("W", "O")),
+    sex = str_to_title(sex),
+    par = toupper(par)
+  ) %>%
+  ggplot(aes(x = group, y = y, fill = par)) +
+  geom_col(position = "stack", alpha = 1) +
+  facet_grid(sex ~ name, switch = "x") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = .5),
+    strip.text = element_text(size = 8),
+    strip.text.x = element_text(angle = 90, hjust = 1, vjust = .5),
+    strip.text.y = element_text(angle = 0),
+    strip.placement = "outside",
+    panel.grid = element_blank()
+  ) +
+  labs(
+    x = "Weighted (W) or Original (Unweighted; O) ACE Estimates",
+    y = "Proportion",
+    # title = "ACE Estimates: Weighted vs Original Estimates",
+    fill = "Component"
+  ) +
+  scale_fill_manual(values = c("A" = "#d73027", "C" = "#fee08b", "E" = "#4575b4")) +
+  coord_cartesian(ylim = c(0, 1)) 
+
+save_plot("3_ace_comparison", width = 8, height = 5)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

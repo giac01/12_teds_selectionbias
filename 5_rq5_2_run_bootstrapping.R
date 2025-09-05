@@ -42,7 +42,7 @@ testthat::test_that("nrows of compared datasets match",{
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 number_bootstraps_per_impute = 5000/8 
-# 20 per impute takes 3.8 mins. 
+# 5000/8 took 3.59 hours over 8 cores 
 number_cores                 = 8
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||

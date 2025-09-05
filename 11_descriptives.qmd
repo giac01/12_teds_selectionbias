@@ -50,7 +50,7 @@ get_study_wave = function(var_name) {
   return(wave_map[prefix])
 }
 
-v_rq1 = 
+v_rq1x = 
   data.frame(
     `Short Label` = rq1x_labels_clean,
     Description = rq1x_labels,
@@ -71,11 +71,33 @@ v_rq1 =
     `Study Wave` = sapply(rq1x, get_study_wave)
   )
 
-v_rq1$Description = str_remove(v_rq1$Description,"\\(1st.*")
+v_rq1x$Description = str_remove(v_rq1x$Description,"\\(1st.*")
 
 # Manual edit for cens01pop98density study wave
-v_rq1$`Study.Wave`[v_rq1$`Teds.Code` == "cens01pop98density"] = "1st Contact"
-v_rq1$`Study.Wave`[v_rq1$`Teds.Code` == "pollution1998pca"] = "1st Contact"
+v_rq1x$`Study.Wave`[v_rq1x$`Teds.Code` == "cens01pop98density"] = "1st Contact"
+v_rq1x$`Study.Wave`[v_rq1x$`Teds.Code` == "pollution1998pca"] = "1st Contact"
+
+v_rq1y = 
+  data.frame(
+    `Short Label` = rq1y_twin_labels_clean,
+    Description = rq1y_twin_labels,
+    `Teds Code` = ifelse(rq1y_twin1 %in% colnames(df0), rq1y_twin1,paste0(rq1y_twin1,"*")),
+    `Range or Level` = sapply(rq1y_twin1, function(var) {
+      if (class(df[[var]]) == "numeric") {
+        paste0(round(min(df[[var]], na.rm = TRUE), 2), " — ", round(max(df[[var]], na.rm = TRUE), 2))
+      } else if (is.factor(df[[var]])) {
+        factor_levels = levels(df[[var]])
+        paste(c(paste0(factor_levels[1],"*"), factor_levels[-1]), collapse = ", ")
+      } else {
+        paste(unique(df[[var]]), collapse = ", ")
+      }
+    }),
+    N = sapply(rq1y_twin1, function(var) {
+      sum(!is.na(df[[var]]))
+    }),
+    `Study Wave` = sapply(rq1y_twin, get_study_wave)
+  )
+v_rq1y$Description = str_remove(v_rq1y$Description,"\\(1st.*")
 
 v_rq2 = data.frame(
   `Short Label` = rq2y_labels_short,
@@ -119,18 +141,17 @@ v_rq5 = data.frame(
   `Study Wave` = sapply(rq5y, get_study_wave)
 )
 
-
-
 # Combine all v_rq dataframes with row indices for grouping
-v_rq1_indexed = cbind(row_group = "RQ1 Variables", row_id = 1:nrow(v_rq1), v_rq1)
-v_rq2_indexed = cbind(row_group = "RQ2 Variables", row_id = (nrow(v_rq1)+1):(nrow(v_rq1)+nrow(v_rq2)), v_rq2)
-v_rq5_indexed = cbind(row_group = "RQ5 Variables", row_id = (nrow(v_rq1)+nrow(v_rq2)+1):(nrow(v_rq1)+nrow(v_rq2)+nrow(v_rq5)), v_rq5)
+v_rq1x_indexed = cbind(row_group = "RQ1 Variables", row_id = 1:nrow(v_rq1x), v_rq1x)
+v_rq1y_indexed = cbind(row_group = "RQ1 Outcome Variables", row_id = (nrow(v_rq1x)+1):(nrow(v_rq1x)+nrow(v_rq1y)), v_rq1y)
+v_rq2_indexed = cbind(row_group = "RQ2 Variables", row_id = (nrow(v_rq1x)+nrow(v_rq1y)+1):(nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)), v_rq2)
+v_rq5_indexed = cbind(row_group = "RQ5 Variables", row_id = (nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+1):(nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+nrow(v_rq5)), v_rq5)
 
-v_rq_combined = rbind(v_rq1_indexed, v_rq2_indexed, v_rq5_indexed)
+v_rq_combined = rbind(v_rq1x_indexed, v_rq1y_indexed, v_rq2_indexed, v_rq5_indexed)
 
 gt(v_rq_combined) %>%
   tab_row_group(
-    label = "RQ5 Variables",
+    label = "RQ4-5 Variables",
     rows = row_group == "RQ5 Variables"
   ) %>%
   tab_row_group(
@@ -138,10 +159,17 @@ gt(v_rq_combined) %>%
     rows = row_group == "RQ2 Variables"
   ) %>%
   tab_row_group(
-    label = "RQ1 Variables",
+    label = "RQ1-Y (participation indicator variables)",
+    rows = row_group == "RQ1 Outcome Variables"
+  ) %>%
+  tab_row_group(
+    label = "RQ1-X (baseline variables used to predict later participation)",
     rows = row_group == "RQ1 Variables"
   ) %>%
   cols_hide(c(row_group, row_id)) %>%
+  cols_width(
+    `Range.or.Level` ~ px(100)
+  ) %>%
   cols_label_with(fn = ~ gsub("\\.", " ", .x)) %>%
   tab_style(
     style = cell_text(font = "Times New Roman", size = px(12)),
