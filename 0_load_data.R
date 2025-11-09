@@ -2,6 +2,8 @@
 
 rm(list=ls(all.names = TRUE))
 
+library(ggmice)
+library(ggrepel)
 library(gbtoolbox)  # devtools::install_github("giac01/gbtoolbox")
 library(OpenMx)
 library(umx)
