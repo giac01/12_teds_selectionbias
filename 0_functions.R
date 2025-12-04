@@ -1014,28 +1014,40 @@ glm_model_comparison_robust = function(full_model, cluster_var = "famid") {
 
 # Attritioning Analysis --------------------------------------------------------
 # I think this function could be depreciated and I could just use .boot_compare_df instead...
-compare_df = function(df1, df2, B = 10){
+compare_df = function(df1, df2, B = 10, vars){
   
-  boot_results = .boot_compare_df(df1, df2, B = B)
+  boot_results = .boot_compare_df(df1, df2, B = B, vars = vars)
   
   md_df   = do.call(rbind, boot_results$md)
   smd_df  = do.call(rbind, boot_results$smd)
-  h_df    = do.call(rbind, boot_results$h)
   var_df  = do.call(rbind, boot_results$var)
   cor_df  = do.call(rbind, boot_results$cor_resid)
   srmr_df = do.call(rbind, boot_results$srmr)
+  # ace_df  = lapply(boot_results$ace, function(x) x$ace_differences) %>%       
+  #   bind_rows(., .id = "boot") %>%
+  #   pivot_wider(names_from = c(par,name), values_from = value)
+  # ace_est_df  = do.call(rbind, boot_results$ace[[1]])
   
-  
-  bootstrap_iter = list(md_df, smd_df, h_df, var_df, cor_df, srmr_df)
-  names(bootstrap_iter) = c("md", "smd", "h", "var", "cor_resid", "srmr")
+  bootstrap_iter = list(md_df, smd_df, var_df, cor_df, srmr_df)
+  names(bootstrap_iter) = c("md", "smd", "var", "cor_resid", "srmr")
   
   bootstrap_summary = lapply(bootstrap_iter, function(df)
     apply(df,2, function(xx).mean_qi_pd(xx))
   )
   
-  out = list(bootstrap_summary, bootstrap_iter)
+  ace_diff_summary = lapply(boot_results$ace, function(x) x$ace_differences) %>%       
+                          bind_rows(., .id = "boot") %>%
+                          group_by(par, name, sex) %>%
+                          summarise(.mean_qi_pd(value))
   
-  names(out) = c("bootstrap_summary", "bootstrap_iter")
+  ace_est_summary = lapply(boot_results$ace, function(x) x$ace_estimates) %>%       
+    bind_rows(., .id = "boot") %>%
+    group_by(par, name, sex, group) %>%
+    summarise(.mean_qi_pd(value))
+  
+  out = list(bootstrap_summary, bootstrap_iter, ace_est_summary, ace_diff_summary)
+  
+  names(out) = c("bootstrap_summary", "bootstrap_iter", "ace_est_summary", "ace_diff_summary")
   
   return(out)
 }
@@ -1507,7 +1519,7 @@ compare_correlation = function(df1, df2){
   
 }
 
-compare_ace = function(df1, df2, rq5y = rq5y) {
+compare_ace = function(df1, df2, vars = rq5y) {
   # browser()
   
   umx::umx_set_silent(TRUE)
@@ -1515,7 +1527,7 @@ compare_ace = function(df1, df2, rq5y = rq5y) {
   if (nrow(df1) != nrow(df2)) stop("df1 and df2 must have same number of rows!")
   
   # Males Comparison
-  male_df1_estimates = sapply(rq5y, function(var)
+  male_df1_estimates = sapply(vars, function(var)
     .safe_umxACE(
       selDVs = var,
       mzData = filter(df1, sexzyg_boot_1 == "MZ male"),
@@ -1534,7 +1546,7 @@ compare_ace = function(df1, df2, rq5y = rq5y) {
       group = "df1"
     )
   
-  male_df2_estimates = sapply(rq5y, function(var)
+  male_df2_estimates = sapply(vars, function(var)
     .safe_umxACE(
       selDVs = var,
       mzData = filter(df2, sexzyg_boot_1 == "MZ male"),
@@ -1560,7 +1572,7 @@ compare_ace = function(df1, df2, rq5y = rq5y) {
   male_ace_diff$group = "diff"
   
   # Females Comparison
-  female_df1_estimates = sapply(rq5y, function(var)
+  female_df1_estimates = sapply(vars, function(var)
     .safe_umxACE(
       selDVs = var,
       mzData = filter(df1, sexzyg_boot_1 == "MZ female"),
@@ -1579,7 +1591,7 @@ compare_ace = function(df1, df2, rq5y = rq5y) {
       group = "df1"
     )
   
-  female_df2_estimates = sapply(rq5y, function(var)
+  female_df2_estimates = sapply(vars, function(var)
     .safe_umxACE(
       selDVs = var,
       mzData = filter(df2, sexzyg_boot_1 == "MZ female"),
@@ -1611,13 +1623,12 @@ compare_ace = function(df1, df2, rq5y = rq5y) {
 }
 
 
-.boot_compare_df = function(df1, df2, B = 100, rq5y = rq5y){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
+.boot_compare_df = function(df1, df2, B = 100, vars = rq5y){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
   
   # Initialize results structure
   boot_results = list(
     md        = list(),
     smd       = list(),
-    h         = list(),
     var       = list(),
     cor_resid = list(),
     srmr      = list()
@@ -1653,12 +1664,12 @@ compare_ace = function(df1, df2, rq5y = rq5y) {
     # Store results by metric type
     boot_results$md[[i]]        = compare_md(         df1_boot_subset, df2_boot_subset)
     boot_results$smd[[i]]       = compare_smd(        df1_boot_subset, df2_boot_subset)
-    boot_results$h[[i]]         = compare_hellinger(  df1_boot_subset, df2_boot_subset)
     boot_results$var[[i]]       = compare_var(        df1_boot_subset, df2_boot_subset)
     boot_results$cor_resid[[i]] = compare_correlation(df1_boot_subset, df2_boot_subset)
     boot_results$srmr[[i]]      = calc_srmr2(         df1_boot_subset, df2_boot_subset)
 
     # Compare ACE estimates
+    # browser()
 
     df1_boot_wide =
     df1_boot %>%
@@ -1694,7 +1705,7 @@ compare_ace = function(df1, df2, rq5y = rq5y) {
     boot_results$ace[[i]]        = compare_ace(
       df1  = df1_boot_wide, 
       df2  = df2_boot_wide,
-      rq5y = rq5y
+      vars = vars
       )
 
    

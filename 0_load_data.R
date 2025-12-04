@@ -491,6 +491,9 @@ mfq_labels = df %>%
   select(all_of(mfq)) %>%
   sapply(., function(x) attr(x, "label"))
 
+rq6y = c("lcmfqt1","lsdqext1", "lcg1", "pcexgcsecoregrdm1") # move this to load load script later
+rq6y_labels = rq5y_labels_short[match(rq6y, rq5y)]
+
 ## Check Labels and variables match --------------------------------------------
 
 testthat::test_that("Label lengths match variable lengths", {
@@ -506,13 +509,38 @@ testthat::test_that("Label lengths match variable lengths", {
   testthat::expect_equal(length(rq5y), length(rq5y_labels_short))
   testthat::expect_equal(length(rq5y), length(rq5y_prefix))
   
+  testthat::expect_equal(length(rq6y), length(rq6y_labels))
+  
   testthat::expect_true(all(rq5z %in% colnames(df)))
   
 })
 
 # Define Participant Exclusion Lists -------------------------------------------
 
-#Work in progress - will update in next commit
+## General ---------------------------------------------------------------------
+
+## We want to exclude families with with only one sibling in the study following application of the exclusion criteria
+exclude_fams_onesib = df %>%
+  count(randomfamid) %>% 
+  filter(n == 1) %>%
+  pull(randomfamid) %>%
+  as.character()
+
+## Research Question 2 (imputation / weighting analyses) -----------------------
+
+rq2_exclude_fams = df %>%
+  select(
+    randomfamid,
+    starts_with(rq2y_prefix)
+  ) %>%
+  select(
+    -amohqualn1,
+    -amohqualn2
+  ) %>%
+  apply(., 1, function(x) length(which(!is.na(x))))
+
+
+## Research Question 5 ---------------------------------------------------------
 
 df = df %>%
   mutate(
@@ -544,19 +572,12 @@ rq5_exclude_fams_2 = df %>%
   pull(randomfamid) %>%
   unique()
 
-# df %>%
-#   filter(!(randomfamid %in% exclude_fams_onesib)) %>%
-#   filter(!(randomfamid %in% rq5_exclude_fams)) %>%
-#   filter(!(randomfamid %in% rq5_exclude_fams_2)) %>%
-#   filter(random == 1) %>%
-#   nrow()
+## Research Question 6 ----------------------------------------------------------
 
-## We want to exclude families with with only one sibling in the study following application of the exclusion criteria
-exclude_fams_onesib = df %>%
-  count(randomfamid) %>% 
-  filter(n == 1) %>%
-  pull(randomfamid) %>%
-  as.character()
-
-# saveRDS(df, file = file.path("data","df_old.Rds"))
+exclude_fams_rq6y = df %>% 
+  mutate(n_data_points = rowSums(!is.na(across(all_of(rq6y))))) %>%
+  group_by(randomfamid) %>%
+  summarise(n_data_points_per_fam = sum(n_data_points)) %>%
+  filter(n_data_points_per_fam == 0) %>%
+  pull(randomfamid)
 
