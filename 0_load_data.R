@@ -27,19 +27,17 @@ library(distrEx)
 library(Ternary)
 
 conflicted::conflict_prefer_all("tidyverse")
-
 conflicted::conflict_prefer("select", "dplyr")
 conflicted::conflict_prefer("filter", "dplyr")
 
 source("0_functions.R")
 source("0_lists_of_variables.R")
 
-
 df0 = haven::read_sav(file.path("data","732 GB FINAL 20250714.sav"))
 
 original_colnames = colnames(df0)
 
-# Adding variables into df0 so we can look up their labels later (not for use in analysis ) 
+## Add empty variables into df0 to allow label look-up by var_to_label() -------
 
 df0$pollution1998pca = 0
 df0$amohqualn        = 0
@@ -67,11 +65,10 @@ attr(df0[["zsdqext1"]], "label") = "SDQ Externalising scale at 26"
 
 df = df0
 
-# Apply participant filter (exlcude1) ------------------------------------------
+## Apply global participant filter (exlcude1) ----------------------------------
 
 df = df %>%
-  filter(exclude1 == 0) %>%
-  mutate(sexzyg = droplevels(haven::as_factor(sexzyg)))
+  filter(exclude1 == 0) 
 
 # Define Variable Sets ---------------------------------------------------------
 
@@ -133,7 +130,8 @@ rq1y_twin = c(
   "lcqdata",
   "pcwebdata",
   "pcbhdata",
-  # "pcl2data",
+  # removed more niche data collections: 
+  # "pcl2data",  # Child LEAP-2 booklet data present at 16, 1Y 0N
   # "rcfdata",   # Fashion, Food and Music Preferences (FFMP) web study was carried out for cohort 3 twins (aged roughly 19 years) between March and April 2015.
   # "rckdata",   # Kings Challenge web study. A battery of 10 twin activities to test spatial abilities.
   "rcqdata",
@@ -171,6 +169,7 @@ gca = c("lcg1",       "ncg1",       "pcg1",             "ucgt1") # GCA scores: a
 mfq = c("lcmfqt1",                  "pcbhmfqt1",        "u1cmfqt1",               "zmhmfqt1") # MFQ scores
 
 # MAYBE REMOVE GAD - AS ITS MOSTLY MISSING! 
+
 gad = c(                                                "u2cganxt1",              "zmhganxt1") # GAD-D Anxiety Scores
 
 edu = c(              "npks3tall1", "pcexgcsecoregrdm1", "u1chqualp1", "zmhhqual1")  # removed UCAS
@@ -181,7 +180,7 @@ con = c("lcsdqcont1",               "pcbhsdqcont1",     "u1csdqcont1",          
 
 per = c("lcsdqpert1",               "pcbhsdqpert1",     "u1csdqpert1",            "zmhsdqpert1") # SDQ peer problems
 
-ext = c("lsdqext1",                  "psdqext1",        "usdqext1",               "zsdqext1")
+ext = c("lsdqext1",                 "psdqext1",         "usdqext1",               "zsdqext1")
 
 rq5y = c(
   gca,
@@ -194,11 +193,6 @@ rq5y = c(
 rq5y_prefix = str_remove(rq5y, "1$")
 
 rq5y_12 = paste0(rep(rq5y_prefix, each = 2), c("1", "2"))
-
-# gad %in% rq5z
-# 
-# df %>%
-#   select(all_of(rq5y))
 
 # Edit and create variables  ---------------------------------------------------
 
@@ -273,8 +267,8 @@ df$zmhempinc2  = as.numeric(df$zmhempinc2)
 df$zmhneet1    = haven::as_factor(df$zmhneet1)
 df$zmhneet2    = haven::as_factor(df$zmhneet2)
 
-df$zygos      = haven::as_factor(df$zygos)
-df$sexzyg      = haven::as_factor(df$sexzyg)
+df$zygos       = haven::as_factor(df$zygos)
+df$sexzyg      = droplevels(haven::as_factor(df$sexzyg))
 df$x3zygos     = haven::as_factor(df$x3zygos)
 
 ## Create SDQ Externalising Scores ---------------------------------------------
@@ -341,6 +335,7 @@ x = df %>%
 df$pollution1998pca = as.numeric(x$scores)
 
 rm(x)
+
 # Reset attributes -------------------------------------------------------------
 
 all_vars = colnames(df)
@@ -354,23 +349,6 @@ for (var in all_vars) {
   if (!is.null(attr(df0[[var]], "labels"))){
     attr(df[[var]], "labels") <- attr(df0[[var]], "labels") }
 }
-
-# Creating seperate dataframes -------------------------------------------------
-
-df_colnames = colnames(df)
-
-df_labels   = sapply(1:ncol(df), function(i) attr(df[,i, drop = TRUE], "label"))
-
-df_rq1 = df %>%
-  filter(twin == 1) %>%
-  filter(acontact == 1) %>%
-  select(all_of(c(rq1x, rq1y, rq1y_twin1, rq1y_twin2, "cohort")))
-
-df_rq1x = df_rq1 %>% 
-  select(all_of(rq1x)) 
-
-df_rq1y = df_rq1 %>% 
-  select(all_of(rq1y)) 
 
 # Create Labels ----------------------------------------------------------------
 
@@ -581,3 +559,16 @@ exclude_fams_rq6y = df %>%
   filter(n_data_points_per_fam == 0) %>%
   pull(randomfamid)
 
+# Output df colnames and labels ------------------------------------------------
+
+df_colnames = colnames(df)
+
+df_labels   = sapply(1:ncol(df), function(i) attr(df[,i, drop = TRUE], "label"))
+
+
+# Save Data to Check for impact of changes ------------------------------------
+
+# saveRDS(df, file.path("data", "df_new.Rds"))
+df_old = readRDS(file.path("data", "df_old.Rds"))
+
+if (identical(df, df_old)==FALSE) {warning("changes made to data cleaning results!!")}
