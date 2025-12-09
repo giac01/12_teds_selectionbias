@@ -2,6 +2,7 @@
 
 rm(list=ls(all.names = TRUE))
 
+library(marginaleffects)
 library(ggmice)
 library(ggrepel)
 library(gbtoolbox)  # devtools::install_github("giac01/gbtoolbox")
@@ -36,6 +37,8 @@ source("0_lists_of_variables.R")
 df0 = haven::read_sav(file.path("data","732 GB FINAL 20250714.sav"))
 
 original_colnames = colnames(df0)
+
+ncores_use = 8
 
 ## Add empty variables into df0 to allow label look-up by var_to_label() -------
 
@@ -104,7 +107,7 @@ rq1x = c(
          "pollution1998pca"
 )
 
-# Family-level participation outcomes 
+# Family-level participation outcomes (DEPRECIATED / NOT BEING USED ANYMORE)
 
 rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr", "gpdata", "heightyr", "ipdata", "jtenyear", "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
 
@@ -119,16 +122,36 @@ rq1y_short = c(                  "dfouryr", "gsevenyr",           "heightyr",   
 # rq1y_twinsep_labels = var_to_label(rq1y_twinsep)
 # cbind(rq1y_twinsep, rq1y_twinsep_labels)
 
-rq1y_twin = c(
-  "btwdata",
-  "ctwdata",
+rq1y_twin_full = c(
+  "btwdata", # removed because not all twins were eligible
+  "ctwdata", # removed because not all twins were eligible
   "dtwdata",
-  "gcdata",
-  "icdata",
-  "jcdata",
+  "gcdata",  # removed because not all twins were eligible
+  "icdata",  # removed because not all twins were eligible
+  "jcdata",  # removed because not all twins were eligible
   "lcwdata",
   "lcqdata",
-  "pcwebdata",
+  "pcwebdata", # removed because not all twins were eligible
+  "pcbhdata",
+  # removed more niche data collections: 
+  "pcl2data",  # Child LEAP-2 booklet data present at 16, 1Y 0N
+  "rcfdata",   # Fashion, Food and Music Preferences (FFMP) web study was carried out for cohort 3 twins (aged roughly 19 years) between March and April 2015.
+  "rckdata",   # Kings Challenge web study. A battery of 10 twin activities to test spatial abilities.
+  "rcqdata",
+  "u1cdata",
+  "zmhdata",
+  "zcdata")
+
+rq1y_twin = c(
+  # "btwdata", # removed because not all twins were eligible
+  # "ctwdata", # removed because not all twins were eligible
+  "dtwdata",
+  # "gcdata",  # removed because not all twins were eligible
+  # "icdata",  # removed because not all twins were eligible
+  # "jcdata",  # removed because not all twins were eligible
+  "lcwdata",
+  "lcqdata",
+  # "pcwebdata", # removed because not all twins were eligible
   "pcbhdata",
   # removed more niche data collections: 
   # "pcl2data",  # Child LEAP-2 booklet data present at 16, 1Y 0N
@@ -247,6 +270,7 @@ df$agenpro2  = haven::as_factor(df$agenpro2)
 df = rename(df, aonsby = "AONSBY")
 df$aonsby    = haven::as_factor(df$aonsby)                                    
 df$cohort    = haven::as_factor(df$cohort)
+df$cohortnum = as.numeric(df$cohort)                                            # ive checked this gives the correct numbering
 df$cohort_by = paste(as.numeric(df$cohort), df$aonsby, sep = "-")                       
 
 df$aadults   = set_most_frequent_ref(df$aadults)
@@ -386,15 +410,15 @@ rq1y_labels_clean = clean_rq1y_label(rq1y_labels)
 rq1y_twin_labels = var_to_label(rq1y_twin1)
 
 rq1y_twin_labels_clean = c(
-  "Y2 (parent-report twin booklet)",
-  "Y3 (parent-report twin booklet)",
+  # "Y2 (parent-report twin booklet)",
+  # "Y3 (parent-report twin booklet)",
   "Y4 (parent-report twin booklet)",
-  "Y7 (telephone interview)",
-  "Y9 (child booklet)",
-  "Y10 (web tests)",
+  # "Y7 (telephone interview)",
+  # "Y9 (child booklet)",
+  # "Y10 (web tests)",
   "Y12 (web tests)",
   "Y12 (questionnaire)",
-  "Y16 (web study)",
+  # "Y16 (web study)",
   "Y16 (behaviour booklet)",
   # "Y16 (LEAP-2 booklet)",
   "Y18 (questionnaire)",
@@ -404,15 +428,15 @@ rq1y_twin_labels_clean = c(
 )
 
 rq1y_twin_labels_clean_extrashort = c(
-  "Y2",
-  "Y3",
+  # "Y2",
+  # "Y3",
   "Y4",
-  "Y7",
-  "Y9",
-  "Y10",
+  # "Y7",
+  # "Y9",
+  # "Y10",
   "Y12 (web test)",
   "Y12 (q'aire)",
-  "Y16 (web)",
+  # "Y16 (web)",
   "Y16 (q'aire)",
   # "Y16 (LEAP-2 booklet)",
   "Y18",
@@ -421,7 +445,7 @@ rq1y_twin_labels_clean_extrashort = c(
   "Y26 (web test)"
 )
 
-cbind(rq1y_twin_labels, rq1y_twin_labels_clean)
+cbind(rq1y_twin_labels, rq1y_twin_labels_clean, rq1y_twin_labels_clean_extrashort)
 
 if (length(rq1y_twin)!=length(rq1y_twin_labels_clean)) stop("clean labels don't match")
 
@@ -480,6 +504,10 @@ testthat::test_that("Label lengths match variable lengths", {
   
   testthat::expect_equal(length(rq1y), length(rq1y_labels))
   testthat::expect_equal(length(rq1y), length(rq1y_labels_clean))
+  
+  testthat::expect_equal(length(rq1y_twin1), length(rq1y_twin_labels_clean))
+  testthat::expect_equal(length(rq1y_twin1), length(rq1y_twin_labels_clean_extrashort))
+  
   
   testthat::expect_equal(length(rq2y), length(rq2y_labels))
   testthat::expect_equal(length(rq2y), length(rq2y_labels_short))
@@ -568,6 +596,7 @@ df_labels   = sapply(1:ncol(df), function(i) attr(df[,i, drop = TRUE], "label"))
 
 # Save Data to Check for impact of changes ------------------------------------
 
+# saveRDS(df, file.path("data", "df_old.Rds"))
 # saveRDS(df, file.path("data", "df_new.Rds"))
 df_old = readRDS(file.path("data", "df_old.Rds"))
 

@@ -351,7 +351,7 @@ plot_lower_triangular_matrix <- function(
         value = value,
         fill_value = fill_value
       ))
-    # }
+
   }
   
   # Skip adding diagonal values - we want only lower triangle without diagonal
@@ -923,7 +923,7 @@ glm_model_comparison_robust = function(full_model, cluster_var = "famid") {
   # Fit null model for McFadden's R²
   null_model = update(full_model, . ~ 1, data = subset_data)
   
-  # Compute robust covariance matrix once (fast CR0 approach)
+  # Compute robust covariance matrix once 
   vcov_robust = clubSandwich::vcovCR(full_model, 
                                     cluster = subset_data[[cluster_var]], 
                                     type = "CR2") # CR0 is much faster than CR3
@@ -1014,9 +1014,15 @@ glm_model_comparison_robust = function(full_model, cluster_var = "famid") {
 
 # Attritioning Analysis --------------------------------------------------------
 # I think this function could be depreciated and I could just use .boot_compare_df instead...
-compare_df = function(df1, df2, B = 10, vars){
+compare_df = function(
+    df1, 
+    df2, 
+    B = 10, 
+    vars,
+    ace_analysis = TRUE
+    ){
   
-  boot_results = .boot_compare_df(df1, df2, B = B, vars = vars)
+  boot_results = .boot_compare_df(df1, df2, B = B, vars = vars, ace_analysis = ace_analysis)
   
   md_df   = do.call(rbind, boot_results$md)
   smd_df  = do.call(rbind, boot_results$smd)
@@ -1035,15 +1041,20 @@ compare_df = function(df1, df2, B = 10, vars){
     apply(df,2, function(xx).mean_qi_pd(xx))
   )
   
-  ace_diff_summary = lapply(boot_results$ace, function(x) x$ace_differences) %>%       
-                          bind_rows(., .id = "boot") %>%
-                          group_by(par, name, sex) %>%
-                          summarise(.mean_qi_pd(value))
-  
-  ace_est_summary = lapply(boot_results$ace, function(x) x$ace_estimates) %>%       
-    bind_rows(., .id = "boot") %>%
-    group_by(par, name, sex, group) %>%
-    summarise(.mean_qi_pd(value))
+  if (ace_analysis == TRUE){
+    ace_diff_summary = lapply(boot_results$ace, function(x) x$ace_differences) %>%       
+                            bind_rows(., .id = "boot") %>%
+                            group_by(par, name, sex) %>%
+                            summarise(.mean_qi_pd(value))
+    
+    ace_est_summary = lapply(boot_results$ace, function(x) x$ace_estimates) %>%       
+      bind_rows(., .id = "boot") %>%
+      group_by(par, name, sex, group) %>%
+      summarise(.mean_qi_pd(value))
+  } else{
+    ace_diff_summary = NULL
+    ace_est_summary  = NULL
+  }
   
   out = list(bootstrap_summary, bootstrap_iter, ace_est_summary, ace_diff_summary)
   
@@ -1623,7 +1634,14 @@ compare_ace = function(df1, df2, vars = rq5y) {
 }
 
 
-.boot_compare_df = function(df1, df2, B = 100, vars = rq5y){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
+.boot_compare_df = function(
+    df1, 
+    df2, 
+    B = 100, 
+    vars = rq5y,
+    ace_analysis = TRUE
+    
+    ){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
   
   # Initialize results structure
   boot_results = list(
@@ -1670,13 +1688,30 @@ compare_ace = function(df1, df2, vars = rq5y) {
 
     # Compare ACE estimates
     # browser()
+    
+    if (ace_analysis == TRUE){
 
-    df1_boot_wide =
-    df1_boot %>%
-      mutate(
-        boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach
-        random_boot  = as.numeric(duplicated(boot_id)) + 1
-      ) %>%
+      df1_boot_wide =
+      df1_boot %>%
+        mutate(
+          boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach
+          random_boot  = as.numeric(duplicated(boot_id)) + 1
+        ) %>%
+          rename(
+            sexzyg_boot = "sexzyg",
+          ) %>%
+          pivot_wider(
+            id_cols      = boot_id,
+            names_from   = random_boot,
+            values_from  = -c(random_boot, boot_id),
+            names_sep    = "_"
+          )
+      
+      df2_boot_wide = df2_boot %>%
+        mutate(
+          boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach
+          random_boot  = as.numeric(duplicated(boot_id)) + 1
+        ) %>%
         rename(
           sexzyg_boot = "sexzyg",
         ) %>%
@@ -1686,29 +1721,14 @@ compare_ace = function(df1, df2, vars = rq5y) {
           values_from  = -c(random_boot, boot_id),
           names_sep    = "_"
         )
-    
-    df2_boot_wide = df2_boot %>%
-      mutate(
-        boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach
-        random_boot  = as.numeric(duplicated(boot_id)) + 1
-      ) %>%
-      rename(
-        sexzyg_boot = "sexzyg",
-      ) %>%
-      pivot_wider(
-        id_cols      = boot_id,
-        names_from   = random_boot,
-        values_from  = -c(random_boot, boot_id),
-        names_sep    = "_"
-      )
-    
-    boot_results$ace[[i]]        = compare_ace(
-      df1  = df1_boot_wide, 
-      df2  = df2_boot_wide,
-      vars = vars
-      )
+      
+      boot_results$ace[[i]]        = compare_ace(
+        df1  = df1_boot_wide, 
+        df2  = df2_boot_wide,
+        vars = vars
+        )
 
-   
+    }
     
   }
   

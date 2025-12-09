@@ -21,17 +21,6 @@ editor: source
 source("0_load_data.R")
 rm(rq1y, rq1y_labels, rq1y_labels_clean)
 
-## Only keep time points where all participants were eligible 
-
-remove_timepoints = c("btwdata","ctwdata", "gcdata","icdata","jcdata","pcwebdata") 
-remove_timepoints = match(remove_timepoints, rq1y_twin)
-
-rq1y_twin                         = rq1y_twin[-remove_timepoints]
-rq1y_twin1                        = rq1y_twin1[-remove_timepoints]
-rq1y_twin2                        = rq1y_twin2[-remove_timepoints]
-rq1y_twin_labels                  = rq1y_twin_labels[-remove_timepoints]
-rq1y_twin_labels_clean            = rq1y_twin_labels_clean[-remove_timepoints]
-rq1y_twin_labels_clean_extrashort = rq1y_twin_labels_clean_extrashort[-remove_timepoints]
 
 
 ```
@@ -90,8 +79,7 @@ I ran the bootstrapped analyses in the script [2_rq2_run_bootstrapping.R](2_rq2_
 ```{r}
 original_variances = sapply(rq2y, function(x) stats::var(df[[x]], na.rm = TRUE))
 
-variable_comparisons    = readRDS(file = file.path("results", "2_variable_comparisons.Rds"))
-
+variable_comparisons     = readRDS(file = file.path("results", "2_variable_comparisons.Rds"))
 variable_comparisons_df0 = readRDS(file = file.path("results", "2_variable_comparisons_df.Rds"))
 
 # variable_comparisons_df = do.call("rbind.data.frame", variable_comparisons_df)
@@ -570,13 +558,16 @@ library(patchwork)
 
 plots = lapply(1:length(correlation_comparisons), function(i) {
   correlation_comparisons[[i]] %>%
-    plot_lower_triangular_matrix(
-      title = var_to_label(rq1y_twin1)[i] %>% 
-        str_remove(", 1Y 0N") %>%
-        stringr::str_wrap(., width = 35),
-      
-     caption = paste0("Variable name: ", rq1y_twin1[i])
-    )
+    mutate(
+      x_var = x_var,
+      y_var = y_var,
+    ) %>%
+    plot_lower_triangular_matrix2(
+      variables = rq2y,
+      labels    = rq2y_labels_short,
+      title     = rq1y_twin_labels_clean[i],
+      caption   = NULL
+                  )
 })
 
 patchwork::wrap_plots(
@@ -608,184 +599,11 @@ save_plot(
 
 ```
 
+# Supplementary Analyses 
 
-# Compare ACE estimates between original and attritioned datasets
+## How predictive are our variables of later attrittion?
 
-```{r}
-
-ace_comparisons = readRDS(file = file.path("results", "2_ace_comparisons.Rds"))
-
-# Extract ACE estimates from original (non-attrittioned) dataset
-
-boot_results_original_df = lapply(ace_comparisons, function(x) x$boot_results_original_df)
-
-boot_results_original_df = map_dfr(boot_results_original_df, ~ .x, .id = "variable")
-
-boot_results_original_df_summary = boot_results_original_df %>%
-  pivot_longer(cols = c(a,c,e)) %>%
-  group_by(variable, name) %>%
-  summarise(
-    results = .mean_qi_pd(value),
-    .groups = "drop"
-  ) %>%
-  unnest(cols = results)
-
-# Extract changes in ACE parameters across bootstrap resamples
-
-ace_comparisons_df = lapply(ace_comparisons, function(x) x$boot_results_differences_summary)
-
-ace_comparisons_df = map_dfr(ace_comparisons_df, ~ map_dfr(.x, ~ map_dfr(.x, ~ .x, .id = "component"), .id = "dataset"), .id = "variable")
-
-# Attritioned datasets: Extract mean estimates of ACE parameters across bootstrap resamples
-
-ace_boot_results_attritioned_df = lapply(ace_comparisons, function(x) x$boot_results_attritioned_df)
-
-ace_boot_results_attritioned_df = map_dfr(ace_boot_results_attritioned_df, ~ map_dfr(.x, ~ map_dfr(.x, ~ .x, .id = "component"), .id = "dataset"), .id = "variable")
-
-ace_boot_results_attritioned_df %>% 
-  pivot_longer(cols = c(a,c,e), names_to = "parameter") %>%
-  group_by(variable, dataset, parameter) %>% 
-  summarise(
-    results = .mean_qi_pd(value),
-    .groups = "drop"
-  ) %>%
-  unnest(results) 
-  
-```
-
-Test for significant changes
-
-```{r}
-
-ace_comparisons_df
-
-ace_comparisons_df %>% 
-  ggplot(aes(x = pval)) + 
-  geom_histogram(bins = 10) + 
-  labs(
-    title = "Histogram of p-values testing for changes in ACE parameters\nfrom original to attritioned groups"
-  )
-
-```
-
-Ternery Plot
-
-```{r}
-
-rm(points_data, estimate_data, coordinates, var_colors)
-
-pdf(file.path("plots","pdfs","2_2_ace_ternary_plot.pdf"), width = 7, height = 7)
-
-# Non-attritioned ACE estimates
-original_ace_estimates = boot_results_original_df_summary %>%
-  pivot_wider(values_from = y, names_from = name, id_cols = variable)
-
-original_ace_estimates$variable_shortlabel = rq2y_labels_short[match(original_ace_estimates$variable, rq2y_prefix)]
-
-attritioned_ace_estimates = ace_boot_results_attritioned_df %>%
-  pivot_longer(cols = c(a,c,e), names_to = "parameter") %>%
-  group_by(variable, dataset, parameter) %>%
-  summarise(
-    estimate = mean(value),
-    .groups = "drop"
-  ) %>%
-  pivot_wider(names_from = parameter, values_from = estimate)
-
-library(Ternary)
-
-TernaryPlot(
-  alab = "Additive Genetic (A)", 
-  blab = "Common Environment (C)", 
-  clab = "Unique Environment (E)",
-  # main = title,
-  grid.lines = 5,
-  grid.col = "lightgray",
-  axis.col = c("#D81B60", "#1E88E5", "#111111"),
-  lab.col = c("#D81B60", "#1E88E5", "#111111")
-)
-
-
-var_colors = RColorBrewer::brewer.pal(length(rq2y), "Paired")
-
-TernaryPoints(
-  original_ace_estimates[c("a","c","e")], 
-  pch = 16,  # filled circles
-  cex = 1,
-  col = var_colors[match(original_ace_estimates$variable, rq2y_prefix)]
-)
-
-TernaryPoints(
-  attritioned_ace_estimates[,c("a","c","e")], 
-  pch = 4,  
-  cex = .9,
-  col = var_colors[match(attritioned_ace_estimates$variable, rq2y_prefix)]
-)
-
-TernaryText(
-  coordinates = original_ace_estimates[c("a","c","e")], #%>% mutate(c = c+.1,a=a+.1),
-  labels = original_ace_estimates$variable_shortlabel,
-  # col = var_colors[match(original_ace_estimates$variable, rq2y_prefix)],
-  col = "black",
-  cex = 0.5,           # Text size
-  pos = 3,             # Position: 1=below, 2=left, 3=above, 4=right
-  offset = 0.5         # Distance from point
-)
-
-dev.off()
-
-
-```
-
-[View ACE Ternary Plot](plots/pdfs/2_2_ace_ternary_plot.pdf)
-
-
-Why are the ACE estimates weird? 
-
-```{r}
-
-df %>%
-  filter(random == 1) %>% 
-  filter(x3zygos == "DZ same sex") %>%
-  select(bsdqchypt1, bsdqchypt2) %>%
-  {cor.test(.$bsdqchypt1, .$bsdqchypt2)}
-
-df %>%
-  filter(random == 1) %>% 
-  filter(x3zygos == "MZ") %>%
-  select(bsdqchypt1, bsdqchypt2) %>%
-  {cor.test(.$bsdqchypt1, .$bsdqchypt2)}
-
-df %>%
-  filter(random == 1) %>% 
-  filter(sexzyg == "DZ female") %>%
-  select(bsdqchypt1, bsdqchypt2) %>%
-  {cor.test(.$bsdqchypt1, .$bsdqchypt2)}
-
-df %>%
-  filter(random == 1) %>% 
-  filter(sexzyg == "MZ female") %>%
-  select(bsdqchypt1, bsdqchypt2) %>%
-  {cor.test(.$bsdqchypt1, .$bsdqchypt2)}
-
-df %>%
-  filter(random == 1) %>% 
-  filter(sexzyg == "DZ male") %>%
-  select(bsdqchypt1, bsdqchypt2) %>%
-  {cor.test(.$bsdqchypt1, .$bsdqchypt2)}
-
-df %>%
-  filter(random == 1) %>% 
-  filter(sexzyg == "MZ male") %>%
-  select(bsdqchypt1, bsdqchypt2) %>%
-  {cor.test(.$bsdqchypt1, .$bsdqchypt2)}
-
-
-
-```
-
-# How predictive are our variables of later attrittion?
-
-## Correlations
+### Correlations
 
 ```{r}
 
@@ -800,7 +618,7 @@ sapply(rq2y, function(x)
 ```
 
 
-## Regression Modelling 
+### Regression Modelling 
 
 ```{r}
 
@@ -828,7 +646,7 @@ for (i in seq_along(rq1y_twin1)){
 ```
 
 
-### Plot of AUC and R2 for each timepoint 
+#### Plot of AUC and R2 for each timepoint 
 
 ```{r}
 
@@ -1006,8 +824,7 @@ glm_model_comparison_results_df %>%
 save_plot("2_rq2_variable_importance", width = 14, height = 7)
 ```
 
-
-# Comparison of maternal education scores
+## Comparison of maternal education scores
 
 ```{r}
 
@@ -1031,101 +848,3 @@ df %>%
 
 ```
 
-
-# Random / Code Checks
-
-```{r}
-#| eval: false 
-
-# Hellingers distances
-
-# Small
-
-statip::hellinger(rnorm(100000,1,1),rnorm(100000,1.2,1))*sqrt(2)
-
-# Medium
-
-statip::hellinger(rnorm(100000,1,1),rnorm(100000,1.5,1))*sqrt(2)
-
-# Large
-
-statip::hellinger(rnorm(100000,1,1),rnorm(100000,2,1))*sqrt(2)
-
-# Huge
-
-statip::hellinger(rnorm(100000,1,1),rnorm(100000,1,10))*sqrt(2)
-
-# More tests
-
-distrEx::HellingerDist(rnorm(1000,1,1),rnorm(1000,3,1), asis.smooth.discretize = "smooth")
-
-
-HellingerDist(c(.3,.5,.2),c(.3,.6,.3))
-
-statip::hellinger(rnorm(100000,1,1),rnorm(100000,3,1))*sqrt(2)
-
-HellingerDist(rbinom(50, size = 20, prob = 0.5), Binom(size = 20, prob = 0.5))
-
-apply(attritioned_datasets[[1]],2, function(x) length(which(!is.na(x))))
-
-
-df %>%
-  select(bcontact)
-
-
-# rq2y
-# rq1y[10]
-# 
-# calc_smd(
-# cleanvar(original_dataset$bvocab1),
-# cleanvar(attritioned_datasets[[9]]$bvocab1)
-# )
-# 
-# calc_md(
-# cleanvar(original_dataset$bvocab1),
-# cleanvar(attritioned_datasets[[9]]$bvocab1)
-# )
-# 
-# calc_smd(
-# cleanvar(original_dataset$bvocab1),
-# cleanvar(attritioned_datasets[[9]]$bvocab1)
-# )
-# 
-# calc_smd(
-# cleanvar(original_dataset$bvocab1),
-# cleanvar(attritioned_datasets[[4]]$bvocab1)
-# )
-# 
-# x=compare_df(
-#   attritioned_datasets[[9]],
-#   original_dataset
-# )
-# 
-# x=compare_smd(
-#   attritioned_datasets[[9]],
-#   original_dataset
-# )
-
-# compare_smd(
-#   attritioned_datasets[[9]],
-#   original_dataset
-# )
-
-calc_smd(
-   cleanvar(attritioned_datasets[[9]]$brawg1),
-   cleanvar(original_dataset$brawg1)
-)
-
-statip::hellinger(
-   cleanvar(attritioned_datasets[[9]]$brawg1),
-   cleanvar(original_dataset$brawg1)
-)
-
-
-
-variable_comparisons_df %>%
-  filter(dataset == "rcqdata") %>%
-  filter(stat != "md") 
-
-rq1y[9]
-```

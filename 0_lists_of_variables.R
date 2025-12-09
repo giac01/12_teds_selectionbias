@@ -548,3 +548,96 @@ if (FALSE){
   })
     
 }
+
+baseline_imp = c(
+  "amumagetw",     # Maternal age at twin birth
+  # "aadults",       # Number of adults in household  # Including this led to issues with other variables in imputation
+  "amosoc2",       # Female parent SOC employment level (1st Contact), 1-9
+  "aethnic",       # Ethnicity of twins (categorical)
+  "anoldsibn",     # Number of older siblings
+  "anyngsibn",     # Number of younger siblings
+  "atwclub",       # Membership in Twins Club
+  "sex1",
+  "sex2",
+  "zygos",
+  
+  # 3 Year (c prefix)
+  "cvocab1",       # Vocabulary (3 Year)
+  "cvocab2",
+  "cgramma1",      # Grammar (3 Year)
+  "cgramma2",
+  "cadparn1",      # Parent-administered Parca (3 Year)
+  "cadparn2",
+  "creparc1",      # Parent-reported Parca (3 Year)
+  "creparc2",
+  "csdqccont1",    # Conduct SDQ (3 Year)
+  "csdqccont2",
+  "csdqcemot1",    # Emotion SDQ (3 Year)
+  "csdqcemot2",
+  "csdqchypt1",    # Hyperactivity SDQ (3 Year)
+  "csdqchypt2",
+  "csdqcpert1",    # Peer SDQ (3 Year)
+  "csdqcpert2",
+  "csdqcprot1",    # Prosocial SDQ (3 Year)
+  "csdqcprot2",
+  
+  # 4 Year (d prefix)
+  "dvocab1",       # Vocabulary (4 Year)
+  "dvocab2",
+  "dgramma1",      # Grammar (4 Year)
+  "dgramma2",
+  "dadparn1",      # Parent-administered Parca (4 Year)
+  "dadparn2",
+  "dreparc1",      # Parent-reported Parca (4 Year)
+  "dreparc2",
+  "dsdqcont1",     # Conduct SDQ (4 Year)
+  "dsdqcont2",
+  "dsdqemot1",     # Emotion SDQ (4 Year)
+  "dsdqemot2",
+  "dsdqhypt1",     # Hyperactivity SDQ (4 Year)
+  "dsdqhypt2",
+  "dsdqpert1",     # Peer SDQ (4 Year)
+  "dsdqpert2",
+  "dsdqprot1",     # Prosocial SDQ (4 Year)
+  "dsdqprot2",
+  "dchatot",       # Household chaos
+  
+  # 7 Year (g prefix) - available measures
+  "gpsdqprot1",    # SDQ Prosocial (7 Year)
+  "gpsdqprot2",
+  "gpsdqhypt1",    # SDQ Hyperactivity (7 Year)
+  "gpsdqhypt2",
+  "gpsdqcont1",    # SDQ Conduct (7 Year)
+  "gpsdqcont2",
+  "gpsdqpert1",    # SDQ Peer problems (7 Year)
+  "gpsdqpert2",
+  "gpsdqemot1",    # SDQ Emotional (7 Year)
+  "gpsdqemot2",
+  "gvocabt1",      # Vocabulary test (7 Year)
+  "gvocabt2",
+  "gcg1",          # General Cognitive ability
+  "gcg2",
+  
+  #SDQ measures at 12 years:
+  "lcsdqprot1",    # SDQ Prosocial (12 Year)
+  "lcsdqprot2",
+  "lcsdqhypt1",    # SDQ Hyperactivity (12 Year)
+  "lcsdqhypt2",
+  "lcsdqcont1",    # SDQ Conduct (12 Year)
+  "lcsdqcont2",
+  "lcsdqpert1",    # SDQ Peer problems (12 Year)
+  "lcsdqpert2",
+  "lcsdqemot1",    # SDQ Emotional (12 Year)
+  "lcsdqemot2",
+  
+  #Cognitive/language measures at 12 years:
+  "lcg1",          # General cognitive ability (12 Year)
+  "lcg2",
+  
+  #Other 12-year measures:
+  "lcmfqt1",       # MFQ total (Mood and Feelings Questionnaire, 12 Year)
+  "lcmfqt2",
+  "lcemfqt1",      # Extended MFQ total (12 Year)
+  "lcemfqt2"
+)
+

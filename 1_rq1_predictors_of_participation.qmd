@@ -15,6 +15,8 @@ format:
 editor: source
 ---
 
+Analyses run in docker container bignardig/tidyverse451:v6
+
 # Load Data
 
 ```{r}
@@ -22,9 +24,20 @@ editor: source
 
 source("0_load_data.R")
 
+df_rq1 = df %>%
+  filter(twin == 1) %>%
+  filter(acontact == 1) %>%
+  select(all_of(c(rq1x, rq1y, rq1y_twin1, rq1y_twin2, "cohort")))
+
+df_rq1x = df_rq1 %>% 
+  select(all_of(rq1x)) 
+
 options(width = 900)
 
 ```
+
+
+At some time points, participants in cohorts 3 & 4 were not all eligible to take part 
 
 ## List of variables
 
@@ -39,9 +52,9 @@ data.frame(
 
 ```
 
-## Impute Missing Predictor Data
+## Singly Impute Missing Predictor/Baseline Data
 
-### Create Imputed data for family-level 
+### Imputation
 
 ```{r}
 
@@ -91,7 +104,6 @@ rm(df1, df2)
 
 # Set outcome to missing for participants ineligible at specific time points
 
-
 df_rq1_long$btwdata1 %>% table(., useNA = "always")
 
 df_rq1_long %>% sapply(., function(x) length(which(is.na(x))))
@@ -114,8 +126,6 @@ df %>%
     confidence_interval = FALSE
   )
 
-# sapply(rq1y_twin, function(var_x)
-# calc_ace(data = df, var = var_x))
 
 df %>% 
   select(randomfamid,twin,all_of(rq1y)) %>% 
@@ -148,14 +158,13 @@ cbind(rq1x, rq1x_labels) %>%
 
 ```{r}
 
-cbind(rq1y, rq1y_labels) %>%
+cbind(rq1y_twin1, rq1y_twin_labels) %>%
   knitr::kable()
 
 ```
 
 
-
-# Twin-Level Logistic Regressions on each outcome
+# Twin-Level Logistic Regressions to each participation outcome
 
 ## Fit Models
 
@@ -166,29 +175,23 @@ Fit logistic regression models to each participation outcome
 twinmodels = list()
 
 for (i in seq_along(rq1y_twin)){
+  
   cat(i, "/", length(rq1y_twin),"\n")
   formula <- as.formula(paste(rq1y_twin1[i], "~", paste(rq1x, collapse = "+")))
   twinmodels[[i]] = glm(formula, data = df_rq1_long, family = binomial, na.action = na.omit)
-  # V_CR = clubSandwich::vcovCR(twinmodels[[i]], cluster = twinmodels[[i]]$data$famid, type = "CR2")
-
-  # clubSandwich::coef_test(twinmodels[[i]], vcov = V_CR, test = "z")
   
 }
 
 
 ```
 
+## Calc participant participation predictions
 
-
-## Compare model predictions for each participant
-
-To get standard errors for our predictions... we will need to so something a bit more complex. 
-
-I've removed the intercept from predictions
+This approach doesn't give us standard errors for our predictions.
 
 ** Predictions for participants at cohorts 3-4 at specific timepoints are kept in here!! **
 
-
+** For plotting purposes, the intercept is removed from predictions. ** 
 
 ```{r}
 
@@ -236,20 +239,18 @@ save_plot("1_rq1_predicted_probability_plots", width = 8, height = 8)
 
 ```
 
-## Significance of individual variables
+## Significance of predictor variables
 
 A detailed version of the figure below can be found here [here](plots/1_rq1_variable_importance.pdf){target="_blank"}.
 
 ```{r}
-#| echo: false
  # debug(glm_model_comparison_robust)
  # system.time({
- # test = twinmodels[[11]] %>% glm_model_comparison_robust
+ # test = twinmodels[[3]] %>% glm_model_comparison_robust
  # })
-# test0 = twinmodels[[11]] %>% glm_model_comparison_robust
-# glm_model_comparison_results = lapply(twinmodels, glm_model_comparison_robust)
 
-glm_model_comparison_results = parallel::mclapply(twinmodels, glm_model_comparison_robust, mc.cores = 8)
+
+glm_model_comparison_results = parallel::mclapply(twinmodels, glm_model_comparison_robust, mc.cores = ncores_use)
 
 glm_model_comparison_results_df = do.call("rbind.data.frame", glm_model_comparison_results)
 
@@ -335,8 +336,6 @@ save_plot("1_rq1_variable_importance_twin-level", width = 14, height = 7)
 
 ```
 
-
-
 #### Calc variable importance for plotting
 
 ```{r}
@@ -353,104 +352,7 @@ variable_importance = glm_model_comparison_results_df %>%
   mutate(importance_rank = row_number())
 ```
 
-
-#### Circular Barplot
-
-```{r}
-
-library(ggplot2)
-library(dplyr)
-library(stringr)
-
-# Prepare data - first calculate importance order by number of significant results
-
-circular_data = glm_model_comparison_results_df %>%
-  filter(Variables_Dropped != "None") %>%
-  filter(outcome %in% rq1y_twin1[6:15]) %>%
-  mutate(
-    outcome_labeled = rq1y_twin_labels_clean[match(outcome, rq1y_twin1)],
-    Delta_AUC_scaled = pmax(0, Delta_AUC * -10000),  # Multiply by -1 and set negatives to 0
-    Variables_wrapped = str_wrap(Variables_full, width = 8)
-  ) %>%
-  # Join with importance ranking
-  left_join(variable_importance, by = "Variables_full") %>%
-  # Create position for grouping by variable (ordered by importance)
-  group_by(importance_rank) %>%
-  mutate(
-    variable_order = importance_rank,
-    outcome_within_var = row_number(),
-    n_outcomes = dplyr::n()
-  ) %>%
-  ungroup() %>%
-  mutate(
-    # Create x position: variable position + small offset for each outcome within variable
-    x_pos = variable_order + (outcome_within_var - 1) * 0.8 / n_outcomes - 0.4
-  )
-
-# Create segment boundary data
-n_vars = length(unique(circular_data$Variables_full))
-segment_lines = data.frame(
-  x = seq(0.5, n_vars + 0.5, by = 1),
-  y_max = max(circular_data$Delta_AUC_scaled) * 1.1
-)
-
-# Create circular barplot
-ggplot(circular_data) +
-  geom_hline(
-    aes(yintercept = y), 
-    data.frame(y = seq(0, max(circular_data$Delta_AUC_scaled), length.out = 4)),
-    color = "lightgrey", size = 0.3
-  ) + 
-  # Add segment lines
-  geom_segment(
-    data = segment_lines,
-    aes(x = x, y = 0, xend = x, yend = y_max),
-    color = "gray70", size = 0.5, alpha = 0.7
-  ) +
-  geom_col(
-    aes(
-      x = x_pos,
-      y = Delta_AUC_scaled,
-      fill = outcome_labeled
-    ),
-    alpha = 0.8, width = 0.8 / max(circular_data$n_outcomes)
-  ) +
-  # Add variable labels at outer edge
-  geom_text(
-    data = circular_data %>% distinct(Variables_full, variable_order, Variables_wrapped),
-    aes(
-      x = variable_order,
-      y = max(circular_data$Delta_AUC_scaled) * 1.15,
-      label = Variables_wrapped
-    ),
-    size = 2.5, hjust = 0.5
-  ) +
-  coord_polar() +
-  scale_y_continuous(
-    limits = c(0, max(circular_data$Delta_AUC_scaled) * 1.3),
-    expand = c(0, 0),
-    breaks = seq(0, max(circular_data$Delta_AUC_scaled), length.out = 4),
-    labels = function(x) sprintf("%.1f", x)
-  ) + 
-  scale_fill_viridis_d(guide = "none") +
-  labs(
-    title = "Variable Importance by Outcome",
-    y = "Delta AUC (×10000)"
-  ) +
-  theme_minimal() +
-  theme(
-    axis.title.x = element_blank(),
-    axis.ticks = element_blank(),
-    axis.text.x = element_blank(),
-    axis.text.y = element_text(size = 8, color = "gray50"),
-    panel.background = element_rect(fill = "white", color = "white"),
-    panel.grid = element_blank()
-  )
-
-```
-
-#### Cricular Heatmap
-
+#### Circular Heatmap
 
 ```{r}
 rq1y_twin_labels_clean_extrashort2 = paste0(rq1y_twin_labels_clean_extrashort, " ")
@@ -495,7 +397,7 @@ heatmap_data$Variables_wrapped = factor(heatmap_data$Variables_wrapped, levels =
 
 ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_tile(aes(fill = Delta_AUC_fill, 
-                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1", "pollution1998pca", "adrink", "adadagetw"), "azure2", "black")), 
+                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1", "adrink", "adadagetw", "anyngsib","afasoc2"), "azure2", "black")), 
             size = .5) +
   scale_color_identity() +
   geom_text(
@@ -722,30 +624,30 @@ twinmodels_results %>%
     style = cell_text(whitespace = "pre-wrap"),
     locations = cells_body(columns = starts_with("table_val"))
   ) %>%
-  tab_style(
-    style = cell_fill(color = "#d5e8d4"),
-    locations = cells_body(columns = "table_val_Y2", rows = Wald_p_Y2 < 0.05)
-  ) %>%
-  tab_style(
-    style = cell_fill(color = "#d5e8d4"),
-    locations = cells_body(columns = "table_val_Y3", rows = Wald_p_Y3 < 0.05)
-  ) %>%
+  # tab_style(
+  #   style = cell_fill(color = "#d5e8d4"),
+  #   locations = cells_body(columns = "table_val_Y2", rows = Wald_p_Y2 < 0.05)
+  # ) %>%
+  # tab_style(
+  #   style = cell_fill(color = "#d5e8d4"),
+  #   locations = cells_body(columns = "table_val_Y3", rows = Wald_p_Y3 < 0.05)
+  # ) %>%
   tab_style(
     style = cell_fill(color = "#d5e8d4"),
     locations = cells_body(columns = "table_val_Y4", rows = Wald_p_Y4 < 0.05)
   ) %>%
-  tab_style(
-    style = cell_fill(color = "#d5e8d4"),
-    locations = cells_body(columns = "table_val_Y7", rows = Wald_p_Y7 < 0.05)
-  ) %>%
-  tab_style(
-    style = cell_fill(color = "#d5e8d4"),
-    locations = cells_body(columns = "table_val_Y9", rows = Wald_p_Y9 < 0.05)
-  ) %>%
-  tab_style(
-    style = cell_fill(color = "#d5e8d4"),
-    locations = cells_body(columns = "table_val_Y10", rows = Wald_p_Y10 < 0.05)
-  ) %>%
+  # tab_style(
+  #   style = cell_fill(color = "#d5e8d4"),
+  #   locations = cells_body(columns = "table_val_Y7", rows = Wald_p_Y7 < 0.05)
+  # ) %>%
+  # tab_style(
+  #   style = cell_fill(color = "#d5e8d4"),
+  #   locations = cells_body(columns = "table_val_Y9", rows = Wald_p_Y9 < 0.05)
+  # ) %>%
+  # tab_style(
+  #   style = cell_fill(color = "#d5e8d4"),
+  #   locations = cells_body(columns = "table_val_Y10", rows = Wald_p_Y10 < 0.05)
+  # ) %>%
   tab_style(
     style = cell_fill(color = "#d5e8d4"),
     locations = cells_body(columns = "table_val_Y12 (web test)", rows = `Wald_p_Y12 (web test)` < 0.05)
@@ -754,10 +656,10 @@ twinmodels_results %>%
     style = cell_fill(color = "#d5e8d4"),
     locations = cells_body(columns = "table_val_Y12 (q'aire)", rows = `Wald_p_Y12 (q'aire)` < 0.05)
   ) %>%
-  tab_style(
-    style = cell_fill(color = "#d5e8d4"),
-    locations = cells_body(columns = "table_val_Y16 (web)", rows = `Wald_p_Y16 (web)` < 0.05)
-  ) %>%
+  # tab_style(
+  #   style = cell_fill(color = "#d5e8d4"),
+  #   locations = cells_body(columns = "table_val_Y16 (web)", rows = `Wald_p_Y16 (web)` < 0.05)
+  # ) %>%
   tab_style(
     style = cell_fill(color = "#d5e8d4"),
     locations = cells_body(columns = "table_val_Y16 (q'aire)", rows = `Wald_p_Y16 (q'aire)` < 0.05)
@@ -795,31 +697,25 @@ twinmodels_results %>%
   ) 
 
 
-
 ```
-
 
 ## Plot Marginal Effects of maternal education
 
 ```{r}
 
-library(marginaleffects)
-
 # Calculate average predictions for maternal education variables
 
 # Calculate predictions for all models
+
 all_predictions = map_dfr(1:length(twinmodels), function(i) {
-  data_grid = datagrid(
+  data_grid = marginaleffects::datagrid(
     model = twinmodels[[i]],
     amohqual = unique
   )
+
+  pred = predict(twinmodels[[i]], newdata = data_grid, type = "response")
   
-  predictions(
-    twinmodels[[i]],
-    newdata = data_grid,
-    type = "response"
-  ) %>% 
-    data.frame() %>%
+  cbind.data.frame(data_grid, estimate = pred) %>%
     mutate(
       outcome = rq1y_twin_labels_clean_extrashort[i],
       amohqual = factor(amohqual, levels = levels(df$amohqual))
@@ -842,14 +738,13 @@ all_predictions %>%
     x = "Maternal Education Level",
     y = "Predicted Probability",
     color = "Study Wave",
-    caption = "Note: Predictions calculated using logistic regression models fitted separately for each study wave.\nAll other covariates held at their observed means (continuous) or modes (categorical).\nPredictions computed using the marginaleffects R package."
+    caption = "Note: Predictions calculated using logistic regression models fitted separately for each study wave.\nAll other covariates held at their observed means (continuous) or modes (categorical)."
   )
 
 ```
 
 
-
-# Descriptive Information
+# Descriptive Statistics
 
 Total number of families in dataset: `r length(unique(df0$randomfamid))`
 
@@ -859,10 +754,12 @@ Total number of families with no predictor information (and are just completely 
 
 ```{r}
 
-df_rq1y %>%
+df %>%
+  select(all_of(rq1y_twin1)) %>%
   sapply(., function(x) length(which(x==1))/length(which(x>=0)))
 
-df_rq1y %>%
+df %>%
+  select(all_of(rq1y_twin1)) %>%
   mutate(across(everything(), as.character)) %>%
   # rename_from_labels() %>%
   pivot_longer(cols = everything()) %>%
@@ -873,11 +770,14 @@ df_rq1y %>%
   # select(-name_count) %>%
   knitr::kable()
 
-df_rq1y %>%
+df %>%
+  select(all_of(rq1y_twin1)) %>%
+  `colnames<-`(rq1y_twin_labels_clean_extrashort) %>%
   # select(where(is.numeric)) %>%
   mutate(across(everything(), as.character)) %>%
   mutate(across(everything(), ~as.character(replace_na(., "NA")))) %>%
   pivot_longer(cols = everything()) %>%
+  mutate(name = factor(name, levels = rq1y_twin_labels_clean_extrashort)) %>%
   ggplot(aes(x=value)) +
   geom_bar() +
   facet_wrap(~name, ncol = 4, scales = "free")
