@@ -1,16 +1,17 @@
 
 # Docker image  bignardig/tidyverse451:v5
-# CODE REVIEW STATUS: reviewed again 1/sep/25. Might want to review ACE estimation method with Tom
+# CODE REVIEW STATUS: reviewed again 1/sep/25. Might want to review ACE estimation method with Tom. 
 # Running using Rscript seemed to help with parellelisation
 # 3000 reps took 1.63 hours on 32 cores
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load data --------------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+rm(list = ls())
+
 Sys.setenv(OMP_NUM_THREADS = 1)
 Sys.setenv(MKL_NUM_THREADS = 1)
 Sys.setenv(OPENBLAS_NUM_THREADS = 1)
-
 
 source("0_load_data.R")
 
@@ -18,14 +19,13 @@ source("0_load_data.R")
 # Arguments --------------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-B = 3000 # number of bootstraps 
-mice_iter = 20 # number of iterations for mice
-
+B         = 16 # number of bootstraps 
+mice_iter = 50 # number of iterations for mice
+n_workers = 8
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-# PRELIMINARY SETUP: Create Missingness Indicator Variables --------------------
+# Create Missingness Indicator Variables ---------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-
 
 # This section creates missingness indicator tables for bivariate and 
 # univariate analysis patterns
@@ -57,7 +57,8 @@ missingcode_table_univariate = missingcode_table %>%                            
 # Validation check
 if (!all(missingcode_table_univariate$x_var==rq5y)) stop("rq5y should match with univariate missingness indicators")
 
-# Create missingness indicator columns in main dataset
+# Create missingness indicator columns
+## 1 = IS NOT MISSING, 0 = IS MISSING
 for(i in seq_along(vars)){
   df[[missingcode[i]]] = !is.na(df[[x_var[i]]]) & !is.na(df[[y_var[i]]]) 
   df[[missingcode[i]]] = factor(as.numeric(df[[missingcode[i]]]))
@@ -66,38 +67,27 @@ for(i in seq_along(vars)){
 # Cleanup temporary variables
 rm(test_correlation_matrix, x_var, y_var, missingcode)
 
-
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Participant Exclusions ------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-
 
 exclude_missing_too_much_predictor_data = df %>%
   select(all_of(rq1x)) %>%
   apply(.,1,function(x) sum(is.na(x))>7)
 
-exclude_twinless = df %>%
-  pull(randomfamid) %>%
-  table()
-
-exclude_twinless = names(exclude_twinless[exclude_twinless==1])
-
-exclude_twinless = df$randomfamid %in% exclude_twinless
-
 a = nrow(df)
 
 df = df %>%
-  filter(!exclude_missing_too_much_predictor_data & !exclude_twinless)
+  filter(!exclude_missing_too_much_predictor_data) %>%
+  filter(!(randomfamid %in% exclude_fams_onesib)) 
 
 cat("Excluded", a-nrow(df), "participants ")
 
-rm(a, exclude_missing_too_much_predictor_data, exclude_twinless)
-
+rm(a, exclude_missing_too_much_predictor_data)
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Data Imputation: Impute RQ1X baseline variables ----------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-
 
 # twin-level variables
 df_leftjoin = df %>%
@@ -136,7 +126,6 @@ df_imputed_mice = mice(
 )
 
 where_matrix = df_imputed_mice$where
-# where_matrix[,str_detect(colnames(df_impute),"^missing")] = FALSE             # Not sure why this was here 
 
 predictor_matrix = df_imputed_mice$predictorMatrix
 predictor_matrix[, "randomfamid"] = 0 
@@ -177,11 +166,9 @@ df_imputed_long = df_imputed %>%
 
 sapply(df_imputed_long, function(x) length(which(is.na(x))))
 
-
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-# Validation Tests: Check imputation quality ----------------------------------
+## Validation Tests For Imputation ---------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-
 
 test_that("Imputed data matches original data structure and values", { 
   x = df_imputed_long %>%
@@ -224,27 +211,22 @@ test_that("Imputed data matches original data structure and values", {
   
 })
 
-
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Main Analysis: Bootstrap weighting comparisons ------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-# Could move this to 0_functions.R script! 
-
 set.seed(1)
 umx::umx_set_silent(value=TRUE)
-test = compare_df_weighting( )
-
-# test$ace[[1]] %>%
-#   # filter(name == "lcg1") %>%
-#   group_by(group, name) %>%
-#   summarise(sum = sum(value))
+# debug(.safe_umxACE)
+# debug(compare_ace_weighted)
+# debug(compare_df_weighting)
+# test = compare_df_weighting( )
 
 umx::umx_set_cores(cores = 1)
 print("start analysis")
 
 # Set up parallel processing
-plan(multisession, workers = 26)
+plan(multisession, workers = n_workers)
 
 ta = Sys.time()
 
@@ -266,7 +248,7 @@ plan(sequential)
 saveRDS(weighted_comparisons, file = file.path("results", "3_weighted_comparisons.Rds"))
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-# Clean Results Data -------------------------------------------------------------------
+# Clean Results Data -----------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 md_df   = sapply(weighted_comparisons, function(x) x$md) %>%
@@ -309,3 +291,6 @@ bootstrap_summary = lapply(bootstrap_summary, function(x) bind_rows(x, .id = "va
 bootstrap_summary = bind_rows(bootstrap_summary, .id = "stat")
   
 saveRDS(bootstrap_summary, file = file.path("results", "3_weighted_comparisons_bootstrap.Rds"))
+
+
+

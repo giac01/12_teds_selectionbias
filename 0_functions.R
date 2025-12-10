@@ -1158,20 +1158,20 @@ compare_correlation_weighted = function(
 }
 
 .safe_umxACE = function(
-    selDVs, 
-    mzData, 
-    dzData, 
-    sep = "_", 
-    equateMeans = FALSE, 
-    addCI = FALSE, 
-    intervals = FALSE, 
+    selDVs,
+    mzData,
+    dzData,
+    sep = "_",
+    equateMeans = FALSE,
+    addCI = FALSE,
+    intervals = FALSE,
     weightVar = NULL) {
   tryCatch({
     if (is.null(weightVar)) {
       model = umx::umxACE(
         selDVs = selDVs,
         mzData = mzData,
-        dzData = dzData, 
+        dzData = dzData,
         sep = sep,
         equateMeans = equateMeans,
         addCI = addCI,
@@ -1181,7 +1181,7 @@ compare_correlation_weighted = function(
       model = umx::umxACE(
         selDVs = selDVs,
         mzData = mzData,
-        dzData = dzData, 
+        dzData = dzData,
         sep = sep,
         equateMeans = equateMeans,
         addCI = addCI,
@@ -1189,17 +1189,42 @@ compare_correlation_weighted = function(
         weightVar = weightVar
       )
     }
-    
+
     # Extract ACE estimates as proportions
-    estimates = model$output$estimate[3:5]^2 / sum(model$output$estimate[3:5]^2)
-    names(estimates) = c("a", "c", "e")
+    ace = model$output$estimate[3:5]^2 / sum(model$output$estimate[3:5]^2)
+
+    # Create list with all results
+    estimates = list(
+      a = ace[1],
+      c = ace[2],
+      e = ace[3],
+      status_code = model$output$status$code,
+      status = model$output$status$status,
+      condition = model$output$conditionNumber
+    )
+
     return(estimates)
-    
+
   }, error = function(e) {
     warning("umxACE failed for ", selDVs, ": ", e$message)
-    return(c(a = NA, c = NA, e = NA))
+    return(list(
+      a = NA,
+      c = NA,
+      e = NA,
+      status_code = NA,
+      status = NA,
+      condition = NA
+    ))
   })
 }
+
+# If we want to add extra checks to umx output, I can extrac the following:
+# Key Model Properties to Check
+# - model$output$status$code - 0 = success
+# - model$output$status$status - text description
+# - model$output$conditionNumber - numerical stability
+# - model$output$Minus2LogLikelihood - should be finite
+# - umxFitIndices(model) - RMSEA, CFI, TLI, etc.
 
 compare_ace_weighted = function(
   dfy    = df_y_boot_wide, 
@@ -1225,8 +1250,7 @@ compare_ace_weighted = function(
       mzData = filter(dfy, sexzyg_1 == "MZ male"),
       dzData = filter(dfy, sexzyg_1 == "DZ male")
     )
-  ) %>%
-    `rownames<-`(c("a","c","e"))
+  ) 
   
   # Check results against alternative approaches (all good)
   # male_unweighted_estimates_old = sapply(ace_unweighted_male, function(x)
@@ -1263,9 +1287,7 @@ compare_ace_weighted = function(
       weightVar = paste0("w",i)
     )
   ) %>%
-    `rownames<-`(c("a","c","e")) %>%
     `colnames<-`(rq5y)
-  
   
   male_weighted_estimates = male_weighted_estimates %>% 
     data.frame() %>%
@@ -1279,8 +1301,13 @@ compare_ace_weighted = function(
   
   male_ace = rbind.data.frame(male_weighted_estimates, male_unweighted_estimates)
   
+  if (!identical(male_weighted_estimates$name, male_unweighted_estimates$name)) stop("error - dfs don't match")
+  
   male_ace_diff       = male_weighted_estimates
   male_ace_diff$value = male_weighted_estimates$value - male_unweighted_estimates$value
+  
+  male_ace_diff = male_ace_diff %>% 
+    filter(par %in% c("a","c","e"))
   
   # Females Comparison
   
@@ -1290,8 +1317,7 @@ compare_ace_weighted = function(
       mzData = filter(dfy, sexzyg_1 == "MZ female"),
       dzData = filter(dfy, sexzyg_1 == "DZ female")
     )
-  ) %>%
-    `rownames<-`(c("a","c","e"))
+  ) 
   
   female_unweighted_estimates = female_unweighted_estimates %>%
     data.frame() %>%
@@ -1311,7 +1337,6 @@ compare_ace_weighted = function(
       weightVar = paste0("w",i)
     )
   ) %>%
-    `rownames<-`(c("a","c","e")) %>%
     `colnames<-`(rq5y)
   
   female_weighted_estimates = female_weighted_estimates %>% 
@@ -1326,8 +1351,12 @@ compare_ace_weighted = function(
   
   female_ace = rbind.data.frame(female_weighted_estimates, female_unweighted_estimates)
   
+  if (!identical(female_weighted_estimates$name, female_unweighted_estimates$name)) stop("error - dfs don't match")
+  
   female_ace_diff       = female_weighted_estimates
   female_ace_diff$value = female_weighted_estimates$value - female_unweighted_estimates$value
+  female_ace_diff       = female_ace_diff %>% 
+    filter(par %in% c("a","c","e"))
   
   out = list(
     male_ace,
@@ -1355,16 +1384,14 @@ compare_df_weighting = function(
   boot_results = list(
     md        = list(),
     smd       = list(),
-    # h         = list(),
     var       = list(),
     cor_resid = list(),
     ace       = list()
-    # srmr      = list()
   )
   
   families                = na.omit(unique(randomfamid))
   
-  if (length(families)*2 != nrow(df_imputed_long)) warning("length(families) != length(df_imputed_long)")
+  if (length(families)*2 != nrow(df_imputed_long)) stop("length(families) != length(df_imputed_long)")
   
   boot_select_families = sample(families, length(families), replace = TRUE)
   
@@ -1387,7 +1414,7 @@ compare_df_weighting = function(
   
   colnames(df_weights) = colnames(df_miss_boot)
   
-  if(!all(sapply(model_data, function(x) length(which(is.na(x)))==0))) warning("Missing data in weights calculation")
+  if(!all(sapply(model_data, function(x) length(which(is.na(x)))==0))) stop("Missing data in weights calculation")
   
   for (i in seq_along(df_miss_boot)){
     
@@ -1401,8 +1428,17 @@ compare_df_weighting = function(
     
   }
   
+  # TRUNCATE WEIGHTS
+  ## Truncate each column at 1st and 99th percentiles
+  df_weights <- apply(df_weights, 2, function(w) {
+    pmax(pmin(w, quantile(w, 0.99)), quantile(w, 0.01))
+  })
+  
+  # df_weights[df_miss_boot==0] = NA ## Remove weights for participants with missing data on a given outcome - THIS SHOULDN'T BE NECESSARY AS THESE PARTICIPANTS WON'T BE IN THE ANALYSIS ANYWAY
+  ## I've checked for the four methods below, the results are invariant to a constant scaling of the weights! 
+  
   # Univariate Results - mds, smds, vars
-  boot_results$md        = compare_md_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
+  boot_results$md        = compare_md_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode]) 
   boot_results$smd       = compare_smd_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
   boot_results$var       = compare_var_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
   # Pairwise results - cors

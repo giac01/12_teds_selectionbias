@@ -280,6 +280,34 @@ save_plot("3_correlations_unweighted", width = 8, height = 8)
 
 # Changes in ACE estimates 
 
+## Check for convergence issues
+
+```{r}
+
+weighted_comparisons[[1]]$ace %>% lapply(., nrow)
+
+check_models_males = lapply(weighted_comparisons, function(x) x$ace[[1]]) %>%
+                    bind_rows(., .id = "bootid")
+check_models_females = lapply(weighted_comparisons, function(x) x$ace[[3]]) %>%
+                    bind_rows(., .id = "bootid")
+check_models = rbind.data.frame(check_models_males, check_models_females)
+
+check_models$par %>% table()
+
+check_models %>%
+  filter(par == "status_code") %>%
+  pull(value) %>%
+  table()
+
+x = weighted_comparisons[[1]]$ace[[4]]
+
+```
+
+
+
+## Results
+
+
 ```{r}
 
 
