@@ -1049,16 +1049,23 @@ compare_df = function(
     
     ace_est_summary = lapply(boot_results$ace, function(x) x$ace_estimates) %>%       
       bind_rows(., .id = "boot") %>%
+      filter(par %in% c("a","c","e")) %>%
       group_by(par, name, sex, group) %>%
       summarise(.mean_qi_pd(value))
+    
+    ace_diagnostics = lapply(boot_results$ace, function(x) x$ace_estimates) %>%       
+      bind_rows(., .id = "boot") %>%
+      filter(!(par %in% c("a","c","e")))
+    
   } else{
     ace_diff_summary = NULL
     ace_est_summary  = NULL
+    ace_diagnostics  = NULL
   }
   
-  out = list(bootstrap_summary, bootstrap_iter, ace_est_summary, ace_diff_summary)
+  out = list(bootstrap_summary, bootstrap_iter, ace_est_summary, ace_diff_summary, ace_diagnostics)
   
-  names(out) = c("bootstrap_summary", "bootstrap_iter", "ace_est_summary", "ace_diff_summary")
+  names(out) = c("bootstrap_summary", "bootstrap_iter", "ace_est_summary", "ace_diff_summary", "ace_diagnostics")
   
   return(out)
 }
@@ -1580,8 +1587,7 @@ compare_ace = function(df1, df2, vars = rq5y) {
       mzData = filter(df1, sexzyg_boot_1 == "MZ male"),
       dzData = filter(df1, sexzyg_boot_1 == "DZ male")
     )
-  ) %>%
-    `rownames<-`(c("a","c","e"))
+  ) 
   
   male_df1_estimates = male_df1_estimates %>%
     data.frame() %>%
@@ -1599,8 +1605,7 @@ compare_ace = function(df1, df2, vars = rq5y) {
       mzData = filter(df2, sexzyg_boot_1 == "MZ male"),
       dzData = filter(df2, sexzyg_boot_1 == "DZ male")
     )
-  ) %>%
-    `rownames<-`(c("a","c","e"))
+  ) 
   
   male_df2_estimates = male_df2_estimates %>%
     data.frame() %>%
@@ -1614,9 +1619,11 @@ compare_ace = function(df1, df2, vars = rq5y) {
   
   male_ace = rbind.data.frame(male_df1_estimates, male_df2_estimates)
   
-  male_ace_diff = male_df1_estimates
+  male_ace_diff       = male_df1_estimates
   male_ace_diff$value = male_df1_estimates$value - male_df2_estimates$value
   male_ace_diff$group = "diff"
+  male_ace_diff       = male_ace_diff %>%
+                          filter(par %in% c("a","c","e"))
   
   # Females Comparison
   female_df1_estimates = sapply(vars, function(var)
@@ -1625,8 +1632,7 @@ compare_ace = function(df1, df2, vars = rq5y) {
       mzData = filter(df1, sexzyg_boot_1 == "MZ female"),
       dzData = filter(df1, sexzyg_boot_1 == "DZ female")
     )
-  ) %>%
-    `rownames<-`(c("a","c","e"))
+  ) 
   
   female_df1_estimates = female_df1_estimates %>%
     data.frame() %>%
@@ -1644,8 +1650,7 @@ compare_ace = function(df1, df2, vars = rq5y) {
       mzData = filter(df2, sexzyg_boot_1 == "MZ female"),
       dzData = filter(df2, sexzyg_boot_1 == "DZ female")
     )
-  ) %>%
-    `rownames<-`(c("a","c","e"))
+  ) 
   
   female_df2_estimates = female_df2_estimates %>%
     data.frame() %>%
@@ -1659,9 +1664,11 @@ compare_ace = function(df1, df2, vars = rq5y) {
   
   female_ace = rbind.data.frame(female_df1_estimates, female_df2_estimates)
   
-  female_ace_diff = female_df1_estimates
+  female_ace_diff       = female_df1_estimates
   female_ace_diff$value = female_df1_estimates$value - female_df2_estimates$value
   female_ace_diff$group = "diff"
+  female_ace_diff       = female_ace_diff %>%
+                            filter(par %in% c("a","c","e"))
   
   return(list(
     ace_estimates = rbind(male_ace, female_ace),

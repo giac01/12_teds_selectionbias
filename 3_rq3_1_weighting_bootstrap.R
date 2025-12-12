@@ -19,7 +19,7 @@ source("0_load_data.R")
 # Arguments --------------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-B         = 16 # number of bootstraps 
+B         = 4000 # number of bootstraps (4000 took 8 hours)
 mice_iter = 50 # number of iterations for mice
 n_workers = 8
 

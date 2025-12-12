@@ -1,5 +1,7 @@
 # Load data --------------------------------------------------------------------
 
+# docker container bignardig/tidyverse451:v6
+
 ## This section also applies filters
 
 source("0_load_data.R")
@@ -10,9 +12,16 @@ df = df %>%
 
 ## range of participation outcomes to use for attiritioning 
 
-range_participation_outcomes = 12:14
+range_participation_outcomes = 6:8
 
 cat("Participation Outcomes:\n", paste0(rq1y_twin_labels_clean[range_participation_outcomes], sep="\n"))
+
+# Arguments --------------------------------------------------------------------
+
+B         = 10000 # 10000 reps took 4.335921 hours
+n_workers = 3 # Set to three as we only parellise over attrition time points
+
+# 100 takes 2.8 mins 
 
 # Create Attritioned Datasets --------------------------------------------------
 
@@ -39,16 +48,19 @@ original_dataset = df %>%
 if(FALSE){
   i = 13
   
+  debug(.boot_compare_df)
+  debug(compare_df)
+  
   xx =   compare_df(
-    attritioned_datasets[[12]][c("randomfamid","sexzyg",rq6y)],
+    attritioned_datasets[[6]][c("randomfamid","sexzyg",rq6y)],
     original_dataset[c("randomfamid","sexzyg",rq6y)],
     vars = rq6y,
-    B = 40
+    B = 200
   )
 }
 
 ##  Set up parallel processing -------------------------------------------------
-plan(multisession, workers = 3)
+plan(multisession, workers = n_workers)
 
 ta = Sys.time()
 
@@ -57,7 +69,7 @@ variable_comparisons = future_lapply(range_participation_outcomes, function(i) {
     df1  = attritioned_datasets[[i]][c("randomfamid","sexzyg",rq6y)],
     df2  = original_dataset[c("randomfamid","sexzyg",rq6y)],
     vars = rq6y,
-    B    = 10000
+    B    = B
   )
 }, 
 future.seed = 1,

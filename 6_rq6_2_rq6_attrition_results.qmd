@@ -652,7 +652,6 @@ save_plot("6_rq6_ace_comparison", width = 10, height = 7)
 
 [📊 View Full Resolution ACE Comparison Plot (PNG)](plots/pngs/6_rq6_ace_comparison.png)
 
-
 Although we see large-ish increases in the shared environment for depression symptoms in males, this is not significant even before multiple comparisons are corrected for. 
 
 ```{r}
