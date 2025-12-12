@@ -1,8 +1,9 @@
 
-# Docker image  bignardig/tidyverse451:v5
+# Docker image  bignardig/tidyverse451:v6
+# Ran using github commit 1d527d3
+
 # CODE REVIEW STATUS: reviewed again 1/sep/25. Might want to review ACE estimation method with Tom. 
 # Running using Rscript seemed to help with parellelisation
-# 3000 reps took 1.63 hours on 32 cores
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load data --------------------------------------------------------------------

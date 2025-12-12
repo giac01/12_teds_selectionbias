@@ -32,7 +32,7 @@ df = df %>%
 
 ## range of participation outcomes to use for attiritioning 
 
-range_participation_outcomes = 12:14
+range_participation_outcomes = 6:8
 
 variable_comparisons = readRDS(file.path("results","6_variable_comparisons.Rds"))
 

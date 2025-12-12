@@ -292,14 +292,23 @@ check_models_females = lapply(weighted_comparisons, function(x) x$ace[[3]]) %>%
                     bind_rows(., .id = "bootid")
 check_models = rbind.data.frame(check_models_males, check_models_females)
 
-check_models$par %>% table()
-
+# check_models$par %>% table()
 check_models %>%
   filter(par == "status_code") %>%
-  pull(value) %>%
-  table()
+  pull(value) %>% table()
 
-x = weighted_comparisons[[1]]$ace[[4]]
+check_models %>%
+  data.frame() %>%
+  filter(par == "status_code" & value != 0) %>%
+  group_by(name, group) %>%
+  count(value) %>%
+  ungroup() %>%
+  mutate(
+    name = rq5y_labels_short[match(.$name, rq5y)]
+  ) %>%
+  rename("status_code outcome" = "value") %>%
+  knitr::kable()
+
 
 ```
 
@@ -328,9 +337,6 @@ ace_results_summary = ace_results %>%
   )
 
 
-
-
-
 ```
 
 ## Table
@@ -339,6 +345,7 @@ need to think more about how p-value correction could be applied
 ```{r}
 
 ace_results_summary %>%
+  filter(par %in% c("a", "c", "e")) %>%
   group_by(sex, par, group) %>%
   mutate(
     pval = stats::p.adjust(pval, method = "holm"),
@@ -403,6 +410,7 @@ ace_results_summary %>%
 
 ```{r}
 ace_results_summary %>%
+  filter(par %in% c("a", "c", "e")) %>%
   filter(group != "difference") %>%
   mutate(
     name = factor(rq5y_labels_short[match(name, rq5y)], levels = rq5y_labels_short),

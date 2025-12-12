@@ -1,6 +1,7 @@
 # Load data --------------------------------------------------------------------
 
-# docker container bignardig/tidyverse451:v6
+# Docker imagebignardig/tidyverse451:v6
+# Ran using gith commit 1d527d3
 
 ## This section also applies filters
 
