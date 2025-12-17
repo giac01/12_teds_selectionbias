@@ -1,5 +1,5 @@
 # Run using docker container: bignardig/tidyverse451:v6
-# Run using commit: 32749821hjasd92 (see message)
+# Run using commit: 32749821hjasd92b (see message)
 # Run date: 17-Dec-2015
 
 
@@ -12,7 +12,7 @@ rm(list=ls())
 source("0_load_data.R")
 
 range_participation_outcomes = 6:8
-mice_iter                    = 50                                               # Number of iterations of the MICE algorithm (which is ran only once)
+mice_iter                    = 10000                                               # Number of iterations of the MICE algorithm (which is ran only once)
 B                            = 50                                              # Number of bootstrap resamples (200 takes 6 minutes, 10000 should take 5 hours)
 n_workers                    = 8                                                # Number of parallel jobs to run (number of cores)
 

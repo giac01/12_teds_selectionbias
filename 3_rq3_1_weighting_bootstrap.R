@@ -1,5 +1,5 @@
 # Run using docker container: bignardig/tidyverse451:v6
-# Run using commit: 32749821hjasd92 (see message)
+# Run using commit: 32749821hjasd92b (see message)
 # Run date: 17-Dec-2015
 
 # CODE REVIEW STATUS: reviewed again 1/sep/25. Might want to review ACE estimation method with Tom. 
