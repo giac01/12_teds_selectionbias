@@ -1,9 +1,9 @@
-
-# Docker image  bignardig/tidyverse451:v6
-# Ran using github commit 1d527d3
+# Run using docker container: bignardig/tidyverse451:v6
+# Run using commit: main 2b71330
+# Run date: 17-Dec-2015
 
 # CODE REVIEW STATUS: reviewed again 1/sep/25. Might want to review ACE estimation method with Tom. 
-# Running using Rscript seemed to help with parellelisation
+# Running using Rscript is essential for parellelisation here
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load data --------------------------------------------------------------------
