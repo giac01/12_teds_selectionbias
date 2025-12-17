@@ -20,7 +20,7 @@ source("0_load_data.R")
 # Arguments --------------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-B         = 4000 # number of bootstraps (4000 took 8 hours)
+B         = 10000 # number of bootstraps (4000 took 8 hours, 10000 took 20.2 hours)
 mice_iter = 50 # number of iterations for mice
 n_workers = 8
 
@@ -89,6 +89,7 @@ rm(a, exclude_missing_too_much_predictor_data)
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Data Imputation: Impute RQ1X baseline variables ----------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# THIS SECTION IS COPIED IN 7_rq7_weighting.R - ANY CHANGES COULD BE MADE ACROSS BOTH
 
 # twin-level variables
 df_leftjoin = df %>%

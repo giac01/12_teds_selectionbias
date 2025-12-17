@@ -165,10 +165,6 @@ rq1y_twin = c(
 rq1y_twin1 = paste0(rq1y_twin,"1")
 rq1y_twin2 = paste0(rq1y_twin,"2")
 
-# rq2y = c("brawg1", "badparn1","breparc1", "bparca1", 
-#          "bvocab1", "bgramma1","bsdqcbeht1","bsdqccont1",
-#          "bsdqcemot1", "bsdqchypt1", "bsdqcpert1", "bsdqcprot1"
-#          )
 
 rq2y_prefix  = c(
   "amohqualn",
@@ -529,6 +525,13 @@ testthat::test_that("Label lengths match variable lengths", {
 exclude_fams_onesib = df %>%
   count(randomfamid) %>% 
   filter(n == 1) %>%
+  pull(randomfamid) %>%
+  as.character()
+
+## Exclude fams with missing baseline data -------------------------------------
+
+exclude_fams_rq1x = df %>%
+  filter(rowSums(is.na(across(all_of(rq1x)))) > 7) %>%
   pull(randomfamid) %>%
   as.character()
 

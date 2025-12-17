@@ -8,6 +8,7 @@
 source("0_load_data.R")
 
 df = df %>%
+  filter(!(randomfamid %in% exclude_fams_rq1x)) %>%
   filter(!(randomfamid %in% exclude_fams_onesib)) %>%
   filter(!(randomfamid %in% exclude_fams_rq6y)) 
 

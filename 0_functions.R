@@ -1073,95 +1073,99 @@ compare_df = function(
 # Weighted differences analysis ------------------------------------------------
 
 compare_md_weighted = function(
-    dfy = df_y_boot, 
+    df1 = df_y_boot,  # data for unweighted analysis
+    df2 = df1,        # data for weighted analysis (defaults to df1)
     w = df_weights[,missingcode_table_univariate$missingcode]
 ){
-  
-  means_unweighted = sapply(dfy, function(x) mean(x, na.rm = TRUE))
-  means_weighted   = sapply(seq_along(dfy),
+
+  means_unweighted = colMeans(df1, na.rm = TRUE)
+  means_weighted   = sapply(seq_along(df2),
                             function(i) {
-                              x = dfy[[i]]
+                              x = df2[[i]]
                               we = w[,i]
                               complete_cases = complete.cases(x, we)
-                              
+
                               if (sum(complete_cases) == 0) NA else
                                 stats::weighted.mean(x[complete_cases], we[complete_cases])
                             })
-  
+
   means_weighted - means_unweighted
-  
+
 }
 
 compare_smd_weighted = function(
-    dfy = df_y_boot, 
+    df1 = df_y_boot,  # data for unweighted analysis
+    df2 = df1,        # data for weighted analysis (defaults to df1)
     w = df_weights[,missingcode_table_univariate$missingcode]
 ){
-  
-  means_unweighted = sapply(dfy, function(x) mean(x, na.rm = TRUE))
-  sd_unweighted    = sapply(dfy, function(x) sd(x, na.rm = TRUE))
-  means_weighted   = sapply(seq_along(dfy),
+
+  means_unweighted = colMeans(df1, na.rm = TRUE)
+  sd_unweighted    = sapply(df1, function(x) sd(x, na.rm = TRUE))
+  means_weighted   = sapply(seq_along(df2),
                             function(i) {
-                              x = dfy[[i]]
+                              x = df2[[i]]
                               we = w[,i]
                               complete_cases = complete.cases(x, we)
-                              
+
                               if (sum(complete_cases) == 0) NA else
                                 stats::weighted.mean(x[complete_cases], we[complete_cases])
                             })
-  
+
   (means_weighted - means_unweighted) / sd_unweighted
-  
+
 }
 
 compare_var_weighted = function(
-    dfy = df_y_boot, 
+    df1 = df_y_boot,  # data for unweighted analysis
+    df2 = df1,        # data for weighted analysis (defaults to df1)
     w = df_weights[,missingcode_table_univariate$missingcode]
 ){
-  
-  var_unweighted = sapply(dfy,            function(x) sd(x, na.rm = TRUE)^2)
-  var_weighted   = sapply(seq_along(dfy),
+
+  var_unweighted = sapply(df1, function(x) sd(x, na.rm = TRUE)^2)
+  var_weighted   = sapply(seq_along(df2),
                           function(i) {
-                            x = dfy[[i]]
+                            x = df2[[i]]
                             we = w[,i]
                             complete_cases = complete.cases(x, we)
-                            
+
                             if (sum(complete_cases) == 0) NA else
                               Hmisc::wtd.var(x[complete_cases], we[complete_cases])
                           })
-  
-  var_weighted - var_unweighted
-  
+
+  (var_weighted - var_unweighted) / var_unweighted
+
 }
 
 compare_correlation_weighted = function(
-    dfy = df_y_boot, 
+    df1 = df_y_boot,  # data for unweighted analysis
+    df2 = df1,        # data for weighted analysis (defaults to df1)
     w = df_weights,
-    # sets of variables to calculate pairwise correlations with: 
+    # sets of variables to calculate pairwise correlations with:
     x_var = missingcode_table[,"x_var"],
     y_var = missingcode_table[,"y_var"]
 ){
-  
+
   correlations_unweighted = sapply(
-    seq_along(x_var), function(i) 
+    seq_along(x_var), function(i)
       cor(
-        dfy[[x_var[i]]], dfy[[y_var[i]]], 
+        df1[[x_var[i]]], df1[[y_var[i]]],
         use = "pairwise.complete.obs"
       )
   )
-  
+
   correlations_weighted   = sapply(seq_along(x_var),
                                    function(i) {
-                                     x = as.numeric(dfy[[x_var[i]]])
-                                     y = as.numeric(dfy[[y_var[i]]])
+                                     x = as.numeric(df2[[x_var[i]]])
+                                     y = as.numeric(df2[[y_var[i]]])
                                      we = w[,i]
                                      complete_cases = complete.cases(x, y, we)
-                                     
+
                                      if (sum(complete_cases) == 0) NA else
                                        weights::wtd.cors(x[complete_cases],y[complete_cases], we[complete_cases])
                                    })
-  
+
   correlations_weighted - correlations_unweighted
-  
+
 }
 
 .safe_umxACE = function(
@@ -1234,28 +1238,32 @@ compare_correlation_weighted = function(
 # - umxFitIndices(model) - RMSEA, CFI, TLI, etc.
 
 compare_ace_weighted = function(
-  dfy    = df_y_boot_wide, 
-  w      = df_weights_wide,                     # nxp matrix, with weights for each variable on each column
-  rq5y   = rq5y
+  df1  = df_y_boot_wide,  # data for unweighted analysis (wide format)
+  df2  = df1,              # data for weighted analysis (wide format, defaults to df1)
+  w    = df_weights_wide, # nxp matrix, with weights for each variable on each column
+  rq5y = rq5y
   ){
   # browser()
   umx::umx_set_silent(TRUE)
 
-  if (nrow(dfy) != nrow(w)) stop("input data doesn't match!")  
+  if (nrow(df1) != nrow(w)) stop("df1 and w rows don't match!")
+  if (nrow(df2) != nrow(w)) stop("df2 and w rows don't match!")
   
+  w[is.na(w)] = 0                                                               # NA in weights leads to errors - setting these to 0 should tell umx to ignore these cases.
+
   w0 = w %>%
     select(starts_with("missing")) %>%
     `colnames<-`(paste0("w",1:ncol(.)))
-  
-  dfy = cbind.data.frame(dfy, w0)
+
+  df2_with_weights = cbind.data.frame(df2, w0)
   
   # Males Comparison
-  
+
   male_unweighted_estimates = sapply(rq5y, function(var)
     .safe_umxACE(
       selDVs = var,
-      mzData = filter(dfy, sexzyg_1 == "MZ male"),
-      dzData = filter(dfy, sexzyg_1 == "DZ male")
+      mzData = filter(df1, sexzyg_1 == "MZ male"),
+      dzData = filter(df1, sexzyg_1 == "DZ male")
     )
   ) 
   
@@ -1289,8 +1297,8 @@ compare_ace_weighted = function(
   male_weighted_estimates = sapply(seq_along(rq5y), function(i)
     .safe_umxACE(
       selDVs = rq5y[i],
-      mzData = filter(dfy, sexzyg_1 == "MZ male"),
-      dzData = filter(dfy, sexzyg_1 == "DZ male"),
+      mzData = filter(df2_with_weights, sexzyg_1 == "MZ male"),
+      dzData = filter(df2_with_weights, sexzyg_1 == "DZ male"),
       weightVar = paste0("w",i)
     )
   ) %>%
@@ -1317,12 +1325,12 @@ compare_ace_weighted = function(
     filter(par %in% c("a","c","e"))
   
   # Females Comparison
-  
+
   female_unweighted_estimates = sapply(rq5y, function(var)
     .safe_umxACE(
       selDVs = var,
-      mzData = filter(dfy, sexzyg_1 == "MZ female"),
-      dzData = filter(dfy, sexzyg_1 == "DZ female")
+      mzData = filter(df1, sexzyg_1 == "MZ female"),
+      dzData = filter(df1, sexzyg_1 == "DZ female")
     )
   ) 
   
@@ -1339,8 +1347,8 @@ compare_ace_weighted = function(
   female_weighted_estimates = sapply(seq_along(rq5y), function(i)
     .safe_umxACE(
       selDVs = rq5y[i],
-      mzData = filter(dfy, sexzyg_1 == "MZ female"),
-      dzData = filter(dfy, sexzyg_1 == "DZ female"),
+      mzData = filter(df2_with_weights, sexzyg_1 == "MZ female"),
+      dzData = filter(df2_with_weights, sexzyg_1 == "DZ female"),
       weightVar = paste0("w",i)
     )
   ) %>%
@@ -1374,18 +1382,19 @@ compare_ace_weighted = function(
   
 }
 
-
 compare_df_weighting = function(
-    df_y         = select(df, all_of(rq5y)),                         # Data on outcome variables that we want to compare pre- and post- weighting
-    df_miss      = select(df, starts_with("missing")),
-    df_x         = select(df_imputed_long, all_of(rq1x)),                              # Explanatory variables used for creating weights (baseline data in our case)
+    df1          = select(df, all_of(rq5y)),                                    # Data for unweighted analysis
+    df2          = df1,                                                         # Data for weighted analysis (defaults to df1)
+    df_miss      = select(df, starts_with("missing")),                          # Missingness indicators (1 = present, 0 = non-present, NA = exclude from analysis)
+    df_x         = select(df_imputed_long, all_of(rq1x)),                       # Explanatory variables used for creating weights (baseline data in our case)
     randomfamid  = pull(df, randomfamid),
     random       = pull(df, random),
     sexzyg       = pull(df, sexzyg),
-    B            = NULL
+    vars         = rq5y
 ){
-  
-  if (nrow(df_y) != nrow(df_imputed_long)) warning("imputed and df nrows don't match")
+
+  if (nrow(df1) != nrow(df_imputed_long)) warning("imputed and df nrows don't match")
+  if (nrow(df1) != nrow(df2)) stop("df1 and df2 must have same number of rows")
   
   # Initialize results structure
   boot_results = list(
@@ -1396,37 +1405,47 @@ compare_df_weighting = function(
     ace       = list()
   )
   
-  families                = na.omit(unique(randomfamid))
-  
-  if (length(families)*2 != nrow(df_imputed_long)) stop("length(families) != length(df_imputed_long)")
-  
+  families = na.omit(unique(randomfamid))
+
+  if (length(families)*2 != nrow(df_imputed_long)) stop("2*length(families) != length(df_imputed_long)")
+
   boot_select_families = sample(families, length(families), replace = TRUE)
-  
-  family_rows   = split(seq_len(nrow(df_y)), randomfamid)
+
+  family_rows   = split(seq_len(nrow(df1)), randomfamid)
   selected_rows = family_rows[as.character(boot_select_families)]
   selected_rows = unlist(selected_rows, use.names = FALSE)
-  
-  df_y_boot        = df_y[selected_rows,]         # Data on outcome vars
+
+  df1_boot         = df1[selected_rows,]          # Data for unweighted analysis
+  df2_boot         = df2[selected_rows,]          # Data for weighted analysis
   df_miss_boot     = df_miss[selected_rows,]      # Data on whether there is missing data
   df_x_boot        = df_x[selected_rows,]         # Baseline data to create propensity weights
   randomfamid_boot = randomfamid[selected_rows]
   random_boot      = random[selected_rows]
   sexzyg_boot      = sexzyg[selected_rows]
-  
+
+  # Drop unused factor levels to avoid "new levels" errors during prediction
+  # This ensures consistency between model training and prediction
+  # df_x_boot = droplevels(df_x_boot)
+  # df_miss_boot = droplevels(df_miss_boot)
+
   logistic_models = list()
-  
+
   model_data    = cbind.data.frame(df_miss_boot, df_x_boot)
   
   df_weights    = matrix(data = NA, nrow = nrow(df_miss_boot), ncol = ncol(df_miss_boot))
   
   colnames(df_weights) = colnames(df_miss_boot)
   
-  if(!all(sapply(model_data, function(x) length(which(is.na(x)))==0))) stop("Missing data in weights calculation")
+  # if(!all(sapply(model_data, function(x) length(which(is.na(x)))==0))) cat("Note: Missing data in weights calculation")
   
   for (i in seq_along(df_miss_boot)){
-    
+    # This section is to remove levels from the predictor matrix that are not going to be used in model-fitting because the outcomes is set to NA - as before i would get errors when using the predict function as some levels were in the dataset used to generate predictions that were not in the training data
+    df_x_boot2                          = df_x_boot
+    df_x_boot2[is.na(df_miss_boot[i]),] = NA
+    model_data2                         = droplevels(cbind.data.frame(df_miss_boot, df_x_boot2))
+  
     formula                = as.formula(paste(colnames(df_miss_boot)[i], "~", paste(colnames(df_x_boot), collapse = "+")))
-    logistic_models[[i]]   = speedglm::speedglm(formula, data = model_data, family = binomial(), na.action = na.exclude, fitted = TRUE)  # this version of logistic regression takes almost half the time...
+    logistic_models[[i]]   = speedglm::speedglm(formula, data = droplevels(model_data2), family = binomial(), na.action = na.exclude, fitted = TRUE)  # this version of logistic regression takes almost half the time...
     prediction             = predict(logistic_models[[i]], type = "response", na.action = na.exclude)
     
     if (length(prediction)!=nrow(df_miss_boot)) stop("error with predictions")
@@ -1434,29 +1453,41 @@ compare_df_weighting = function(
     df_weights[,i]         = 1 / prediction
     
   }
-  
+
   # TRUNCATE WEIGHTS
   ## Truncate each column at 1st and 99th percentiles
   df_weights <- apply(df_weights, 2, function(w) {
-    pmax(pmin(w, quantile(w, 0.99)), quantile(w, 0.01))
+    pmax(pmin(w, quantile(w, 0.99, na.rm = TRUE)), quantile(w, 0.01, na.rm = TRUE))
   })
   
   # df_weights[df_miss_boot==0] = NA ## Remove weights for participants with missing data on a given outcome - THIS SHOULDN'T BE NECESSARY AS THESE PARTICIPANTS WON'T BE IN THE ANALYSIS ANYWAY
   ## I've checked for the four methods below, the results are invariant to a constant scaling of the weights! 
   
   # Univariate Results - mds, smds, vars
-  boot_results$md        = compare_md_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode]) 
-  boot_results$smd       = compare_smd_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
-  boot_results$var       = compare_var_weighted(df_y_boot, df_weights[,missingcode_table_univariate$missingcode])
+  boot_results$md        = compare_md_weighted(
+    df1 = df1_boot,
+    df2 = df2_boot,
+    w   = df_weights[,missingcode_table_univariate$missingcode])
+  boot_results$smd       = compare_smd_weighted(
+    df1 = df1_boot,
+    df2 = df2_boot,
+    w   = df_weights[,missingcode_table_univariate$missingcode])
+  boot_results$var       = compare_var_weighted(
+    df1 = df1_boot,
+    df2 = df2_boot,
+    w   = df_weights[,missingcode_table_univariate$missingcode])
   # Pairwise results - cors
-  boot_results$cor_resid = compare_correlation_weighted(df_y_boot, df_weights)
+  boot_results$cor_resid = compare_correlation_weighted(
+    df1 = df1_boot,
+    df2 = df2_boot,
+    w   = df_weights)
   
   # ACE results - (needs to be wide formatted)
   # browser()
-  
-  df_y_boot_wide = cbind.data.frame(random_boot, sexzyg_boot, df_y_boot) %>% 
+
+  df1_boot_wide = cbind.data.frame(random_boot, sexzyg_boot, df1_boot) %>%
     mutate(
-      boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach  
+      boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach
       random_boot  = random_boot + 1
     ) %>%
     rename(
@@ -1468,8 +1499,23 @@ compare_df_weighting = function(
       values_from  = -c(random_boot, boot_id),
       names_sep    = "_"
     )
-  
-  # Average probabilities over twins, then calculate weights 
+
+  df2_boot_wide = cbind.data.frame(random_boot, sexzyg_boot, df2_boot) %>%
+    mutate(
+      boot_id     = c(sapply(1:(nrow(.)/2),function(x) rep(x,2))),            # not using randomfamid as the id_cols - because after bootstrapping there will be duplicates - so this approach
+      random_boot  = random_boot + 1
+    ) %>%
+    rename(
+      sexzyg = "sexzyg_boot",
+    ) %>%
+    pivot_wider(
+      id_cols      = boot_id,
+      names_from   = random_boot,
+      values_from  = -c(random_boot, boot_id),
+      names_sep    = "_"
+    )
+
+  # Average probabilities over twins, then calculate weights
   df_weights_wide = df_weights[,missingcode_table_univariate$missingcode] %>%
     data.frame() %>%
     mutate(
@@ -1477,12 +1523,13 @@ compare_df_weighting = function(
     ) %>%
     group_by(boot_id) %>%
     summarise(across(everything(), function(x) mean(x^-1)^-1))
-  
+
   # Supress messages is for annoying openMX output
   boot_results$ace = compare_ace_weighted(
-    dfy    = df_y_boot_wide,
-    w      = df_weights_wide,
-    rq5y    = rq5y
+    df1  = df1_boot_wide,
+    df2  = df2_boot_wide,
+    w    = df_weights_wide,
+    rq5y = vars
   )
   
   return(boot_results)
@@ -1557,7 +1604,7 @@ compare_md = function(df1, df2){
 compare_var = function(df1, df2){
   return(
     sapply(1:ncol(df1), function(i) 
-      stats::var(cleanvar(df1[,i])) - stats::var(cleanvar(df2[,i]))
+      (stats::var(cleanvar(df1[,i])) - stats::var(cleanvar(df2[,i])))/stats::var(cleanvar(df2[,i]))
     )
   )
 }
