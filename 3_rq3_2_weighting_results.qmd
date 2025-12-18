@@ -1,5 +1,5 @@
 ---
-title: "RQ3: weighting"
+title: "RQ3: Original vs Weighted Results"
 format: 
   html:
     embed-resources: true
@@ -15,9 +15,7 @@ format:
 editor: source
 ---
 
-# To do 
-
-docker container used: bignardig/tidyverse451:v5
+docker container used: bignardig/tidyverse451:v6
 
 # Load data
 
@@ -33,28 +31,10 @@ cat("Number bootstraps:", length(weighted_comparisons))
 
 bootstrap_summary    = readRDS(file = file.path("results", "3_weighted_comparisons_bootstrap.Rds"))
 
-original_variances   = sapply(rq5y, function(v) sd(df[[v]], na.rm = TRUE)^2)
-
 bootstrap_summary = bootstrap_summary %>%
   group_by(stat) %>%
   mutate(
-    pval_adj = stats::p.adjust(pval, method = "holm"),
-    var_constant = original_variances[match(var,rq5y)]
-  ) %>%
-  ungroup() %>%
-  mutate(
-    y = case_when(
-      stat == "var" ~ y / var_constant,
-      TRUE ~ y
-    ),
-    ymin = case_when(
-      stat == "var" ~ ymin / var_constant,
-      TRUE ~ ymin
-    ),
-    ymax = case_when(
-      stat == "var" ~ ymax / var_constant,
-      TRUE ~ ymax
-    ),
+    pval_adj = stats::p.adjust(pval, method = "holm")
   ) %>%
   ungroup()
 
@@ -284,8 +264,6 @@ save_plot("3_correlations_unweighted", width = 8, height = 8)
 
 ```{r}
 
-weighted_comparisons[[1]]$ace %>% lapply(., nrow)
-
 check_models_males = lapply(weighted_comparisons, function(x) x$ace[[1]]) %>%
                     bind_rows(., .id = "bootid")
 check_models_females = lapply(weighted_comparisons, function(x) x$ace[[3]]) %>%
@@ -293,9 +271,9 @@ check_models_females = lapply(weighted_comparisons, function(x) x$ace[[3]]) %>%
 check_models = rbind.data.frame(check_models_males, check_models_females)
 
 # check_models$par %>% table()
-check_models %>%
-  filter(par == "status_code") %>%
-  pull(value) %>% table()
+# check_models %>%
+#   filter(par == "status_code") %>%
+#   pull(value) %>% table()
 
 check_models %>%
   data.frame() %>%

@@ -1,6 +1,13 @@
 # Run using docker container: bignardig/tidyverse451:v6
-# Run using commit: 32749821hjasd92c (see message)
-# Run date: 17-Dec-2015
+# Run using commit: asdfkj23js (see commit message)
+# Run date: 18-Dec-2015
+
+# script MUST BE RUN IN TERMINAL USING:
+# export OMP_NUM_THREADS=1
+# export OPENBLAS_NUM_THREADS=1
+# export MKL_NUM_THREADS=1
+# export VECLIB_MAXIMUM_THREADS=1
+# Rscript 7_rq7_1_weighting.R
 
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -13,8 +20,8 @@ source("0_load_data.R")
 
 range_participation_outcomes = 6:8
 mice_iter                    = 50                                               # Number of iterations of the MICE algorithm (which is ran only once)
-B                            = 10000                                               # Number of bootstrap resamples (200 takes 6 minutes, 10000 should take 5 hours)
-n_workers                    = 8                                                # Number of parallel jobs to run (number of cores)
+B                            = 10000                                              # Number of bootstrap resamples (200 takes 6 minutes, 10000 should take 5 hours)
+n_workers                    = 48                                               # Number of parallel jobs to run (number of cores)
 
 rq1y_twin                         = rq1y_twin[range_participation_outcomes]
 rq1y_twin1                        = rq1y_twin1[range_participation_outcomes]
@@ -226,7 +233,7 @@ umx::umx_set_cores(cores = 1)
 print("start analysis")
 
 # Set up parallel processing
-plan(multisession, workers = n_workers)
+plan(multicore, workers = n_workers)
 
 ta = Sys.time()
 

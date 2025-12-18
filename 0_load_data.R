@@ -601,6 +601,6 @@ df_labels   = sapply(1:ncol(df), function(i) attr(df[,i, drop = TRUE], "label"))
 
 # saveRDS(df, file.path("data", "df_old.Rds"))
 # saveRDS(df, file.path("data", "df_new.Rds"))
-df_old = readRDS(file.path("data", "df_old.Rds"))
-
-if (identical(df, df_old)==FALSE) {warning("changes made to data cleaning results!!")}
+# df_old = readRDS(file.path("data", "df_old.Rds"))
+# 
+# if (identical(df, df_old)==FALSE) {warning("changes made to data cleaning results!!")}

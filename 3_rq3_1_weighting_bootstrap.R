@@ -1,18 +1,26 @@
 # Run using docker container: bignardig/tidyverse451:v6
-# Run using commit: 32749821hjasd92c (see message)
-# Run date: 17-Dec-2015
+# Run using commit: asdfkj23js (see commit message)
+# Run date: 18-Dec-2015
 
 # CODE REVIEW STATUS: reviewed again 1/sep/25. Might want to review ACE estimation method with Tom. 
 # Running using Rscript is essential for parellelisation here
+# script MUST BE RUN IN TERMINAL USING:
+# export OMP_NUM_THREADS=1
+# export OPENBLAS_NUM_THREADS=1
+# export MKL_NUM_THREADS=1
+# export VECLIB_MAXIMUM_THREADS=1
+# Rscript 3_rq3_1_weighting_bootstrap.R
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load data --------------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 rm(list = ls())
 
+# not sure this bit helps...
 Sys.setenv(OMP_NUM_THREADS = 1)
 Sys.setenv(MKL_NUM_THREADS = 1)
 Sys.setenv(OPENBLAS_NUM_THREADS = 1)
+Sys.setenv(VECLIB_MAXIMUM_THREADS = 1)
 
 source("0_load_data.R")
 
@@ -21,8 +29,8 @@ source("0_load_data.R")
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 mice_iter = 50 # number of iterations for mice
-B         = 10000 # number of bootstraps (4000 took 8 hours, 10000 took 20.2 hours)
-n_workers = 8
+B         = 1000 # number of bootstraps (24 took 8 minutes, 10000 will take 56 hours on 8 cores, 1000 took 57 mins on 48 cores)
+n_workers = 47
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Create Missingness Indicator Variables ---------------------------------------
@@ -224,15 +232,24 @@ umx::umx_set_silent(value=TRUE)
 # debug(compare_df_weighting)
 # test = compare_df_weighting( )
 
+# system.time({test = compare_df_weighting( )})
+
 umx::umx_set_cores(cores = 1)
 print("start analysis")
 
 # Set up parallel processing
-plan(multisession, workers = n_workers)
+plan(multicore, workers = n_workers)
 
 ta = Sys.time()
 
 weighted_comparisons = future_lapply(1:B, function(i) {
+  Sys.setenv(
+    OMP_NUM_THREADS = 1,
+    OPENBLAS_NUM_THREADS = 1,
+    MKL_NUM_THREADS = 1,
+    VECLIB_MAXIMUM_THREADS = 1
+  )
+  
   compare_df_weighting()
 }, 
 future.seed = 1,
