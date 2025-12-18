@@ -1,5 +1,5 @@
 # Run using docker container: bignardig/tidyverse451:v6
-# Run using commit: 32749821hjasd92b (see message)
+# Run using commit: 32749821hjasd92c (see message)
 # Run date: 17-Dec-2015
 
 # CODE REVIEW STATUS: reviewed again 1/sep/25. Might want to review ACE estimation method with Tom. 
@@ -20,8 +20,8 @@ source("0_load_data.R")
 # Arguments --------------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-B         = 10000 # number of bootstraps (4000 took 8 hours, 10000 took 20.2 hours)
 mice_iter = 50 # number of iterations for mice
+B         = 10000 # number of bootstraps (4000 took 8 hours, 10000 took 20.2 hours)
 n_workers = 8
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
