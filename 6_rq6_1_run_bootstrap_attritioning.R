@@ -1,7 +1,8 @@
-# Load data --------------------------------------------------------------------
+# Run using docker container: bignardig/tidyverse451:v6
+# Run using commit: asdasf23143xcv (see commit message)
+# Run date: 19-Dec-2015
 
-# Docker imagebignardig/tidyverse451:v6
-# Ran using gith commit 1d527d3
+# Load data --------------------------------------------------------------------
 
 ## This section also applies filters
 

@@ -1,6 +1,6 @@
 # Run using docker container: bignardig/tidyverse451:v6
-# Run using commit: asdfkj23js (see commit message)
-# Run date: 18-Dec-2015
+# Run using commit: asdasf23143xcv (see commit message)
+# Run date: 19-Dec-2015
 
 # script MUST BE RUN IN TERMINAL USING:
 # export OMP_NUM_THREADS=1
@@ -21,7 +21,7 @@ source("0_load_data.R")
 range_participation_outcomes = 6:8
 mice_iter                    = 50                                               # Number of iterations of the MICE algorithm (which is ran only once)
 B                            = 10000                                              # Number of bootstrap resamples (200 takes 6 minutes, 10000 should take 5 hours)
-n_workers                    = 48                                               # Number of parallel jobs to run (number of cores)
+n_workers                    = 8                                               # Number of parallel jobs to run (number of cores)
 
 rq1y_twin                         = rq1y_twin[range_participation_outcomes]
 rq1y_twin1                        = rq1y_twin1[range_participation_outcomes]
