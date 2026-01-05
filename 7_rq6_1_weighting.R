@@ -7,7 +7,7 @@
 # export OPENBLAS_NUM_THREADS=1
 # export MKL_NUM_THREADS=1
 # export VECLIB_MAXIMUM_THREADS=1
-# Rscript 7_rq7_1_weighting.R
+# Rscript 7_rq6_1_weighting.R
 
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||

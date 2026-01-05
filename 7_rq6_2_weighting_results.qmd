@@ -1,0 +1,693 @@
+---
+title: "RQ6: inverse probability Weighting for Attrition"
+format:
+  html:
+    embed-resources: true
+    fig-width: 8
+    fig-height: 8
+    code-link: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    toc: true
+    grid:
+      body-width: 900px
+editor: source
+---
+
+## Description
+
+This analysis examines the impact of inverse probability weighting to correct for attrition bias at three different time points. 
+
+We compare ( original ) vs ( attritioned + weighted ) results. 
+
+Weights are created by modelling the probability of attrition (i.e., not taking part at Y26 time point), conditional having prior data on the variable selected. 
+
+## Load Data
+
+```{r}
+#| output: false
+
+source("0_load_data.R")
+
+df = df %>%
+  filter(!(randomfamid %in% exclude_fams_rq1x)) %>%
+  filter(!(randomfamid %in% exclude_fams_onesib)) %>%
+  filter(!(randomfamid %in% exclude_fams_rq6y))
+
+## range of participation outcomes to use for attrition
+
+range_participation_outcomes = 6:8
+
+# Subset vectors to only include participation outcomes in range
+rq1y_twin                         = rq1y_twin[range_participation_outcomes]
+rq1y_twin1                        = rq1y_twin1[range_participation_outcomes]
+rq1y_twin2                        = rq1y_twin2[range_participation_outcomes]
+rq1y_twin_labels                  = rq1y_twin_labels[range_participation_outcomes]
+rq1y_twin_labels_clean            = rq1y_twin_labels_clean[range_participation_outcomes]
+rq1y_twin_labels_clean_extrashort = rq1y_twin_labels_clean_extrashort[range_participation_outcomes]
+
+weighted_comparisons = readRDS(file.path("results","7_weighted_comparisons.Rds"))
+
+```
+
+
+### Focal Variables and timepoints
+
+Attrition time points
+
+```{r}
+
+cbind(
+  rq6y,
+  rq6y_labels
+) %>%
+  knitr::kable(caption = "Outcome Variables")
+
+cbind(
+  rq1y_twin1,
+  rq1y_twin_labels_clean
+) %>%
+  knitr::kable(caption = "Attrition time points")
+
+```
+
+
+## Data Processing
+
+### Transform Raw Results to Dataframe
+
+```{r}
+# Load raw bootstrap results (already loaded above as weighted_comparisons)
+# weighted_comparisons = readRDS(file.path("results", "3_weighted_comparisons.Rds"))
+
+# Create pairwise correlation variable names
+test_correlation_matrix = matrix(
+  nrow = length(rq6y),
+  ncol = length(rq6y)
+)
+
+for(i in seq_along(rq6y)){
+  for(j in seq_along(rq6y)){
+    test_correlation_matrix[i,j] = paste(rq6y[i], rq6y[j], collapse = " ")
+  }
+}
+
+x = test_correlation_matrix[lower.tri(test_correlation_matrix, diag = TRUE)]
+
+x_var = str_extract(x, "^\\S+")
+y_var = str_extract(x, "\\S+$")
+
+rm(test_correlation_matrix,x)
+
+# Extract bootstrap_summary from each element
+weighted_comparisons_df = list()
+
+for(i in seq_along(weighted_comparisons)){
+
+  # Extract results for this attrition timepoint
+  outcome_results = weighted_comparisons[[i]]
+
+  # Extract each statistic across bootstrap iterations
+  md_df  = sapply(outcome_results, function(x) x$md) %>% t() %>% data.frame()
+  smd_df = sapply(outcome_results, function(x) x$smd) %>% t() %>% data.frame()
+  var_df = sapply(outcome_results, function(x) x$var) %>% t() %>% data.frame()
+  cor_df = sapply(outcome_results, function(x) x$cor_resid) %>%
+             t() %>%
+             data.frame()
+
+  # Calculate summary statistics
+  bootstrap_iter = list(
+    apply(md_df, 2, function(xx) .mean_qi_pd(xx)),
+    apply(smd_df, 2, function(xx) .mean_qi_pd(xx)),
+    apply(var_df, 2, function(xx) .mean_qi_pd(xx))
+  )
+
+  # Transform to dataframes
+  for(j in 1:3){ # Keep only md, smd, var
+    bootstrap_iter[[j]] = do.call(rbind, bootstrap_iter[[j]])
+    bootstrap_iter[[j]]$dataset  = rq1y_twin_labels_clean_extrashort[i]
+    bootstrap_iter[[j]]$stat = c("md","smd","var")[j]
+    bootstrap_iter[[j]]$variable = rq6y_labels
+    rownames(bootstrap_iter[[j]]) = NULL
+  }
+
+  weighted_comparisons_df[[i]] = do.call(rbind.data.frame, bootstrap_iter)
+}
+
+# Combine all datasets into single dataframe
+weighted_comparisons_df0 = do.call(rbind.data.frame, weighted_comparisons_df)
+rownames(weighted_comparisons_df0) = NULL
+
+# Save for future use
+# saveRDS(weighted_comparisons_df0, file.path("results", "7_weighted_comparisons_df.Rds"))
+
+```
+
+### Create Table
+
+```{r}
+
+weighted_comparisons_df = weighted_comparisons_df0 %>%
+  mutate(
+    variable = rq6y_labels[match(.$variable, rq6y_labels)]
+  ) %>%
+  group_by(dataset, stat) %>%
+  mutate(
+    pval_adj = stats::p.adjust(pval, method = "holm")
+  )
+
+```
+
+## Means, SMDs, Variances
+
+### GT Results Table
+
+```{r}
+
+weighted_comparisons_df %>%
+  filter(stat %in% c("md", "smd", "var")) %>%
+  select(-starts_with("."),-pd, -pval) %>%
+  pivot_wider(
+    names_from = "stat",
+    values_from = c("y","ymin","ymax","pval_adj"),
+    id_cols = c("variable", "dataset")
+  ) %>%
+  dplyr::rename(Outcome = "variable") %>%
+  gt(groupname_col = "dataset") %>%
+  tab_options(
+    table.width = px(800)
+  ) %>%
+
+  # Create column spanners (nested headers)
+  tab_spanner(
+    label = "Mean Difference",
+    columns = c(y_md, ymin_md, ymax_md, pval_adj_md)
+  ) %>%
+  tab_spanner(
+    label = "Standardized Mean Difference",
+    columns = c(y_smd, ymin_smd, ymax_smd, pval_adj_smd)
+  ) %>%
+  tab_spanner(
+    label = "Variance % Change",
+    columns = c(y_var, ymin_var, ymax_var, pval_adj_var)
+  ) %>%
+
+  # Rename columns under each spanner
+  cols_label(
+    y_md = "Est", ymin_md = "LB", ymax_md = "UB", pval_adj_md = "p",
+    y_smd = "Est", ymin_smd = "LB", ymax_smd = "UB", pval_adj_smd = "p",
+    y_var = "Est", ymin_var = "LB", ymax_var = "UB", pval_adj_var = "p"
+  ) %>%
+
+  # Format numbers
+  fmt(
+    columns = !contains("var") & !contains("Outcome"),
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+  fmt(
+    columns = "pval_adj_var",
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+  fmt_percent(
+    columns = c("y_var", "ymin_var","ymax_var"),
+    decimals = 2,
+    drop_trailing_zeros = FALSE,
+    drop_trailing_dec_mark = FALSE
+  ) %>%
+  # Styling - uniform font size
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_column_spanners()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_body()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10), align = "center"),
+    locations = cells_row_groups()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_footnotes()
+  ) %>%
+
+  # Highlight significant results - positive effects (light green)
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(
+      columns = c(y_md, ymin_md, ymax_md, pval_adj_md),
+      rows = pval_adj_md < 0.05 & y_md > 0
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(
+      columns = c(y_smd, ymin_smd, ymax_smd, pval_adj_smd),
+      rows = pval_adj_smd < 0.05 & y_smd > 0
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(
+      columns = c(y_var, ymin_var, ymax_var, pval_adj_var),
+      rows = pval_adj_var < 0.05 & y_var > 0
+    )
+  ) %>%
+
+  # Highlight significant results - negative effects (light red)
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),
+    locations = cells_body(
+      columns = c(y_md, ymin_md, ymax_md, pval_adj_md),
+      rows = pval_adj_md < 0.05 & y_md < 0
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),
+    locations = cells_body(
+      columns = c(y_smd, ymin_smd, ymax_smd, pval_adj_smd),
+      rows = pval_adj_smd < 0.05 & y_smd < 0
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),
+    locations = cells_body(
+      columns = c(y_var, ymin_var, ymax_var, pval_adj_var),
+      rows = pval_adj_var < 0.05 & y_var < 0
+    )
+  ) %>%
+
+  # Add footnotes
+  tab_footnote(
+    footnote = md("<em>Note.</em> Est = Estimate, LB = Lower Bound 95% Confidence Interval, UB = Upper Bound 95% Confidence Interval. Significant (p<sub>Bonferroni-Holm</sub>) effects are highlighted in green (increases) or red (decreases)."),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each attrition timepoint",
+    locations = cells_column_labels(columns = contains("pval_adj")),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = md("Standardized mean difference = (Mean<sub>attrition + weighted</sub> - Mean<sub>original</sub>) / SD<sub>original</sub>"),
+    locations = cells_column_spanners(spanners = "Standardized Mean Difference"),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = md("Percentage change = (Var<sub>attrition + weighted</sub> - Var<sub>original</sub>) / Var<sub>original</sub>"),
+    locations = cells_column_spanners(spanners = "Variance % Change"),
+    placement = "right"
+  ) %>%
+  opt_footnote_marks(marks = c("*", "†","‡"))
+
+```
+
+### Create Circular Heatmaps
+
+#### Standardised Mean Differences
+
+```{r}
+# Create circular heatmap for SMD
+heatmap_data_smd = weighted_comparisons_df %>%
+  filter(stat == "smd") %>%
+  mutate(
+    outcome_labeled = rq1y_twin_labels_clean_extrashort[match(dataset, rq1y_twin_labels_clean_extrashort)],
+    outcome_labeled = factor(outcome_labeled, levels = rq1y_twin_labels_clean_extrashort),
+    Variables_wrapped = str_wrap(variable, width = 8),
+    # Set fill value to NA if not significant, otherwise keep original sign
+    fill_value = case_when(
+      pval_adj < 0.05 ~ y,
+      TRUE ~ NA
+    )
+  ) %>%
+  # Order variables by number of significant effects
+  group_by(variable) %>%
+  mutate(n_significant = sum(pval_adj < 0.05)) %>%
+  ungroup() %>%
+  mutate(
+    Variables_wrapped = factor(Variables_wrapped,
+                              levels = unique(Variables_wrapped[order(-n_significant)]))
+  )
+
+ ggplot(heatmap_data_smd, aes(x = Variables_wrapped, y = outcome_labeled)) +
+  geom_tile(aes(fill = fill_value),
+            color = "black",
+            size = 0.5) +
+  geom_text(
+    aes(label = ifelse(pval_adj < 0.05,
+                       gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", y)), ""),
+        size = 3.5
+    ),
+    color = "black"
+  ) +
+  scale_size_identity() +
+  coord_polar(theta = "x", start = 0, direction = 1, clip = "off") +
+  scale_fill_gradient2(
+    low = "#2166ac",
+    mid = "white",
+    high = "#d73027",
+    midpoint = 0,
+    na.value = "white",
+    guide = "none"
+  ) +
+  labs(
+    title = "Standardised Mean Difference",
+    subtitle = expression(frac(bar(X)[attrition + weighted] - bar(X)[original], SD[original])),
+    tag = "A"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, size = 11),
+    axis.text.y = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 16),
+    plot.subtitle = element_text(hjust = 0.5, size = 13.5, margin = margin(b = -20)),
+    plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
+    plot.tag.position = "topleft",
+    plot.margin = margin(2, 10, -33, 10)
+  ) +
+  {
+    y_positions = seq_along(levels(heatmap_data_smd$outcome_labeled))
+    labels = levels(heatmap_data_smd$outcome_labeled)
+
+    lapply(seq_along(labels), function(i) {
+      annotate("text", x = 0.5, y = y_positions[i],
+               label = paste0(labels[i], " "),
+               size = 3.7,
+               hjust = 1, angle = 7)
+    })
+  }
+
+save_plot("7_rq7_circular_heatmap_smd", width = 8, height = 8)
+
+```
+
+[📊 View Full Resolution SMD Heatmap (PNG)](plots/pngs/7_rq7_circular_heatmap_smd.png)
+
+#### Variance Differences
+
+```{r}
+# Create circular heatmap for variance differences
+heatmap_data_var = weighted_comparisons_df %>%
+  filter(stat == "var") %>%
+  mutate(
+    outcome_labeled = rq1y_twin_labels_clean_extrashort[match(dataset, rq1y_twin_labels_clean_extrashort)],
+    outcome_labeled = factor(outcome_labeled, levels = rq1y_twin_labels_clean_extrashort),
+    Variables_wrapped = str_wrap(variable, width = 8),
+    # Set fill value to NA if not significant, otherwise keep original sign
+    fill_value = case_when(
+      pval_adj < 0.05 ~ y,
+      TRUE ~ NA
+    )
+  ) %>%
+  # Order variables by number of significant effects
+  group_by(variable) %>%
+  mutate(n_significant = sum(pval_adj < 0.05)) %>%
+  ungroup() %>%
+  mutate(
+    Variables_wrapped = factor(Variables_wrapped,
+                              levels = unique(Variables_wrapped[order(-n_significant)]))
+  )
+
+ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
+  geom_tile(aes(fill = fill_value),
+            color = "black",
+            size = 0.5) +
+  geom_text(
+    aes(label = ifelse(pval_adj < 0.05,
+                       paste0(sprintf("%.1f", y * 100), "%"), ""),
+        size = 3.5
+    ),
+    color = "black"
+  ) +
+  scale_size_identity() +
+  coord_polar(theta = "x", start = 0, direction = 1, clip = "off") +
+  scale_fill_gradient2(
+    low = "#2166ac",
+    mid = "white",
+    high = "#d73027",
+    midpoint = 0,
+    limits = c(-max(abs(heatmap_data_var$fill_value), na.rm = TRUE),
+               max(abs(heatmap_data_var$fill_value), na.rm = TRUE)),
+    na.value = "white",
+    guide = "none"
+  ) +
+  labs(
+    title = "Variance Percentage Change",
+    subtitle = expression(frac(Var[attrition + weighted] - Var[original], Var[original]) %*% 100),
+    tag = "B"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, size = 11),
+    axis.text.y = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 16),
+    plot.subtitle = element_text(hjust = 0.5, size = 13.5, margin = margin(b = -20)),
+    plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
+    plot.tag.position = "topleft",
+    plot.margin = margin(2, 10, -33, 10)
+  ) +
+  {
+    y_positions = seq_along(levels(heatmap_data_var$outcome_labeled))
+    labels = levels(heatmap_data_var$outcome_labeled)
+
+    lapply(seq_along(labels), function(i) {
+      annotate("text", x = 0.5, y = y_positions[i],
+               label = paste0(labels[i], " "), size = 3.7, hjust = 1, angle = 7)
+    })
+  }
+
+save_plot("7_rq7_circular_heatmap_var", width = 8, height = 8)
+
+```
+
+[📊 View Full Resolution Variance Heatmap (PNG)](plots/pngs/7_rq7_circular_heatmap_var.png)
+
+## Correlations
+
+### Plot
+
+```{r}
+
+correlation_comparisons = list()
+
+for(i in seq_along(weighted_comparisons)){
+  # Extract correlation results
+  outcome_results = weighted_comparisons[[i]]
+  cor_df = sapply(outcome_results, function(x) x$cor_resid) %>%
+             t() %>%
+             data.frame()
+
+  # Calculate summary
+  cor_summary          = apply(cor_df, 2, function(xx) .mean_qi_pd(xx))
+  cor_summary          = do.call(rbind.data.frame, cor_summary)
+  cor_summary$x_var    = x_var
+  cor_summary$y_var    = y_var
+  cor_summary          = cor_summary[cor_summary$x_var!=cor_summary$y_var,]                            #It would be cleaner to clean the analysis code so that these correlations aren't calculated. 
+  cor_summary$pval_adj = stats::p.adjust(cor_summary$pval, method = "holm")
+
+  correlation_comparisons[[i]] = cor_summary
+}
+
+library(patchwork)
+
+plots = lapply(1:length(correlation_comparisons), function(i) {
+  plot_lower_triangular_matrix2(
+    data = correlation_comparisons[[i]],
+    variables = rq6y,
+    labels = rq6y_labels,
+    x_var_col = "x_var",
+    y_var_col = "y_var",
+    value_col = "y",
+    p_col = "pval_adj",
+    p_threshold = 0.05,
+    show_values = TRUE,
+    text_size = 3,
+    title = rq1y_twin_labels_clean[i],
+    caption = NULL,
+    method = "none"  # p-values already adjusted above
+  )
+})
+
+patchwork::wrap_plots(
+  plots,
+  ncol = 2)
+  # Adjust ncol as needed
+
+save_plot(
+  "7_rq7_correlations", width = 12, height = 8)
+
+
+
+```
+
+[📊 View Full Resolution Correlation Plots (PDF)](plots/pdfs/7_rq7_correlations.pdf)
+
+
+## ACE Comparison
+
+```{r}
+
+# Extract ACE estimates and differences from all datasets
+ace_estimates_list = list()
+ace_differences_list = list()
+
+for(i in seq_along(weighted_comparisons)){
+
+  # Process ACE results for this attrition timepoint
+  ace_results = lapply(weighted_comparisons[[i]], function(x) x$ace)
+  ace_results = lapply(ace_results, function(x) {
+    x[[2]]$group = "difference"
+    x[[4]]$group = "difference"
+    return(x)
+  })
+  ace_results = lapply(ace_results, function(x) do.call(rbind, x))
+  ace_results = do.call(rbind, ace_results) %>%
+    filter(par %in% c("a","c", "e"))
+
+  ace_results_summary = ace_results %>%
+    group_by(par, name, sex, group) %>%
+    summarise(
+      .mean_qi_pd(value),
+      .groups = "drop"
+    )
+
+  # Separate estimates and differences
+  ace_estimates_list[[i]] = ace_results_summary %>%
+    filter(group != "difference")
+
+  ace_differences_list[[i]] = ace_results_summary %>%
+    filter(group == "difference")
+
+  # Add dataset identifier
+  ace_estimates_list[[i]]$dataset = rq1y_twin1[i]
+  ace_differences_list[[i]]$dataset = rq1y_twin1[i]
+}
+
+# Combine into single dataframes
+ace_estimates = do.call(rbind, ace_estimates_list)
+ace_differences = do.call(rbind, ace_differences_list)
+
+# Add readable dataset labels
+ace_estimates$dataset_label = rq1y_twin_labels_clean[match(ace_estimates$dataset, rq1y_twin1)]
+ace_differences$dataset_label = rq1y_twin_labels_clean[match(ace_differences$dataset, rq1y_twin1)]
+
+```
+
+### Table
+
+```{r}
+
+ace_differences_tbl = ace_differences  %>%
+  group_by(sex, par, dataset) %>%
+  mutate(
+    pval_adj = stats::p.adjust(pval, method = "holm")
+  ) %>%
+  ungroup()
+
+ace_differences_tbl %>%
+  select(-starts_with("."), -n, -pd) %>%
+  mutate(name_clean = rq6y_labels[match(name, rq6y)]) %>%
+  select(dataset_label, name_clean, par, sex, y, ymin, ymax, pval, pval_adj) %>%
+  arrange(sex, dataset_label, name_clean, par) %>%
+  mutate(par = toupper(par)) %>%
+  gt(groupname_col = "sex") %>%
+  fmt_number(decimals = 3) %>%
+  tab_row_group(
+    label = "Male",
+    rows = sex == "male"
+  ) %>%
+  tab_row_group(
+    label = "Female",
+    rows = sex == "female"
+  ) %>%
+  cols_hide(sex) %>%
+  cols_label(
+    dataset_label = "Dataset",
+    name_clean = "Variable",
+    par = "",
+    y = "Diff",
+    ymin = "Lower",
+    ymax = "Upper",
+    pval = md("p<sub>unadj</sub>"),
+    pval_adj = md("p<sub>adj</sub>")
+  ) %>%
+  tab_spanner(
+    label = "95% CI",
+    columns = c(ymin, ymax)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(
+      columns = everything(),
+      rows = pval_adj < 0.05 & y > 0
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),
+    locations = cells_body(
+      columns = everything(),
+      rows = pval_adj < 0.05 & y < 0
+    )
+  ) %>%
+  tab_footnote(
+    footnote = "Difference = (Attrition + Weighted) − Original. Adjusted P values are Bonferroni-Holm corrected within each sex, dataset, and parameter (A, C or E) group",
+    locations = cells_column_labels(columns = pval_adj)
+  ) %>%
+  tab_options(
+    table.font.size = px(9)
+  )
+
+```
+
+### ACE Estimates Plot
+
+```{r}
+
+ace_estimates %>%
+  mutate(
+    name_clean = rq6y_labels[match(name, rq6y)],
+    name_clean = factor(name_clean, levels = rq6y_labels),
+    group = ifelse(group == "weighted", "Attrition + Weighted", "Original"),
+    group = factor(group, levels = c("Attrition + Weighted", "Original")),
+    sex = str_to_title(sex),
+    par = toupper(par),
+    dataset_label = factor(dataset_label, levels = rq1y_twin_labels_clean)
+  ) %>%
+  ggplot(aes(x = group, y = y, fill = par)) +
+  geom_col(position = "stack", alpha = 1) +
+  facet_grid(sex + dataset_label ~ name_clean, switch = "x") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    strip.text = element_text(size = 8),
+    strip.text.x = element_text(angle = 90, hjust = 1, vjust = .5),
+    strip.text.y = element_text(angle = 0),
+    strip.placement = "outside",
+    panel.grid = element_blank()
+  ) +
+  labs(
+    x = "Dataset",
+    y = "Proportion",
+    fill = "Component"
+  ) +
+  scale_fill_manual(values = c("A" = "#d73027", "C" = "#fee08b", "E" = "#4575b4")) +
+  coord_cartesian(ylim = c(0, 1))
+
+save_plot("7_rq7_ace_comparison", width = 10, height = 7)
+
+```
+
+[📊 View Full Resolution ACE Comparison Plot (PNG)](plots/pngs/7_rq7_ace_comparison.png)
