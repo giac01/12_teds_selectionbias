@@ -1,5 +1,5 @@
 ---
-title: "RQ1: Y2 predictors of attrition"
+title: "RQ1: Y2 predictors of attrition at later time points"
 format: 
   html:
     embed-resources: true
@@ -13,9 +13,15 @@ format:
     grid:
       body-width: 900px
 editor: source
+editor_options: 
+  chunk_output_type: console
 ---
 
-Analyses run in docker container bignardig/tidyverse451:v6
+Analyses run in docker container bignardig/tidyverse451:v7 
+
+Updated on 8-Jan-2026 to replace household variable with derived single parent variable. 
+
+## 
 
 # Load Data
 
@@ -243,15 +249,21 @@ save_plot("1_rq1_predicted_probability_plots", width = 8, height = 8)
 
 A detailed version of the figure below can be found here [here](plots/1_rq1_variable_importance.pdf){target="_blank"}.
 
+```{r run-glm_model_comparison_robust}
+#| output: false
+
+# plan(multicore, workers = ncores_use) # this won't work when rendering quarto docs
+plan(multisession, workers = ncores_use)
+
+glm_model_comparison_results = future_lapply(
+  twinmodels,
+  glm_model_comparison_robust,
+  future.seed = TRUE
+)
+
+```
+
 ```{r}
- # debug(glm_model_comparison_robust)
- # system.time({
- # test = twinmodels[[3]] %>% glm_model_comparison_robust
- # })
-
-
-glm_model_comparison_results = parallel::mclapply(twinmodels, glm_model_comparison_robust, mc.cores = ncores_use)
-
 glm_model_comparison_results_df = do.call("rbind.data.frame", glm_model_comparison_results)
 
 glm_model_comparison_results_df$Variables_full = rq1x_labels_clean[match(glm_model_comparison_results_df$Variables_Dropped, rq1x)]
@@ -385,19 +397,9 @@ all_vars = c(levels(heatmap_data$Variables_wrapped))
 
 heatmap_data$Variables_wrapped = factor(heatmap_data$Variables_wrapped, levels = all_vars)
 
-# # Create custom y-axis labels in the gap
-# n_outcomes = length(levels(heatmap_data$outcome_labeled))
-# gap_middle = length(levels(heatmap_data$Variables_wrapped)) - 1.5  # Center of the gap
-
-# y_labels_data = data.frame(
-#   x = 0.01,
-#   y = seq_along(levels(heatmap_data$outcome_labeled)),  # Match tile positions exactly
-#   label = levels(heatmap_data$outcome_labeled)
-# )
-
 ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_tile(aes(fill = Delta_AUC_fill, 
-                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1", "adrink", "adadagetw", "anyngsib","afasoc2"), "azure2", "black")), 
+                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1", "adrink", "anyngsib"), "azure2", "black")), 
             size = .5) +
   scale_color_identity() +
   geom_text(
@@ -421,7 +423,7 @@ ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
   labs(
     tag = "B",
     title = "Variable Importance Heatmap",
-    subtitle = "Values indicate change in AUC when variable is removed;\n colors indicate statistical significance"
+    subtitle = "Values indicate change in AUC when variable is removed from model\n Non-white cells are statistically significant"
   ) +
   theme_minimal() +
   theme(
@@ -561,7 +563,7 @@ twinmodels_results %>%
         term == "amumagetw" ~ "Mother age at birth",
         term == "adadagetw" ~ "Father age at birth",
         term == "aadultscohabiting biological parent with other" ~ "Household Type: Cohabiting parent",
-        term == "aadultssingle parent" ~ "Household Type: Single parent",
+        term == "asinglesingle parent" ~ "Single Parent (ref: cohabiting parents)",
         term == "zygos2" ~ "Zygosity (DZ)",
         term == "amedtot" ~ "Mother medical risk",
         str_starts(term, "afasoc2") & str_detect(term, "^afasoc2\\d$") ~ paste0("Father employment: Level ", str_sub(term, -1)),
@@ -806,7 +808,6 @@ df_rq1x %>%
       size = 8         # Adjust text size if needed
     ))
 
-
 ```
 
 ### Missingness
@@ -822,13 +823,11 @@ df_rq1x %>%
   summarise(percent_notmissing = mean(value)) %>%
   knitr::kable()
 
-
 ```
 
 ## Missing Data Patterns
 
 ```{r}
-
 
 df_rq1x %>%
   `colnames<-`((rq1x_labels)) %>%
@@ -946,13 +945,6 @@ df %>%
   ) + 
   labs(title = "Child Measures Only")
 
-
-
-  # cor(., use = "pairwise.complete.obs") %>%
-  # round(., 3)
-  # 
-  
-  
 cbind.data.frame(df)
 
 ```

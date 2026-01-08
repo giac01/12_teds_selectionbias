@@ -15,8 +15,8 @@ rq5z = c(
   # Family Structure
   "amumagetw",    # Maternal age at twin birth
   # "adadagetw",    # Paternal age at twin birth
-  "aadults",      # Number of adults in household
-  # "asingle",        # derived froma adults (1 = single parent, 0 = other, NA = missing partner details)
+  # "aadults",      # Number of adults in household
+  "asingle",        # derived froma adults (1 = single parent, 0 = other, NA = missing partner details)
   
   # Zygosity 
 
@@ -645,7 +645,7 @@ baseline_imp = c(
 
 # rq7 imputation vars ----------------------------------------------------------
 
-rq7z_vars = c(
+rq6z_vars = c(
   
   ## Problematic variables that are commended out temporarily but we might want to add back!!
   
@@ -660,8 +660,8 @@ rq7z_vars = c(
   # Family Structure
   "amumagetw",    # Maternal age at twin birth
   # "adadagetw",    # Paternal age at twin birth
-  "aadults",      # Number of adults in household
-  # "asingle",        # derived froma adults (1 = single parent, 0 = other, NA = missing partner details)
+  # "aadults",      # Number of adults in household
+  "asingle",        # derived froma adults (1 = single parent, 0 = other, NA = missing partner details)
   
   # Zygosity 
   

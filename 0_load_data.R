@@ -79,7 +79,7 @@ rq1x = c(
         "sex1",
         "amumagetw",
          "adadagetw",
-         "aadults",
+         "asingle",
          "zygos",
          "amedtot",
          # "afaclas",
@@ -212,6 +212,9 @@ rq5y = c(
 rq5y_prefix = str_remove(rq5y, "1$")
 
 rq5y_12 = paste0(rep(rq5y_prefix, each = 2), c("1", "2"))
+
+rq6y        = c("lcmfqt1","lsdqext1", "lcg1", "pcexgcsecoregrdm1") 
+rq6y_prefix = c("lcmfqt" ,"lsdqext" , "lcg",  "pcexgcsecoregrdm")
 
 # Edit and create variables  ---------------------------------------------------
 
@@ -378,7 +381,7 @@ rq1x_labels_clean = c(
   "Twin Sex",
   "Mother age at birth",
   "Father age at birth",
-  "Household type",
+  "Single Parent",
   "Zygosity",
   "Mother medical risk",
   "Father employment level",
@@ -489,7 +492,6 @@ mfq_labels = df %>%
   select(all_of(mfq)) %>%
   sapply(., function(x) attr(x, "label"))
 
-rq6y = c("lcmfqt1","lsdqext1", "lcg1", "pcexgcsecoregrdm1") # move this to load load script later
 rq6y_labels = rq5y_labels_short[match(rq6y, rq5y)]
 
 ## Check Labels and variables match --------------------------------------------
