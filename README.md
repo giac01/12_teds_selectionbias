@@ -20,21 +20,30 @@ Analyses were run using the docker container: bignardig/tidyverse451
 - [`0_lists_of_variables.R`](0_lists_of_variables.R) - List of variables for imputation
 
 ### Descriptive Statistics:
+
 - [`1_calculate_participation_ACE.R`](1_calculate_participation_ACE.R) - ACE analysis of participation
 - [`11_descriptives.qmd`](11_descriptives.qmd) - Calculate descriptive statistics
 
 ### Research Question 1 Code:
-- [`1_rq1_predictors_of_participation.qmd`](1_rq1_predictors_of_participation.qmd) - Analysis of which factors predict participation at each time point in TEDS
+Analysis of which factors at year 2 predict participation at later time points
+
+- [`1_rq1_predictors_of_participation.qmd`](1_rq1_predictors_of_participation.qmd) - This script both runs the analysis and generates results
 
 ### Research Question 2 Code:
+Analysis of the effect of selecting Year 2 data conditional on later participation ("attritioning")
+
 - [`2_rq2_1_run_bootstrapping.R`](2_rq2_1_run_bootstrapping.R) - Runs bootstrapping, attritioning and analysis
 - [`2_rq2_results.qmd`](2_rq2_results.qmd) - Visualise and present results
 
 ### Research Question 3 Code:
+Effect of IP weighting data collected at later time points
+
 - [`3_rq3_1_weighting_bootstrap.R`](3_rq3_1_weighting_bootstrap.R) - Code to run inverse probability weighting + bootstrap analysis
 - [`3_rq3_2_weighting_results.qmd`](3_rq3_2_weighting_results.qmd) - Visualise and present results 
 
 ### Research Question 4 Code:
+Effect of imputing data collected at later time points 
+
 - [`5_rq5_1_run_imputation.R`](5_rq5_1_run_imputation.R) - Generate imputed datasets
 - [`5_rq5_2_run_bootstrapping.R`](5_rq5_2_run_bootstrapping.R) - Run bootstrapping analysis on imputed datasets 
 
