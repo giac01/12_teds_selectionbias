@@ -19,8 +19,11 @@ Analyses were run using the docker container: bignardig/tidyverse451
 - [`0_functions.R`](0_functions.R) - Helper and analysis functions
 - [`0_lists_of_variables.R`](0_lists_of_variables.R) - List of variables for imputation
 
-### Research Question 1 Code:
+### Descriptive Statistics:
 - [`1_calculate_participation_ACE.R`](1_calculate_participation_ACE.R) - ACE analysis of participation
+- [`11_descriptives.qmd`](11_descriptives.qmd) - Calculate descriptive statistics
+
+### Research Question 1 Code:
 - [`1_rq1_predictors_of_participation.qmd`](1_rq1_predictors_of_participation.qmd) - Analysis of which factors predict participation at each time point in TEDS
 
 ### Research Question 2 Code:
@@ -45,9 +48,6 @@ We also test if imputation or weighting can correct for the effect of nutrition
 - [`6_rq6_1_run_bootstrap_attritioning.R`](6_rq6_1_run_bootstrap_attritioning.R) - Compares original versus attritioned
 - [`7_rq7_1_weighting.R`](7_rq7_1_weighting.R) - Compares original versus attritioned + IP weighted
 - todo - compares original vs imputed
-
-### Descriptive Statistics:
-- [`11_descriptives.qmd`](11_descriptives.qmd) - Calculate descriptive statistics
 
 
 ## Note on running parallelized scripts

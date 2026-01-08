@@ -1,5 +1,5 @@
 ---
-title: "RQ6: inverse probability Weighting for Attrition"
+title: "RQ6: original vs (attritioned + IP weighted)"
 format:
   html:
     embed-resources: true
@@ -16,6 +16,8 @@ editor: source
 ---
 
 ## Description
+
+In this (non-preregistered) analysis, we look at four variables collected at years 12 & 16 which have low levels of missingness, and test the effect of selecting only those who took part at year 21 and 26 time points ("attritioning").
 
 This analysis examines the impact of inverse probability weighting to correct for attrition bias at three different time points. 
 
@@ -325,13 +327,10 @@ heatmap_data_smd = weighted_comparisons_df %>%
       TRUE ~ NA
     )
   ) %>%
-  # Order variables by number of significant effects
-  group_by(variable) %>%
-  mutate(n_significant = sum(pval_adj < 0.05)) %>%
-  ungroup() %>%
+  # Use fixed order from rq6y_labels
   mutate(
-    Variables_wrapped = factor(Variables_wrapped,
-                              levels = unique(Variables_wrapped[order(-n_significant)]))
+    variable = factor(variable, levels = rq6y_labels),
+    Variables_wrapped = factor(Variables_wrapped, levels = str_wrap(rq6y_labels, width = 8))
   )
 
  ggplot(heatmap_data_smd, aes(x = Variables_wrapped, y = outcome_labeled)) +
@@ -341,7 +340,7 @@ heatmap_data_smd = weighted_comparisons_df %>%
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", y)), ""),
-        size = 3.5
+        size = 4.5
     ),
     color = "black"
   ) +
@@ -352,27 +351,26 @@ heatmap_data_smd = weighted_comparisons_df %>%
     mid = "white",
     high = "#d73027",
     midpoint = 0,
+    limits = c(-0.3, 0.3),
     na.value = "white",
     guide = "none"
   ) +
   labs(
-    title = "Standardised Mean Difference",
     subtitle = expression(frac(bar(X)[attrition + weighted] - bar(X)[original], SD[original])),
-    tag = "A"
+    tag = "A2"
   ) +
   theme_minimal() +
   theme(
-    axis.text.x = element_text(angle = 0, size = 11),
+    axis.text.x = element_text(angle = 0, size = 13, color = "black"),
     axis.text.y = element_blank(),
     axis.title = element_blank(),
     panel.grid = element_blank(),
     panel.background = element_blank(),
     plot.background = element_blank(),
-    plot.title = element_text(hjust = 0.5, size = 16),
-    plot.subtitle = element_text(hjust = 0.5, size = 13.5, margin = margin(b = -20)),
+    plot.title = element_blank(),
+    plot.subtitle = element_text(hjust = 0.5, size = 17, margin = margin(b = -45)),
     plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
-    plot.tag.position = "topleft",
-    plot.margin = margin(2, 10, -33, 10)
+    plot.tag.position = "topleft"
   ) +
   {
     y_positions = seq_along(levels(heatmap_data_smd$outcome_labeled))
@@ -380,13 +378,11 @@ heatmap_data_smd = weighted_comparisons_df %>%
 
     lapply(seq_along(labels), function(i) {
       annotate("text", x = 0.5, y = y_positions[i],
-               label = paste0(labels[i], " "),
-               size = 3.7,
-               hjust = 1, angle = 7)
+               label = paste0(labels[i], " "), size = 5, hjust = 1, angle = 7, vjust = -.3, fontface = "bold")
     })
   }
 
-save_plot("7_rq7_circular_heatmap_smd", width = 8, height = 8)
+save_plot("7_rq7_circular_heatmap_smd", width = 8, height = 8, trim = TRUE)
 
 ```
 
@@ -408,13 +404,10 @@ heatmap_data_var = weighted_comparisons_df %>%
       TRUE ~ NA
     )
   ) %>%
-  # Order variables by number of significant effects
-  group_by(variable) %>%
-  mutate(n_significant = sum(pval_adj < 0.05)) %>%
-  ungroup() %>%
+  # Use fixed order from rq6y_labels
   mutate(
-    Variables_wrapped = factor(Variables_wrapped,
-                              levels = unique(Variables_wrapped[order(-n_significant)]))
+    variable = factor(variable, levels = rq6y_labels),
+    Variables_wrapped = factor(Variables_wrapped, levels = str_wrap(rq6y_labels, width = 8))
   )
 
 ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
@@ -424,7 +417,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        paste0(sprintf("%.1f", y * 100), "%"), ""),
-        size = 3.5
+        size = 4.5
     ),
     color = "black"
   ) +
@@ -435,29 +428,26 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     mid = "white",
     high = "#d73027",
     midpoint = 0,
-    limits = c(-max(abs(heatmap_data_var$fill_value), na.rm = TRUE),
-               max(abs(heatmap_data_var$fill_value), na.rm = TRUE)),
+    limits = c(-.12,.12),
     na.value = "white",
     guide = "none"
   ) +
   labs(
-    title = "Variance Percentage Change",
-    subtitle = expression(frac(Var[attrition + weighted] - Var[original], Var[original]) %*% 100),
-    tag = "B"
+    subtitle = expression(frac(Var[attrition + weighted] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
+    tag = "B2"
   ) +
   theme_minimal() +
   theme(
-    axis.text.x = element_text(angle = 0, size = 11),
+    axis.text.x = element_text(angle = 0, size = 13, color = "black"),
     axis.text.y = element_blank(),
     axis.title = element_blank(),
     panel.grid = element_blank(),
     panel.background = element_blank(),
     plot.background = element_blank(),
-    plot.title = element_text(hjust = 0.5, size = 16),
-    plot.subtitle = element_text(hjust = 0.5, size = 13.5, margin = margin(b = -20)),
+    plot.title = element_blank(),
+    plot.subtitle = element_text(hjust = 0.5, size = 17, margin = margin(b = -45)),
     plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
-    plot.tag.position = "topleft",
-    plot.margin = margin(2, 10, -33, 10)
+    plot.tag.position = "topleft"
   ) +
   {
     y_positions = seq_along(levels(heatmap_data_var$outcome_labeled))
@@ -465,11 +455,11 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
 
     lapply(seq_along(labels), function(i) {
       annotate("text", x = 0.5, y = y_positions[i],
-               label = paste0(labels[i], " "), size = 3.7, hjust = 1, angle = 7)
+               label = paste0(labels[i], " "), size = 5, hjust = 1, angle = 7, vjust = -.3, fontface = "bold")
     })
   }
 
-save_plot("7_rq7_circular_heatmap_var", width = 8, height = 8)
+save_plot("7_rq7_circular_heatmap_var", width = 8, height = 8, trim = TRUE)
 
 ```
 

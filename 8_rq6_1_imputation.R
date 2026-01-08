@@ -11,9 +11,9 @@ rm(list=ls())
 source("0_load_data.R")
 
 range_participation_outcomes = 6:8
-number_imputations           = 8                                                # Number of Imputations
-number_iterations            = 2
-n_workers                    = 8                                                # Number of parallel jobs to run (number of cores)
+number_imputations           = 200                                              # Number of Imputations 200: 10.93 hours
+number_iterations            = 50                                               
+n_workers                    = 16                                                # Number of parallel jobs to run (number of cores)
 
 rq1y_twin                         = rq1y_twin[range_participation_outcomes]
 rq1y_twin1                        = rq1y_twin1[range_participation_outcomes]
@@ -50,7 +50,7 @@ for (i in seq_along(rq1y_twin1)){
   
   filter = as.numeric(df[[rq1y_twin1[i]]]) == 0   # (1/F = present, 0/T = NOT present)
   
-  original_datasets[[i]] = attritioned_datasets[[i]] = df %>% 
+  original_datasets[[i]] = attritioned_datasets[[i]] = df %>%                   # this is kind of redundant as each element of the list is identical to each other and to original_dataset
     select("randomfamid", "twin", "random", "x3zygos","sexzyg", starts_with(rq6y_prefix), all_of(rq6z_vars))
   
   attritioned_datasets[[i]][filter,rq6y] = NA
@@ -144,24 +144,115 @@ df_impute %>%
 miceinit$loggedEvents
 
 # Impute groups separately -----------------------------------------------------
-imputed_mice = list()
+# Using task-level parallelization for maximum efficiency
+# Each imputation runs as a separate task to fully utilize all cores
+
+tasks = expand.grid(
+  group = names(df_impute_list_flat),
+  imputation = 1:number_imputations,
+  stringsAsFactors = FALSE
+) %>%
+  separate_wider_delim(group,
+                       delim = ".",
+                       names = c("timepoint", "sexzyg"),
+                       cols_remove = FALSE)
+
+## Run all imputations in parallel ---------------------------------------------
+
+plan(multicore, workers = n_workers)
 
 ta = Sys.time()
 
-imputed_mice = lapply(df_impute_list_flat, function(input_df)
-  mice::futuremice(
-    input_df, 
-    parallelseed    = 1,
-    n.core          = n_workers,
-    m               = number_imputations, 
-    maxit           = number_iterations, 
+all_imputations = future_lapply(1:nrow(tasks), function(i) {
+  group = tasks$group[i]
+
+  # Run single imputation for this task
+  mice(
+    df_impute_list_flat[[group]],
+    m               = 1,  # Single imputation per task
+    maxit           = number_iterations,
     method          = meth,
-    predictorMatrix = pred
+    predictorMatrix = pred,
+    printFlag       = FALSE
   )
-)
+}, future.seed = 1)
 
-tb = Sys.time()  # first run was 9.7 minutes
+tb = Sys.time()
 
-tb-ta  # 3.14 hours to do 24 imputations
+tb - ta
+
+# warnings()
+
+saveRDS(all_imputations, file = file.path("results","8_1_all_imputations.Rds"))
+# all_imputations <- readRDS("~/Dropbox/Work/projects/12_teds_selectionbias/results/8_1_all_imputations.Rds")
+# all_imputations[[10]]$loggedEvents
+
+## Combine single imputations back by timepoint --------------------------------
+# For each timepoint, rbind all sexzyg groups together for each imputation
+
+imputed_mice = list()
+
+for (i in rq1y_twin) {
+  # Create list to store all imputations for this timepoint
+  imp_list = list()
+
+  for (k in 1:number_imputations) {
+    # Get all sexzyg groups for this timepoint-imputation combination
+    group_indices = which((tasks$timepoint == i) & (tasks$imputation == k))
+
+    # Extract completed datasets from each sexzyg group and rbind them
+    completed_dfs = lapply(all_imputations[group_indices], function(mids_obj) {
+      mice::complete(mids_obj, action = 1)  # Get the completed data
+    })
+
+    # Combine all sexzyg groups into one dataset
+    imp_list[[k]] = do.call(rbind.data.frame, completed_dfs)
+
+    # Reorder to match original dataset
+    imp_list[[k]] = imp_list[[k]][match(original_dataset$randomfamid, imp_list[[k]]$randomfamid),]
+
+    # Verify order matches
+    if(!isTRUE(all.equal(imp_list[[k]]$randomfamid, original_dataset$randomfamid, check.attributes = FALSE))) stop("randomfamid order mismatch")
+    if(!isTRUE(all.equal(imp_list[[k]]$sexzyg,      original_dataset$sexzyg,      check.attributes = FALSE))) stop("sexzyg mismatch")
+
+    # Set imputed values back to NA where they were NA in original dataset (only for outcome variables)
+    rq6y_vars = c(paste0(rq6y_prefix,1),paste0(rq6y_prefix,2))
+    
+    for (var in rq6y_vars) {
+      na_mask = is.na(original_dataset[[var]])
+      imp_list[[k]][[var]][na_mask] = NA
+    }
+  }
+
+  # Store list of imputations for this timepoint
+  imputed_mice[[i]] = imp_list
+}
+
+
+# names(imputed_mice) = names(df_impute_list_flat)
+
+# Clean up
+plan(sequential)
 
 saveRDS(imputed_mice, file = file.path("results","8_1_imputed_mice.Rds"))
+
+
+
+# Sanity Check
+
+cat("original missingness\n")
+table(is.na(original_dataset$lcg1))
+cat("\nmissingness after attritioning\n")
+table(is.na(attritioned_datasets[[1]]$lcg1))
+table(is.na(attritioned_datasets[[2]]$lcg1))
+table(is.na(attritioned_datasets[[3]]$lcg1))
+cat("\nmissingness after attritioning + imputation\n")
+table(is.na(imputed_mice[[1]][[1]]$lcg1))
+table(is.na(imputed_mice[[2]][[1]]$lcg1))
+table(is.na(imputed_mice[[3]][[1]]$lcg1))
+
+
+# all_imputations[[1]] %>% plot(layout = c(5,5), col = 6)
+# all_imputations[[100]] %>% plot(layout = c(3,3), y = c(paste0(rq6y_prefix,1),paste0(rq6y_prefix,2)))
+# 
+#                               

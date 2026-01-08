@@ -1,8 +1,15 @@
 # Miscellaneous analysis functions ---------------------------------------------
 
-save_plot <- function(filename, width = 5, height = 8, plot = last_plot()) {
+save_plot <- function(filename, width = 5, height = 8, plot = last_plot(), trim = FALSE, trim_margin = 10) {
   ggsave(file.path("plots", "pdfs", paste0(filename, ".pdf")), plot, width = width, height = height)
   ggsave(file.path("plots", "pngs", paste0(filename, ".png")), plot, width = width, height = height, bg = "transparent", dpi = 600)
+
+  if (trim) {
+    img = magick::image_read(file.path("plots", "pngs", paste0(filename, ".png")))
+    img_trimmed = magick::image_trim(img)
+    img_with_margin = magick::image_border(img_trimmed, "transparent", paste0(trim_margin, "x", trim_margin))
+    magick::image_write(img_with_margin, file.path("plots", "pngs", paste0(filename, ".png")))
+  }
 }
 
 
@@ -1732,6 +1739,12 @@ compare_ace = function(df1, df2, vars = rq5y) {
     ace_analysis = TRUE
     
     ){ # note that this does not needed to be parellised, as it will be run in parallel on different imputed datasets
+  
+  # Select only necessary variables at the start
+  required_vars = c("randomfamid", "sexzyg", vars)
+  df1 = df1 %>% select(all_of(required_vars))
+  df2 = df2 %>% select(all_of(required_vars))
+  
   
   # Initialize results structure
   boot_results = list(
