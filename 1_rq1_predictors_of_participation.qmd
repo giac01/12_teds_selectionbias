@@ -17,6 +17,8 @@ editor_options:
   chunk_output_type: console
 ---
 
+In this script, we use data collected at Y2 to predict attrition and most of the later time points. 
+
 Analyses run in docker container bignardig/tidyverse451:v7 
 
 Updated on 8-Jan-2026 to replace household variable with derived single parent variable. 
