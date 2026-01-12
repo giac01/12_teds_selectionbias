@@ -643,7 +643,7 @@ baseline_imp = c(
   "lcemfqt2"
 )
 
-# rq7 imputation vars ----------------------------------------------------------
+# rq6 imputation vars ----------------------------------------------------------
 
 rq6z_vars = c(
   
@@ -870,8 +870,8 @@ rq6z_vars = c(
   # Twin-reported SDQ
   "icsdqcont1",   # Conduct
   "icsdqcont2",   # Conduct
-  # "icsdqemot1",   # Emotion
-  # "icsdqemot2",   # Emotion
+  "icsdqemot1",   # Emotion
+  "icsdqemot2",   # Emotion
   "icsdqhypt1",   # Hyperactivity
   "icsdqhypt2",   # Hyperactivity
   # "icsdqpert1",   # Peer problems
@@ -888,8 +888,8 @@ rq6z_vars = c(
   "ipsdqcont2",   # Conduct
   # "ipsdqpert1",   # Peer problems
   # "ipsdqpert2",   # Peer problems
-  # "ipsdqemot1",   # Emotion
-  # "ipsdqemot2",   # Emotion
+  "ipsdqemot1",   # Emotion
+  "ipsdqemot2",   # Emotion
   # "ipsdqbeht1",   # Total behavior problems
   
   # Parent Negative Feelings
@@ -1007,8 +1007,8 @@ rq6z_vars = c(
   "pcg2",         # General cognitive ability
   
   # GCSE results
-  "pcexgcsecoregrdm1",  # Mean grades for GCSEs
-  "pcexgcsecoregrdm2",  # Mean grades for GCSEs
+  # "pcexgcsecoregrdm1",  # Mean grades for GCSEs
+  # "pcexgcsecoregrdm2",  # Mean grades for GCSEs
   
   # Mood & Feelings Questionnaire
   "pcbhmfqt1",     # MFQ - twin report - already in the main set of variables
@@ -1017,8 +1017,8 @@ rq6z_vars = c(
   # "ppbhmfqt2",    # MFQ - parent report                                       - ONLY TWIN 2 is missing for some reason!!!
   
   # Twin-reported SDQ
-  # "pcbhsdqemot1", # Emotion
-  # "pcbhsdqemot2", # Emotion
+  "pcbhsdqemot1", # Emotion
+  "pcbhsdqemot2", # Emotion
   "pcbhsdqcont1", # Conduct
   "pcbhsdqcont2", # Conduct
   "pcbhsdqhypt1", # Hyperactivity

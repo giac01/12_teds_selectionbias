@@ -1,6 +1,6 @@
-# Run using docker container: bignardig/tidyverse451:v6
-# Run using commit: asdasf23143xcv (see commit message)
-# Run date: 19-Dec-2015
+# Run using docker container: bignardig/tidyverse451:v7
+# Run using commit: gjghg74565 (see commit message)
+# Run date: 11-Jan-2026
 
 # CODE REVIEW STATUS: reviewed again 1/sep/25. Might want to review ACE estimation method with Tom. 
 # Running using Rscript is essential for parellelisation here
@@ -29,8 +29,8 @@ source("0_load_data.R")
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 mice_iter = 50 # number of iterations for mice
-B         = 10000 # number of bootstraps (24 took 8 minutes, 10000 will take 56 hours on 8 cores, 1000 took 57 mins on 48 cores)
-n_workers = 8
+B         = 10000 # number of bootstraps (10000 takes 1.083 days on 8c/14w, 1000 took 57 mins on 48 cores, )
+n_workers = 14
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Create Missingness Indicator Variables ---------------------------------------

@@ -1,5 +1,6 @@
-# Run using docker container bignardig/tidyverse451:v5 
-# 
+# Run using docker container: bignardig/tidyverse451:v7 
+# Run using commit: gjghg74565 (see commit message)
+# Run date: 10-Jan-2025
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load Data --------------------------------------------------------------------
@@ -41,15 +42,14 @@ testthat::test_that("nrows of compared datasets match",{
 # Arguments --------------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-number_bootstraps_per_impute = 5000/8 
-# 5000/8 took 3.59 hours over 8 cores 
-number_cores                 = 8
+number_bootstraps_per_impute = 10000/200                                           # 1.9 hours
+number_cores                 = 14
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Run Analysis -----------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-plan(multisession, workers = number_cores)
+plan(multicore, workers = number_cores)
 
 ta = Sys.time()
 
@@ -58,7 +58,7 @@ boot_compare_results = future_lapply(1:length(imputed_datasets), function(i) {
     df1  = imputed_datasets[[i]][c("randomfamid","sexzyg",rq5y)],
     df2  = original_dataset,
     B    = number_bootstraps_per_impute,
-    rq5y = rq5y
+    vars = rq5y
   )
 }, 
 future.seed = 1,
@@ -93,12 +93,6 @@ smd_df = do.call(rbind, lapply(seq_along(boot_compare_results), function(i) {
   return(result_df)
 }))
 
-h_df = do.call(rbind, lapply(seq_along(boot_compare_results), function(i) {
-  result_df = t(as.data.frame(boot_compare_results[[i]]$h, row.names = rq5y))
-  result_df = data.frame(.imp = i, .boot = 1:nrow(result_df), result_df, row.names = NULL)
-  return(result_df)
-}))
-
 var_df = do.call(rbind, lapply(seq_along(boot_compare_results), function(i) {
   result_df = t(as.data.frame(boot_compare_results[[i]]$var, row.names = rq5y))
   result_df = data.frame(.imp = i, .boot = 1:nrow(result_df), result_df, row.names = NULL)
@@ -128,8 +122,8 @@ ace_df = do.call(rbind, lapply(seq_along(boot_compare_results), function(i) {
 }))
 
 
-bootstrap_iter = list(md_df, smd_df, h_df, var_df, cor_df, srmr_df)
-names(bootstrap_iter) = c("md", "smd", "h", "var",  "cor_resid", "srmr")
+bootstrap_iter = list(md_df, smd_df, var_df, cor_df, srmr_df)
+names(bootstrap_iter) = c("md", "smd", "var",  "cor_resid", "srmr")
 
 ### Calculate p-values and confidence intervals --------------------------------
 
@@ -138,7 +132,7 @@ bootstrap_summary = lapply(bootstrap_iter, function(df)
   apply(select(df,-.imp, -.boot),2, function(xx) .mean_qi_pd(xx))
 )
 
-bootstrap_summary_df = bootstrap_summary[1:4]
+bootstrap_summary_df = bootstrap_summary[1:3]
 
 testthat::test_that("Bootstrap summaries have correct length", {
   expect_true(all(sapply(bootstrap_summary_df, length) == length(rq5y)))
@@ -170,5 +164,5 @@ bootstrap_summary_df_ace = ace_df %>%
 
 
 saveRDS(bootstrap_summary_df_ace, file = file.path("results", "5_bootstrap_summary_df_ace.Rds"))
-saveRDS(bootstrap_summary_df, file = file.path("results", "5_bootstrap_summary_df.Rds"))
+saveRDS(bootstrap_summary_df,     file = file.path("results", "5_bootstrap_summary_df.Rds"))
 

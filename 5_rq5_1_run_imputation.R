@@ -1,10 +1,14 @@
+# Run using docker container: bignardig/tidyverse451:v7 
+# Run using commit: gjghg74565 (see commit message)
+# Run date: 10-Jan-2025
+
 # Load things ------------------------------------------------------------------
 
 source("0_load_data.R")
 
-number_imputations = 8 
-
+number_imputations = 200                                                          # 16  (50 it) took 20 minutes on 8 cores, 200 (50 it) took 2.8 hours on 48 cores, 48 took 1.8 hours on 8 cores, 200 took 7.8 hours on 8 cores
 number_iterations = 50 
+n_workers = 14                                                                  # Number of parallel jobs to run (adjust based on available cores)
 
 # Set up imputation  -------------------------------------------------------------------
 df_impute = df %>%
@@ -73,43 +77,74 @@ df_impute %>%
 }
 
 # Impute groups separately -----------------------------------------------------
-ta = Sys.time()
+# Using task-level parallelization for maximum efficiency
+# Each imputation runs as a separate task to fully utilize all cores
 
-imputed_mice = lapply(df_split, function(input_df)
-  mice::futuremice(
-    input_df, 
-    n.core = 8,
-    m = number_imputations, 
-    maxit = number_iterations, 
-    method = meth,
-    predictorMatrix = pred
-  )
+tasks = expand.grid(
+  group = names(df_split),
+  imputation = 1:number_imputations,
+  stringsAsFactors = FALSE
 )
 
-tb = Sys.time()  # first run was 9.7 minutes
+## Run all imputations in parallel ---------------------------------------------
 
-tb-ta  # 3.14 hours to do 24 imputations
+plan(multicore, workers = n_workers)
 
-# 19.19 min
+ta = Sys.time()
 
-# lapply(imputed_mice, function(x) x$loggedEvents)
+all_imputations = future_lapply(1:nrow(tasks), function(i) {
+  group = tasks$group[i]
 
-if(TRUE){
-  saveRDS(imputed_mice, file.path("results","5_1imputed_mice.Rds")) # Save for debugging and checking
+  # Run single imputation for this task
+  mice(
+    df_split[[group]],
+    m               = 1,  # Single imputation per task
+    maxit           = number_iterations,
+    method          = meth,
+    predictorMatrix = pred,
+    printFlag       = FALSE
+  )
+}, future.seed = 1)
+
+tb = Sys.time()
+
+tb - ta
+
+plan(sequential)
+
+saveRDS(all_imputations, file = file.path("results","5_1_all_imputations.Rds"))
+
+## Combine single imputations back by group ------------------------------------
+
+imputed_mice = list()
+
+for (group_name in names(df_split)) {
+  # Create list to store all imputations for this group
+  imp_list = list()
+
+  for (k in 1:number_imputations) {
+    # Get the imputation for this group-imputation combination
+    task_index = which((tasks$group == group_name) & (tasks$imputation == k))
+
+    # Extract completed dataset
+    imp_list[[k]] = mice::complete(all_imputations[[task_index]], action = 1)
+    
+    imp_list[[k]] = imp_list[[k]] %>%
+                    select(any_of(c("sexzyg","x3zygos","random","twin","randomfamid","cohort",rq5y_12)), ends_with(c("sdqcont1","sdqcont2","sdqhypt1","sdqhypt2")))
+    
+    imp_list[[k]]$.imp   = k
+    # imp_list[[k]]$sexzyg = group_name # not necessary as the variable is already here
+    
+  }
+
+  # Store list of imputations for this group
+  imputed_mice[[group_name]] = do.call(rbind.data.frame,imp_list)
 }
- 
-# Extract completed datasets from each group
-completed_list = lapply(names(imputed_mice), function(group_name) {
-  completed_data = complete(imputed_mice[[group_name]], action = "long") 
-  completed_data$sexzyg = group_name  # Ensure group identifier is preserved
-  return(completed_data)
-})
 
 # Combine all groups back together
 
-df_rq5_imputed = do.call(rbind, completed_list) %>%
-  arrange(.imp, randomfamid) %>%
-  select(-.id) # .id is the rowname in each imputed dataset, created by complete() - not useful. 
+df_rq5_imputed = do.call(rbind.data.frame, imputed_mice) %>%
+  arrange(.imp, randomfamid) 
 
 # Create Externalising scores & remove auxillary variables
 

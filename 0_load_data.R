@@ -214,6 +214,9 @@ rq5y_prefix = str_remove(rq5y, "1$")
 rq5y_12 = paste0(rep(rq5y_prefix, each = 2), c("1", "2"))
 
 rq6y        = c("lcmfqt1","lsdqext1", "lcg1", "pcexgcsecoregrdm1") 
+rq6y_all    = c("lcmfqt1","lsdqext1", "lcg1", "pcexgcsecoregrdm1", 
+                "lcmfqt2","lsdqext2", "lcg2", "pcexgcsecoregrdm2")
+
 rq6y_prefix = c("lcmfqt" ,"lsdqext" , "lcg",  "pcexgcsecoregrdm")
 
 # Edit and create variables  ---------------------------------------------------
