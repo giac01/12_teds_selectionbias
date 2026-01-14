@@ -11,9 +11,9 @@ rm(list=ls())
 source("0_load_data.R")
 
 range_participation_outcomes = 6:8
-number_imputations           = 250                                              # Number of Imputations 200: 10.93 hours
+number_imputations           = 250                                              # Number of Imputations 250: 18.9 hours
 number_iterations            = 50                                               
-n_workers                    = 16                                                # Number of parallel jobs to run (number of cores)
+n_workers                    = 16                                               # Number of parallel jobs to run (number of cores)
 
 rq1y_twin                         = rq1y_twin[range_participation_outcomes]
 rq1y_twin1                        = rq1y_twin1[range_participation_outcomes]

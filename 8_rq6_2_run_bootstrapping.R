@@ -13,7 +13,7 @@ imputed_datasets      = readRDS(file = file.path("results","8_1_imputed_mice.Rds
 
 range_participation_outcomes = 6:8
 n_workers                    = 16                                                # Number of parallel jobs to run (number of cores)]
-number_bootstraps_per_impute = 10000/250      #10000/200                               # 1.15 hours
+number_bootstraps_per_impute = 10000/250                                         # 1.2 hours
 
 rq1y_twin                         = rq1y_twin[range_participation_outcomes]
 rq1y_twin1                        = rq1y_twin1[range_participation_outcomes]
