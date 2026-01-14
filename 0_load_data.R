@@ -1,4 +1,9 @@
 # Load Libraries and Data ------------------------------------------------------
+Sys.setenv(MAGICK_MEMORY_LIMIT = "18GiB")
+Sys.setenv(MAGICK_MAP_LIMIT = "18GiB")
+Sys.setenv(MAGICK_AREA_LIMIT = "250MB")
+Sys.setenv(MAGICK_DISK_LIMIT = "24GiB")
+
 
 rm(list=ls(all.names = TRUE))
 

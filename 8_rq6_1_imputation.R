@@ -1,6 +1,6 @@
-# Run using docker container: bignardig/tidyverse451:v6
-# Run using commit: XXXXXXXXXXXXXX (see commit message)
-# Run date: XX-Jan-2025
+# Run using docker container: bignardig/tidyverse451:v7
+# Run using commit: vbmbnbmnb (see commit message)
+# Run date: 12-Jan-2025
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load data --------------------------------------------------------------------
@@ -11,7 +11,7 @@ rm(list=ls())
 source("0_load_data.R")
 
 range_participation_outcomes = 6:8
-number_imputations           = 200                                              # Number of Imputations 200: 10.93 hours
+number_imputations           = 250                                              # Number of Imputations 200: 10.93 hours
 number_iterations            = 50                                               
 n_workers                    = 16                                                # Number of parallel jobs to run (number of cores)
 
