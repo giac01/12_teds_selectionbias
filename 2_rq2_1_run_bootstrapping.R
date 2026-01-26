@@ -1,13 +1,16 @@
 # Docker container info --------------------------------------------------------
+# bignardig/tidyverse442:v7
+# Run version: mkhfja2fas2
+# Run date: 25-01-2026
 
-# bignardig/tidyverse442:v4
+# This script must be run in the terminal because it uses the plan multicore command. 
 
 # Load Data --------------------------------------------------------------------
 
 source("0_load_data.R")
 
-number_bootstraps = 10000 # 5000 takes around 6.2 hours
-
+number_bootstraps = 10000 # 500 takes 27.9 minutes.
+                       
 df = df %>%
   filter(!(randomfamid %in% exclude_fams_onesib)) 
 
@@ -31,22 +34,34 @@ original_dataset = df %>%
 
 
 # Run parallelised bootstrapped analyuses --------------------------------------
+rm(df, df0, filter, rq5_percent_complete)
 
-# Set up parallel processing
-plan(multisession, workers = 12)
+## Set up table of jobs --------------------------------------------------------
+
+joblist = expand.grid(
+  b = 1:number_bootstraps,
+  i = 1:length(attritioned_datasets)
+  )
+
+# Set up parallel processing ---------------------------------------------------
+
+plan(multicore, workers = 15)
 
 ta = Sys.time()
 
-variable_comparisons = future_lapply(1:length(attritioned_datasets), function(i) {
-  compare_df(
-    df1  = attritioned_datasets[[i]][c("randomfamid","sexzyg",rq2y)],
-    df2  = original_dataset[c("randomfamid","sexzyg",rq2y)],
-    B    = number_bootstraps,
-    vars = rq2y,
-    ace_analysis = FALSE
+boot_results = future_lapply(1:nrow(joblist), function(i) {
+  .boot_compare_df(
+    df1          = attritioned_datasets[[joblist[i,"i"]]][c("randomfamid","sexzyg",rq2y)],
+    df2          = original_dataset[c("randomfamid","sexzyg",rq2y)],
+    B            = 1,
+    vars         = rq2y,
+    ace_analysis = TRUE
   )
 }, 
-future.seed = 1)  
+future.seed = 1,
+future.packages = c("umx","OpenMx"),
+future.globals = TRUE
+)  
 
 tb = Sys.time()
 print(tb - ta)
@@ -54,38 +69,6 @@ print(tb - ta)
 # Reset to sequential processing
 plan(sequential)
 
-names(variable_comparisons) = rq1y_twin1
-
-saveRDS(variable_comparisons, file = file.path("results", "2_variable_comparisons.Rds"))
-
-## Clean data into a single dataframe ------------------------------------------
-
-variable_comparisons_df = lapply(variable_comparisons, function(x) x$bootstrap_summary)
-
-for(i in 1:length(variable_comparisons_df)){
-  #Looping across atttritioned datasets 
-  
-  for (j in 1:3){ # only first three sets of results relate to specific variables in rq2y
-    variable_comparisons_df[[i]] = variable_comparisons_df[[i]][1:3] # this line just removes the correlation analyses that arne't relevant here
-    variable_comparisons_df[[i]][[j]] = do.call(
-      rbind,
-      variable_comparisons_df[[i]][[j]]
-    )
-    variable_comparisons_df[[i]][[j]]$dataset  = rq1y_twin1[i]
-    variable_comparisons_df[[i]][[j]]$stat = c("md","smd","var")[j]
-    variable_comparisons_df[[i]][[j]]$variable = rq2y_labels
-    rownames(variable_comparisons_df[[i]][[j]]) = NULL
-  }
-  
-  variable_comparisons_df[[i]] = do.call(rbind.data.frame, variable_comparisons_df[[i]])
-}
-
-
-variable_comparisons_df = do.call(rbind.data.frame, variable_comparisons_df)
-
-rownames(variable_comparisons_df) = NULL
-
-saveRDS(variable_comparisons_df, file = file.path("results", "2_variable_comparisons_df.Rds"))
-
+saveRDS(boot_results, file = file.path("results", "2_boot_results.Rds"))
 
 

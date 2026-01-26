@@ -429,7 +429,8 @@ plot_lower_triangular_matrix2 <- function(
     text_size = 3,
     title = "plot title",
     caption = "plot subtitle",
-    method = "holm"
+    method = "holm",
+    col_limits = c(-.12,.12)
 ) {
   
   # Apply p-value adjustment if method is specified
@@ -495,7 +496,7 @@ plot_lower_triangular_matrix2 <- function(
     geom_tile(color = "white", linewidth = 0.5) +
     scale_fill_gradient2(low = "#d73027", mid = "white", high = "darkgreen", 
                          midpoint = 0, name = "Correlation", 
-                         # limits = c(-0.1, 0.1), 
+                         limits = col_limits,
                          na.value = "white"
                          ) +
     theme_minimal() +
@@ -1752,7 +1753,8 @@ compare_ace = function(df1, df2, vars = rq5y) {
     smd       = list(),
     var       = list(),
     cor_resid = list(),
-    srmr      = list()
+    srmr      = list(),
+    ace       = list()
   )
   
   # browser()
