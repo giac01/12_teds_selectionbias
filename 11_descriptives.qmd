@@ -13,6 +13,8 @@ format:
     grid:
       body-width: 900px
 editor: source
+editor_options: 
+  chunk_output_type: console
 ---
 
 # Load initial script
@@ -214,7 +216,7 @@ df %>%
   # geom_vline(aes(xintercept=.2)) +
   theme_bw()
 
-ggsave(file.path("plots","11_participation_rate.pdf"), width = 9, height = 5)
+save_plot("11_participation_rate", width = 9, height = 5)
 
 
 df %>%
@@ -257,7 +259,7 @@ df %>%
         axis.text.x = element_text(angle = 45, hjust = 1)) + 
   theme(plot.margin = margin(t = 1, r = 1, b = 1, l = 10, unit = "mm"))
 
-ggsave(file.path("plots","11_participation_rate_by_cohort.pdf"), width = 11, height = 9)
+save_plot("11_participation_rate_by_cohort", width = 11, height = 9)
 
 
 df %>%
@@ -303,7 +305,7 @@ df %>%
         axis.text.x = element_text(angle = 45, hjust = 1)) + 
   theme(plot.margin = margin(t = 1, r = 1, b = 1, l = 10, unit = "mm"))
 
-ggsave(file.path("plots","11_participation_rate_by_cohort_selectedy2.pdf"), width = 11, height = 9)
+save_plot("11_participation_rate_by_cohort_selectedy2", width = 11, height = 9)
 
 
 
@@ -407,23 +409,23 @@ plot_data %>%
   ggrepel::geom_text_repel(aes(label = case_when(
     metric == "mean" ~ paste0(round(value * 100, 1), "%"),
     metric == "cor" ~ gbtoolbox::apa_num(value)
-  )), 
-  position = position_dodge(width = 0.5), 
-  vjust = 2, 
-  size = 2, 
+  )),
+  position = position_dodge(width = 0.5),
+  vjust = 2,
+  size = 2,
   show.legend = FALSE) +
   facet_wrap(~metric_label, scales = "free_y", ncol = 1) +
   scale_color_manual(
     values = c(
       "MZ male" = "#d7191c",
-      "DZ male" = "#fdae61", 
+      "DZ male" = "#fdae61",
       "MZ female" = "#2c7bb6",
       "DZ female" = "#abd9e9",
       "DZ opposite sexes" = "grey"
     )
   ) +
-  ggh4x::scale_y_facet(metric_label == "Participation Rate", 
-                       labels = scales::percent_format(), 
+  ggh4x::scale_y_facet(metric_label == "Participation Rate",
+                       labels = scales::percent_format(),
                        breaks = seq(0, 1, 0.1)) +
   labs(
     # title = "Twin Study: Participation Rates and Correlations Across Time Points",
@@ -574,7 +576,7 @@ df %>%
     subtitle = "Twin-level participation numbers (N = 27890)"
     )
 
-ggsave(file.path("plots","11_number_of_times_each_twin_participated.pdf"), width = 9, height = 5)
+save_plot("11_number_of_times_each_twin_participated", width = 9, height = 5)
 
 ```
 ## How predictive is cohort and year of birth in participation at each timepoint? 
@@ -612,7 +614,7 @@ cbind.data.frame(rq1y, rq1y_labels, var_explained) %>%
   theme(axis.text.x = element_text(angle = 45, hjust=1, vjust=1)) +
   scale_x_discrete(expand = expansion(mult = c(0.1, 0)))
 
-ggsave(file.path("plots","11_r2_participation_cohort_birthyear.pdf"), width = 9, height = 5)
+save_plot("11_r2_participation_cohort_birthyear", width = 9, height = 5)
 
 
 ```
@@ -666,7 +668,7 @@ df %>%
   scale_x_discrete(limits = (var_to_label(rq1y))) + 
   coord_flip()
 
-ggsave(file.path("plots","11_participation_pattern.pdf"), width = 19, height = 6)
+save_plot("11_participation_pattern", width = 19, height = 6)
 
 
 df %>%
@@ -685,7 +687,7 @@ df %>%
   scale_x_discrete(limits = c("Year 2 - 4 present", "Year 7 - 12 present", "Year 14 - 16 present", "Year 18 - 26 present")) + 
   coord_flip()
 
-ggsave(file.path("plots","11_participation_pattern_grouped.pdf"), width = 19, height = 6)
+save_plot("11_participation_pattern_grouped", width = 19, height = 6)
 
 df %>%
   select(c(rq1y)) %>%
@@ -695,7 +697,7 @@ df %>%
   gbtoolbox::plot_pairwise_missing(textadjust = 2.5) +
   labs(subtitle = "Number of twins tested at each time point (diagonal) and \npair of time points (below diagonal)")
 
-ggsave(file.path("plots","11_pairwise_missingness_plot.pdf"), width = 6, height = 6)
+save_plot("11_pairwise_missingness_plot", width = 6, height = 6)
 
 ```
 
@@ -727,20 +729,8 @@ df_age_long %>%
     panel.grid.minor.y = element_blank()
     )
 
-ggsave(file.path("plots","11_participant_ages_each_timepoint.pdf"), width = 12, height = 12)
+save_plot("11_participant_ages_each_timepoint", width = 12, height = 12)
 
 
 ```
-
-
-# Classify participation patterns
-
-
-[📊 Class Analysis Plot (needs work)](plots/99_class_analysis.pdf)
- 
-
-# Research Question 5
-
-
-
 

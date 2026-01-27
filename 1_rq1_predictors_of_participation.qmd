@@ -1,5 +1,5 @@
 ---
-title: "RQ1: Y2 predictors of attrition at later time points"
+title: "RQ1: What baseline factors predict participation in TEDS?"
 format: 
   html:
     embed-resources: true
@@ -23,14 +23,13 @@ Analyses run in docker container bignardig/tidyverse451:v7
 
 Updated on 8-Jan-2026 to replace household variable with derived single parent variable. 
 
-## 
-
 # Load Data
 
 ```{r}
 #| output: false
 
 source("0_load_data.R")
+set.seed(1)
 
 df_rq1 = df %>%
   filter(twin == 1) %>%
@@ -179,6 +178,7 @@ cbind(rq1y_twin1, rq1y_twin_labels) %>%
 Fit logistic regression models to each participation outcome
 
 ```{r}
+set.seed(1)
 
 twinmodels = list()
 
@@ -202,6 +202,7 @@ This approach doesn't give us standard errors for our predictions.
 ** For plotting purposes, the intercept is removed from predictions. ** 
 
 ```{r}
+set.seed(1)
 
 twinmodels_predictions = list()
 
@@ -401,13 +402,13 @@ heatmap_data$Variables_wrapped = factor(heatmap_data$Variables_wrapped, levels =
 
 ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_tile(aes(fill = Delta_AUC_fill, 
-                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1", "adrink", "anyngsib"), "azure2", "black")), 
+                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1", "adrink", "anyngsib", "alookels", "afasoc2", "adadagetw", "alang"), "azure2", "black")), 
             size = .5) +
   scale_color_identity() +
   geom_text(
     aes(label = ifelse(Wald_p < 0.05, 
                        gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", Delta_AUC)), ""),
-        size = ifelse(outcome_labeled %in% c("Y2","Y3"), 1.2, 2.4)
+        size = ifelse(outcome_labeled %in% c("Y4 "), 1.4, 2.8)
     ), 
     color = "white"
   ) +
@@ -425,11 +426,11 @@ ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
   labs(
     tag = "B",
     title = "Variable Importance Heatmap",
-    subtitle = "Values indicate change in AUC when variable is removed from model\n Non-white cells are statistically significant"
+    subtitle = "Values indicate change in AUC when variable is removed from model\nRed cells are statistically significant"
   ) +
   theme_minimal() +
   theme(
-    axis.text.x = element_text(angle = 0, size = 11),
+    axis.text.x = element_text(angle = 0, size = 11, colour = "black"),
     axis.text.y = element_blank(),  # Hide default y-axis labels
     axis.title = element_blank(),
     panel.grid = element_blank(),
@@ -449,7 +450,7 @@ ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
   }
 
 
-save_plot("1_rq1_heatmap_twinparticipationpredictors", width = 8, height = 8)
+save_plot("1_rq1_heatmap_twinparticipationpredictors", width = 8, height = 8, trim = TRUE)
 
 ```
 
@@ -490,7 +491,7 @@ ggplot(plot_data, aes(y = outcome, x = value_scaled, fill = metric_label)) +
   geom_col(width = 0.7, alpha = 0.8) +
   geom_text(aes(label = label_value), 
             hjust = ifelse(plot_data$metric == "AUC_scaled", 1.1, -0.1),
-            size = 2.5) +
+            size = 2.9) +
   scale_fill_manual(values = c("AUC" = "#5e3c99", "McFadden's R²" = "#e66101")) +
   labs(
     tag = "A",
@@ -516,7 +517,7 @@ ggplot(plot_data, aes(y = outcome, x = value_scaled, fill = metric_label)) +
   geom_vline(xintercept = 0, color = "black", size = 0.5)
 
 
-save_plot("1_rq1_twinlevel_prediction_accuracy", width = 5, height = 8)
+save_plot("1_rq1_twinlevel_prediction_accuracy", width = 5, height = 8, trim = TRUE)
 
 ```
 
@@ -689,11 +690,11 @@ twinmodels_results %>%
     fn = function(x) str_remove(x, "table_val_")
   ) %>%
   tab_options(
-      table.width = "50%",
-      table.font.size = "8px"
+      table.width = "100%",
+      table.font.size = "12px"
     ) %>%
       cols_width(
-      term ~ px(65),
+      term ~ px(90),
       starts_with("table_val") ~ px(40)
     ) %>%
   tab_source_note(

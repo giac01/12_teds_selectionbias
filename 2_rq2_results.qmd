@@ -1,5 +1,5 @@
 ---
-title: "RQ2: artificialy attritioned datasets"
+title: "RQ2: Artificially Attritioned Datasets"
 format: 
   html:
     embed-resources: true
@@ -13,7 +13,15 @@ format:
     grid:
       body-width: 900px
 editor: source
+editor_options: 
+  chunk_output_type: console
 ---
+
+# Data cleaning
+
+## Load Results
+
+The script [2_rq2_1_run_bootstrapping.R](2_rq2_1_run_bootstrapping.R){target="_blank"} runs the bootstrap analyses and saves the results - which are then cleaned and presented below. 
 
 ```{r}
 #| output: false
@@ -21,33 +29,140 @@ editor: source
 source("0_load_data.R")
 rm(rq1y, rq1y_labels, rq1y_labels_clean)
 
+# Load new bootstrap results
+boot_results           = readRDS(file = file.path("results", "2_boot_results.Rds"))
 
+number_timepoints = length(rq1y_twin1)
+number_bootstraps = length(boot_results)/number_timepoints
+
+# ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+# Post-processing of results ---------------------------------------------------
+# ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+joblist = expand.grid(
+  b = 1:number_bootstraps,
+  i = 1:number_timepoints
+  )
+
+### Extract data from boot_results ---------------------------------------------
+
+md_df = do.call(rbind, lapply(seq_along(boot_results), function(j) {
+  result_vec = boot_results[[j]]$md[[1]]
+  data.frame(
+    .dataset = joblist[j, "i"],
+    .boot    = joblist[j, "b"],
+    t(setNames(result_vec, rq2y))
+  )
+}))
+
+smd_df = do.call(rbind, lapply(seq_along(boot_results), function(j) {
+  result_vec = boot_results[[j]]$smd[[1]]
+  data.frame(
+    .dataset = joblist[j, "i"],
+    .boot    = joblist[j, "b"],
+    t(setNames(result_vec, rq2y))
+  )
+}))
+
+var_df = do.call(rbind, lapply(seq_along(boot_results), function(j) {
+  result_vec = boot_results[[j]]$var[[1]]
+  data.frame(
+    .dataset = joblist[j, "i"],
+    .boot    = joblist[j, "b"],
+    t(setNames(result_vec, rq2y))
+  )
+}))
+
+cor_df = do.call(rbind, lapply(seq_along(boot_results), function(j) {
+  result_vec = boot_results[[j]]$cor_resid[[1]]
+  data.frame(
+    .dataset = joblist[j, "i"],
+    .boot    = joblist[j, "b"],
+    t(result_vec)
+  )
+}))
+
+srmr_df = do.call(rbind, lapply(seq_along(boot_results), function(j) {
+  data.frame(
+    .dataset = joblist[j, "i"],
+    .boot    = joblist[j, "b"],
+    srmr     = boot_results[[j]]$srmr[[1]]
+  )
+}))
+
+ace_df = do.call(rbind, lapply(seq_along(boot_results), function(j) {
+  ace_est  = boot_results[[j]]$ace[[1]]$ace_estimates
+  ace_diff = boot_results[[j]]$ace[[1]]$ace_differences
+  result_df = rbind(ace_est, ace_diff)
+  result_df$.dataset = joblist[j, "i"]
+  result_df$.boot    = joblist[j, "b"]
+  return(result_df)
+}))
+
+rownames(md_df)   = NULL
+rownames(smd_df)  = NULL
+rownames(var_df)  = NULL
+rownames(cor_df)  = NULL
+rownames(srmr_df) = NULL
+
+bootstrap_iter = list(md = md_df, smd = smd_df, var = var_df, cor_resid = cor_df, srmr = srmr_df)
+
+### Calculate p-values and confidence intervals per dataset --------------------
+
+bootstrap_summary_df = lapply(names(bootstrap_iter)[1:3], function(stat_name) {
+  df = bootstrap_iter[[stat_name]]
+  
+  dataset = df %>%
+    pivot_longer(
+      cols = !starts_with(".")
+    ) %>%
+    group_by(.dataset, name) %>%
+    summarise(
+      .mean_qi_pd(value),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      dataset       = rq1y_twin_labels_clean_extrashort[.dataset],
+      variable      = rq2y_labels_short[match(name, rq2y)],
+      stat          = stat_name
+    ) %>%
+    select(-.dataset, -name) %>%                                                                                                                                                           
+    relocate(dataset, variable, stat) 
+})
+
+bootstrap_summary_df = do.call(rbind, bootstrap_summary_df)
+rownames(bootstrap_summary_df) = NULL
+
+### Calculate bootstrap summaries for ACE separately ---------------------------
+
+bootstrap_summary_df_ace = ace_df %>%
+  mutate(
+    group = recode(group,
+      "df1"  = "Attritioned",
+      "df2"  = "Original",
+      "diff" = "Difference"
+    ),
+    dataset       = rq1y_twin1[.dataset],
+    dataset_label = rq1y_twin_labels_clean_extrashort[.dataset]
+  ) %>%
+  group_by(par, name, sex, group, dataset, dataset_label) %>%
+  summarise(
+    .mean_qi_pd(value),
+    .groups = "drop"
+  )
+
+
+variable_comparisons_df = bootstrap_summary_df %>%
+  group_by(dataset, stat) %>%
+  mutate(
+    pval_adj = stats::p.adjust(pval, method = "holm")
+  )
 
 ```
 
-# Descriptive Statistics
+## Create Attritioned Datasets
 
-```{r}
-
-df %>%
-  select(all_of(rq2y)) %>%
-  # select(where(is.numeric)) %>%
-  # mutate(across(everything(), as.character)) %>%
-  pivot_longer(cols = everything()) %>%
-  ggplot(aes(x=value)) +
-  geom_histogram() +
-  facet_wrap(~name, ncol = 4, scales = "free")
-
-
-df %>%
-  select(all_of(rq2y)) %>%
-  apply(.,2,function(x) length(unique(x)))
-
-```
-
-# Create Attritioned Datasets
-
-To remove participants, I've set the rows to NA rather than remove the rows, so all the datasets should have the same length.
+To remove participants, I've set the rows to NA rather than remove the rows, so all the datasets have the same length. This preserves the paired twin structure needed for bootstrapping and ACE analyses.
 
 ```{r}
 
@@ -70,74 +185,13 @@ original_dataset = df %>%
 
 ```
 
-# Compare univariate distributions
-
-## Load Results
-
-I ran the bootstrapped analyses in the script [2_rq2_run_bootstrapping.R](2_rq2_run_bootstrapping.R){target="_blank"}.
-
-```{r}
-original_variances = sapply(rq2y, function(x) stats::var(df[[x]], na.rm = TRUE))
-
-variable_comparisons     = readRDS(file = file.path("results", "2_variable_comparisons.Rds"))
-variable_comparisons_df0 = readRDS(file = file.path("results", "2_variable_comparisons_df.Rds"))
-
-# variable_comparisons_df = do.call("rbind.data.frame", variable_comparisons_df)
-
-readRDS(file = file.path("results", "2_variable_comparisons_df.Rds")) %>% head()
-
-variable_comparisons_df = variable_comparisons_df0 %>% 
-  mutate(
-    dataset = rq1y_twin_labels_clean[match(.$dataset, rq1y_twin1)],
-    variable = rq2y_labels_short[match(.$variable, rq2y_labels)]
-    ) %>%
-  # Rescale variance vlalues
-  pivot_longer(cols = starts_with("y")) %>%
-  mutate(
-    var_constant = original_variances[match(.$variable,rq2y_labels_short)],
-    value = case_when(
-      stat == "var" ~ value / var_constant,
-      TRUE ~ value
-    )
-  ) %>%
-  select(-var_constant) %>%
-  pivot_wider(
-    values_from = value, 
-    names_from  = name
-    # id_cols     = c("dataset", "variable")
-  ) %>%
-  group_by(dataset, stat) %>%
-  mutate(
-    pval_adj = stats::p.adjust(pval, method = "holm")
-  )
-
-# Data checks 
-
-# variable_comparisons_df %>% 
-#   filter(stat == "smd" & dataset == "zmhdata") %>%
-#   mutate(
-#     pval_adj2 = stats::p.adjust(pval, method = "holm")
-#   ) 
-
-# variable_comparisons_df %>%
-#   filter(stat == "smd") %>%
-#   print(n=120)
-
-# 
-# x = variable_comparisons[[11]]$bootstrap_iter$smd[,1]
-# 
-# table(x>0) / sum(table(x))
-# 
-# bayestestR::pd(x) %>% bayestestR::pd_to_p(.)
-
-```
+# Comparison of Means, Standardized Mean Differences, and Variances 
 
 ## Create GT Results table
 
 ```{r}
 
 variable_comparisons_df %>% 
-  filter(stat!="h") %>%
   select(-starts_with("."),-pd, -pval) %>%
   pivot_wider(
     names_from = "stat",
@@ -297,7 +351,7 @@ variable_comparisons_df %>%
    heatmap_data_smd = variable_comparisons_df %>%
     filter(stat == "smd") %>%
     mutate(
-      outcome_labeled = rq1y_twin_labels_clean_extrashort[match(dataset,rq1y_twin_labels_clean)],
+      outcome_labeled = dataset,
       outcome_labeled = factor(outcome_labeled, levels = rq1y_twin_labels_clean_extrashort),
       Variables_wrapped = str_wrap(variable, width = 8),
       # Set fill value to NA if not significant, otherwise keep original sign
@@ -346,7 +400,7 @@ variable_comparisons_df %>%
     ) +
     theme_minimal() +
     theme(
-      axis.text.x = element_text(angle = 0, size = 11),
+      axis.text.x = element_text(angle = 0, size = 11, colour = "black"),
       axis.text.y = element_blank(),
       axis.title = element_blank(),
       panel.grid = element_blank(),
@@ -385,7 +439,7 @@ variable_comparisons_df %>%
    heatmap_data_var = variable_comparisons_df %>%
     filter(stat == "var") %>%
     mutate(
-      outcome_labeled = rq1y_twin_labels_clean_extrashort[match(dataset, rq1y_twin_labels_clean)],
+      outcome_labeled = dataset,
       outcome_labeled = factor(outcome_labeled, levels = rq1y_twin_labels_clean_extrashort),
       Variables_wrapped = str_wrap(variable, width = 8),
       # Set fill value to NA if not significant, otherwise keep original sign
@@ -434,7 +488,7 @@ variable_comparisons_df %>%
     ) +
     theme_minimal() +
     theme(
-      axis.text.x = element_text(angle = 0, size = 11),
+      axis.text.x = element_text(angle = 0, size = 11, colour = "black"),
       axis.text.y = element_blank(),
       axis.title = element_blank(),
       panel.grid = element_blank(),
@@ -461,32 +515,7 @@ variable_comparisons_df %>%
 ```
 
 
-
-## Plot Hellingers and SMD
-
-```{r}
-
-variable_comparisons_df %>%
-  mutate(sig = pval_adj < .05) %>%
-  filter(stat == "smd") %>%
-  mutate(dataset = factor(dataset, levels = unique(variable_comparisons_df$dataset))) %>%
-  ggplot(aes(x = variable, y = y, ymin = ymin, ymax = ymax, fill = sig)) +
-  geom_hline(yintercept = 0, linetype = "dashed") +
-  geom_col() +
-  geom_errorbar() +
-  facet_wrap(~dataset, scales = "fixed") +
-  coord_flip() +
-  theme_bw() +
-  labs(
-    title = "Attritioned - Original Variable Means (standardised mean differences)"
-  )
-
-save_plot("2_difference_means", width = 8, height = 6)
-
-```
-
-
-Plot data distributions
+## Plot data distributions
 
 ```{r}
 
@@ -507,19 +536,57 @@ attritioned_datasets_long = c(attritioned_datasets_long, list(x))
 attritioned_datasets_long = do.call(rbind.data.frame,attritioned_datasets_long)
 
 attritioned_datasets_long = attritioned_datasets_long %>%
-  filter(!is.na(value))
+  filter(!is.na(value)) %>%
+  mutate(
+    key = rq2y_labels_short[match(key, rq2y)]
+  )
+  
 
 attritioned_datasets_long %>%
   mutate(dataset = factor(dataset)) %>%
-  ggplot(aes(x = value, group = dataset, col = dataset)) + 
-  geom_density() + 
+  ggplot(aes(x = value, group = dataset, col = dataset)) +
+  geom_density() +
   facet_wrap(~key, scales = "free")
 
 ```
 
-# Compare Correlation Structure between original and attrittioned data sets
+### Alternative: Frequency polygon (better for ordinal/integer data)
 
-First, some code to establish how to convert variable labels from matrix to dataframe formats.
+Only comparing a single attrition timepoint (Y26 Questionnaire). 
+
+```{r}
+#| fig-width: 12
+#| fig-height: 10
+
+attritioned_datasets_long %>%
+  filter(!(key %in% c("Parent-admin cognition","Vocabulary"))) %>% 
+  filter(dataset %in% c("original", "zmhdata1")) %>%
+  mutate(
+    dataset = factor(dataset),
+    dataset = ifelse(dataset == "original", "original", "attritioned"),
+    value = as.numeric(value)
+  ) %>%
+  count(key, value, dataset) %>%
+  group_by(key, dataset) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = value, y = prop, col = dataset, group = dataset)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("original" = "steelblue", "attritioned" = "coral")) +
+  facet_wrap(~key, scales = "free") +
+  labs(
+    x = "Value",
+    y = "Proportion",
+    title = "Distribution comparison: Original vs Participants at Y26 Questionnaire"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+```
+
+# Correlations
+
+The following code creates `x_var` and `y_var` vectors that map correlation column indices (X1, X2, etc.) to variable pairs from the lower triangle of the correlation matrix.
 
 ```{r}
 test_correlation_matrix = matrix(
@@ -545,35 +612,61 @@ rm(test_correlation_matrix,x)
 
 ```{r}
 
-correlation_comparisons = lapply(variable_comparisons, function(x) x$bootstrap_summary$cor_resid)
+# Get original column order before pivot
+cor_col_order = setdiff(names(cor_df), c(".dataset", ".boot"))
 
-correlation_comparisons = lapply(correlation_comparisons, function(x) do.call(rbind.data.frame, x))
+correlation_comparisons_df = cor_df %>%
+  pivot_longer(
+    cols = !starts_with(".")
+  ) %>%
+  mutate(
+    name = factor(name, levels = cor_col_order)
+  ) %>%
+  group_by(.dataset, name) %>%
+  summarise(
+    .mean_qi_pd(value),
+    .groups = "drop"
+  ) %>%
+  group_by(.dataset) %>%
+  mutate(
+    pval_adj = stats::p.adjust(pval, method = "holm")
+  ) %>%
+  ungroup() %>%
+  mutate(
+    x_var = x_var[match(name, cor_col_order)],
+    y_var = y_var[match(name, cor_col_order)]
+  ) %>% 
+  arrange(.dataset, name)
 
-correlation_comparisons = lapply(correlation_comparisons, function(x) {
-  x %>% 
-    mutate(pval_adj = stats::p.adjust(pval, method = "holm"))
-})
+correlation_comparisons = split(correlation_comparisons_df, correlation_comparisons_df$.dataset)
+correlation_comparisons = lapply(correlation_comparisons, function(x) select(x, -.dataset))
+names(correlation_comparisons) = rq1y_twin1[as.numeric(names(correlation_comparisons))]
 
 library(patchwork)
 
 plots = lapply(1:length(correlation_comparisons), function(i) {
   correlation_comparisons[[i]] %>%
-    mutate(
-      x_var = x_var,
-      y_var = y_var,
-    ) %>%
     plot_lower_triangular_matrix2(
       variables = rq2y,
       labels    = rq2y_labels_short,
-      title     = rq1y_twin_labels_clean[i],
-      caption   = NULL
+      title     = rq1y_twin_labels_clean_extrashort[i],
+      caption   = NULL,
+      p_col     = "pval_adj",
+      method    = "none"
                   )
 })
 
 patchwork::wrap_plots(
   plots,
-  ncol = 3) 
-  # Adjust ncol as needed
+  ncol = 3) +
+  plot_annotation(
+    title = "Change in Correlation",
+    subtitle = expression(Cor[attritioned] ~ - ~ Cor[original]),
+    theme = theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+      plot.subtitle = element_text(hjust = 0.5, size = 16, face = "bold")
+    )
+  )
 
 save_plot(
   "2_rq2_2_correlations", width = 18, height = 18)
@@ -582,26 +675,388 @@ save_plot(
 
 ```
 
-[📊 View Full Resolution Correlation Plots (PDF)](plots/pdfs/2_rq2_2_correlations.pdf)
+[📊 View Full Resolution Correlation Plots (PNG)](plots/pngs/2_rq2_2_correlations.png)
+
+
+## Correlations results table
+
+Below is a results table for the change in correlations. 
+
+```{r}
+
+cor_table = bind_rows(correlation_comparisons, .id = "timepoint") %>%
+  mutate(
+    dataset = rq1y_twin_labels_clean_extrashort[match(timepoint, rq1y_twin1)],
+    x_var_label = rq2y_labels_short[match(x_var, rq2y)],
+    y_var_label = rq2y_labels_short[match(y_var, rq2y)],
+    pair = paste(x_var_label, "×", y_var_label)
+  ) %>%
+  select(dataset, pair, y, ymin, ymax, pval, pval_adj) %>%
+  filter(!is.na(dataset)) %>%
+  gt(groupname_col = "dataset") %>%
+  # tab_options(
+  #   table.width = px(800)
+  # ) %>%
+
+  # Rename columns
+  cols_label(
+    pair = "Variable Pair",
+    y = "Est",
+    ymin = "LB",
+    ymax = "UB",
+    pval = md("p<sub>unadj</sub>"),
+    pval_adj = md("p<sub>adj</sub>")
+  ) %>%
+
+  # Create column spanner
+  tab_spanner(
+    label = md("Correlation difference = Cor<sub>attritioned</sub> - Cor<sub>original</sub>"),
+    columns = c(y, ymin, ymax, pval, pval_adj)
+  ) %>%
+
+  # Format numbers
+  fmt(
+    columns = c(y, ymin, ymax),
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+  fmt(
+    columns = c(pval, pval_adj),
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+
+  # Styling - uniform font size
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_column_spanners()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_body()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10), align = "center"),
+    locations = cells_row_groups()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_footnotes()
+  ) %>%
+
+  # Highlight significant results - positive effects (light green)
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(
+      columns = c(pair, y, ymin, ymax, pval, pval_adj),
+      rows = pval_adj < 0.05 & y > 0
+    )
+  ) %>%
+
+  # Highlight significant results - negative effects (light red)
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),
+    locations = cells_body(
+      columns = c(pair, y, ymin, ymax, pval, pval_adj),
+      rows = pval_adj < 0.05 & y < 0
+    )
+  ) %>%
+
+  # Add footnotes
+  tab_footnote(
+    footnote = md("<em>Note.</em> Est = Estimate, LB = Lower Bound 95% Confidence Interval, UB = Upper Bound 95% Confidence Interval. Significant (p<sub>Bonferroni-Holm</sub>) effects are highlighted in green (increases) or red (decreases)."),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each attrition timepoint",
+    locations = cells_column_labels(columns = pval_adj),
+    placement = "right"
+  ) %>%
+  opt_footnote_marks(marks = c("*", "†", "‡"))
+
+cor_table
+
+```
+
 
 ## Plot Original Correlations between variables
 
 ```{r}
 
 df %>%
+  filter(!(randomfamid %in% exclude_fams_onesib)) %>% 
   select(rq2y) %>%
   data.frame() %>%
   `colnames<-`(rq2y_labels_short) %>%
-   gbtoolbox::plot_correlations()
+   gbtoolbox::plot_correlations() +
+  labs(title = "Original (un-attritioned) correlations")
 
 save_plot(
-  "2_rq2_2_correlations_orignal", width = 8, height = 8)
+  "2_rq2_2_correlations_original", width = 8, height = 8)
 
 ```
 
+[📊 View Plot](plots/pngs/2_rq2_2_correlations_original.png)
+
+# ACE Comparison
+
+## Count of significant ACE differences (unadjusted)
+
+```{r}
+bootstrap_summary_df_ace %>%
+  filter(group == "Difference") %>% 
+  summarise(
+    total_tests = dplyr::n(),
+    sig_unadj = sum(pval < 0.05),
+    pct_sig = round(sig_unadj / total_tests * 100, 1)
+  )
+```
+
+## ACE differences tables (p(unadjusted) < .05)
+
+```{r}
+
+bootstrap_summary_df_ace %>%
+  filter(group == "Difference") %>%
+  group_by(dataset_label) %>%
+  mutate(
+    pval_adj = stats::p.adjust(pval, method = "holm"),
+    n_adj    = dplyr::n(),
+    name     = rq2y_labels_short[match(name, rq2y)]
+  ) %>%
+  ungroup() %>%
+  arrange(name, par, dataset_label) %>%
+  filter(pval < .05) %>%
+  select(-starts_with("."), -dataset, -group, -n, -pd, -n_adj) %>%
+  mutate(
+    par = toupper(par),
+    sex = str_to_title(sex),
+    row_num = row_number()
+  ) %>%
+  relocate(row_num, dataset_label, name, par, sex, y, ymin, ymax, pval, pval_adj) %>%
+  gt() %>%
+  cols_label(
+    row_num = "",
+    dataset_label = "Timepoint",
+    name = "Variable",
+    par = "Par",
+    sex = "Sex",
+    y = "Est",
+    ymin = "LB",
+    ymax = "UB",
+    pval = md("p<sub>unadj</sub>"),
+    pval_adj = md("p<sub>adj</sub>")
+  ) %>%
+  tab_spanner(
+    label = "ACE Difference (Attritioned - Original)",
+    columns = c(y, ymin, ymax, pval, pval_adj)
+  ) %>%
+  fmt(
+    columns = c(y, ymin, ymax, pval, pval_adj),
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_column_spanners()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_body()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_footnotes()
+  ) %>%
+  tab_footnote(
+    footnote = md("<em>Note.</em> Est = Estimate, LB = Lower Bound 95% CI, UB = Upper Bound 95% CI, Par = ACE Parameter. Only effects with p<sub>unadjusted</sub> < .05 are shown."),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each sex, parameter, and timepoint",
+    locations = cells_column_labels(columns = pval_adj),
+    placement = "right"
+  ) %>%
+  opt_footnote_marks(marks = c("*", "†"))
+
+```
+
+## ACE Estimates & Differences Table (complete)
+
+```{r}
+
+bootstrap_summary_df_ace %>%
+  filter(par %in% c("a","c","e")) %>%
+  group_by(sex, par, group, dataset_label) %>%
+  mutate(
+    pval = stats::p.adjust(pval, method = "holm"),
+  ) %>%
+  ungroup() %>%
+  select(-starts_with("."), -n, -pd) %>%
+  mutate(name_clean = rq2y_labels_short[match(name, rq2y)]) %>%
+  pivot_wider(
+    id_cols = c(par, name_clean, sex, dataset_label),
+    names_from = group,
+    values_from = c(y, ymin, ymax, pval),
+    names_sep = "_"
+  ) %>%
+  select(-ymin_Original, -ymax_Original, -ymin_Attritioned, -ymax_Attritioned, -pval_Original, -pval_Attritioned) %>%
+  select(dataset_label, name_clean, par, y_Original, y_Attritioned, y_Difference, ymin_Difference, ymax_Difference, pval_Difference, sex) %>%
+  mutate(
+    name_clean    = factor(name_clean,    levels = rq2y_labels_short),
+    dataset_label = factor(dataset_label, levels = rq1y_twin_labels_clean_extrashort)
+    ) %>% 
+  arrange(sex, dataset_label, name_clean, par) %>%
+  mutate(par = toupper(par)) %>%
+  gt(groupname_col = "sex") %>%
+  fmt_number(decimals = 3) %>%
+  tab_row_group(
+    label = "Male",
+    rows = sex == "male"
+  ) %>%
+  tab_row_group(
+    label = "Female",
+    rows = sex == "female"
+  ) %>%
+  cols_hide(sex) %>%
+  cols_label(
+    dataset_label = "Timepoint",
+    name_clean = "Variable",
+    par = "",
+    y_Original = "Original",
+    y_Attritioned = "Attritioned",
+    y_Difference = "Diff",
+    ymin_Difference = "Lower",
+    ymax_Difference = "Upper",
+    pval_Difference = "p"
+  ) %>%
+  tab_spanner(
+    label = "95% CI",
+    columns = c(ymin_Difference, ymax_Difference)
+  ) %>%
+  tab_spanner(
+    label = "Estimates",
+    columns = c(y_Attritioned, y_Original)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "lightgreen"),
+    locations = cells_body(
+      columns = everything(),
+      rows = pval_Difference < 0.05
+    )
+  ) %>%
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each sex, parameter (A, C or E), and timepoint group",
+    locations = cells_column_labels(columns = pval_Difference)
+  )
+
+```
+
+## ACE Stacked Bar Plot
+
+```{r}
+
+bootstrap_summary_df_ace %>%
+  # filter(dataset_label == "Y4") %>% 
+  filter(par %in% c("a","c","e")) %>%
+  filter(group != "Difference") %>%
+  mutate(
+    dataset_label = factor(dataset_label, levels = rq1y_twin_labels_clean_extrashort),
+    name = factor(rq2y_labels_short[match(name, rq2y)], levels = rq2y_labels_short),
+    group = ifelse(group == "Attritioned", "A", "O"),
+    group = factor(group, levels = c("A", "O")),
+    sex = str_to_title(sex),
+    par = toupper(par)
+  ) %>%
+  ggplot(aes(x = group, y = y, fill = par)) +
+  geom_col(position = "stack", alpha = 1) +
+  facet_grid(dataset_label + sex ~ name, switch = "x") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = .5, size = 8),
+    strip.text = element_text(size = 8),
+    strip.text.x = element_text(angle = 90, hjust = 1, vjust = .5, size = 8),
+    strip.text.y = element_text(angle = 0, size = 10),
+    strip.placement = "outside",
+    panel.grid = element_blank(),
+    plot.tag = element_text(hjust = 0, vjust = 0, size = 24, face = "bold"),
+    plot.tag.position = "topleft"
+  ) +
+  labs(
+    title = "Attritioned (A) vs Original (O) ACE Estimates",
+    y     = "Proportion",
+    x     = NULL,
+    fill  = "Component"
+  ) +
+  scale_fill_manual(values = c("A" = "#d73027", "C" = "#fee08b", "E" = "#4575b4")) +
+  coord_cartesian(ylim = c(0, 1))
+
+save_plot("2_rq2_ace_comparison", width = 7, height = 15, trim = TRUE)
+
+# Create a looped version where we have plots for each timepoint
+
+ace_plots = lapply(rq1y_twin_labels_clean_extrashort, function(timepoint) {
+
+  bootstrap_summary_df_ace %>%
+  filter(dataset_label == timepoint) %>%
+  filter(par %in% c("a","c","e")) %>%
+  filter(group != "Difference") %>%
+  mutate(
+    name = factor(rq2y_labels_short[match(name, rq2y)], levels = rq2y_labels_short),
+    group = ifelse(group == "Attritioned", "A", "O"),
+    group = factor(group, levels = c("A", "O")),
+    sex = str_to_title(sex),
+    par = toupper(par)
+  ) %>%
+  ggplot(aes(x = group, y = y, fill = par)) +
+  geom_col(position = "stack", alpha = 1) +
+  facet_grid(sex ~ name, switch = if(timepoint == "Y4") "both" else "x") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = .5, size = 8),
+    axis.text.y = if(timepoint != "Y4") element_blank(),
+    strip.text = element_text(size = 8),
+    strip.text.x = element_text(angle = 90, hjust = 1, vjust = .5, size = 8),
+    strip.text.y = element_blank(),
+    strip.text.y.left = if(timepoint == "Y4") element_text(angle = 0, size = 10) else element_blank(),
+    strip.placement = "outside",
+    panel.grid = element_blank()
+  ) +
+  labs(
+    title = timepoint,
+    y     = if(timepoint == "Y4") "Proportion" else NULL,
+    x     = NULL,
+    fill  = "Component"
+  ) +
+  scale_fill_manual(values = c("A" = "#d73027", "C" = "#fee08b", "E" = "#4575b4")) +
+  coord_cartesian(ylim = c(0, 1))
+})
+
+names(ace_plots) = rq1y_twin_labels_clean_extrashort
+
+# Arrange all plots vertically with shared legend
+patchwork::wrap_plots(ace_plots, nrow = 1) +
+  patchwork::plot_layout(guides = "collect") +
+  patchwork::plot_annotation(
+    title = "Attritioned (A) vs Original (O) ACE Estimates by Timepoint"
+  )
+
+save_plot("2_rq2_ace_comparison_by_timepoint", width = 21, height = 9, trim = FALSE)
+
+```
+
+[📊 View plot 1](plots/pngs/2_rq2_ace_comparison.png)
+[📊 View plot 2](plots/pngs/2_rq2_ace_comparison_by_timepoint.png)
+
+
 # Supplementary Analyses 
 
-## How predictive are our variables of later attrittion?
+## How predictive are our variables of later attrition?
 
 ### Correlations
 
@@ -748,7 +1203,7 @@ models_results %>%
 
 ### Variable Importance Calculations
 
-This code should be checked again before use! 
+Note: Variable importance is calculated by measuring the change in AUC when each variable is removed from the model. 
 
 ```{r}
 glm_model_comparison_results = lapply(models, glm_model_comparison)
