@@ -1,6 +1,5 @@
 ---
-title: "Online Supplement"
-subtitle: "Supplementary Materials for Selection Bias in TEDS Paper "
+title: "Supplementary Materials for Selection Bias in TEDS Paper "
 output:
   html_document:
     theme: flatly
@@ -42,22 +41,18 @@ h2, h3 { color: #2c3e50; }
 ul { line-height: 1.8; }
 a { color: #3498db; }
 a:hover { color: #2980b9; }
+.title { font-size: 1.8em; }
 </style>
 
 ---
 
-# Overview {-}
-
-<div class="section-box">
 Supplementary tables with additional information not included in the main manuscript (e.g., exact p-values, confidence intervals) can be found in the links below.
-</div>
+
+The codebase is structured so that computationally intensive analyses are run using R scripts, with results saved as .Rmd files. Extraction of results and creation of tables and plots is then done in Quarto (.qmd) scripts. The tables and figures from those scripts are linked below.
 
 <div class="note-box">
 **Note:** The research question numbering in the codebase differs from how they are presented in the paper.
 </div>
-
-The codebase is structured so that computationally intensive analyses are run using R scripts, with results saved to files. Extraction of results and creation of tables and plots is then done in Quarto (.qmd) scripts. The tables and figures from those scripts are linked below.
-
 ---
 
 # Research Question 1: Predictors of Participation
@@ -66,6 +61,7 @@ The codebase is structured so that computationally intensive analyses are run us
 
 | Resource | Description |
 |:---------|:------------|
+| [Variables in Imputation Model](1_rq1_predictors_of_participation.html#variables-in-imputation-model) | List of variables used for imputation |
 | [Logistic Regression Coefficients](1_rq1_predictors_of_participation.html#twin-level-logistic-regression-coefficients) | Model coefficients predicting twin participation |
 | [Marginal Effects Plot](1_rq1_predictors_of_participation.html#plot-marginal-effects-of-maternal-education) | Marginal effect of maternal education on participation |
 
@@ -73,7 +69,7 @@ The codebase is structured so that computationally intensive analyses are run us
 
 # Research Question 2: Comparison of Participants vs Non-Participants
 
-**Objective:** Compare outcomes between participating and non-participating twins.
+**Objective:** Compare baseline/y2 outcomes between participating and non-participating twins.
 
 ## Means, SMDs & Variances
 
@@ -100,6 +96,10 @@ The codebase is structured so that computationally intensive analyses are run us
 # Research Question 3: Evaluating Correction Methods
 
 **Objective:** Assess whether weighting or imputation can correct for selection bias.
+
+<div class="note-box">
+A complete list of variables used for multiple imputation can be found in the [following table](8_rq6_3_imputation_results.html#table-of-all-variables-used-in-multiple-imputation)
+</div>
 
 ## Means & Variances
 
@@ -134,17 +134,35 @@ The codebase is structured so that computationally intensive analyses are run us
 | Attritioned + Weighting vs. Original | [ACE Difference Table](7_rq6_2_weighting_results.html#table---changes-in-ace-estimates) |
 | Attritioned + Imputation vs. Original | [ACE Difference Table](8_rq6_3_imputation_results.html#table---changes-in-ace-estimates) |
 
-# Research Question 4: Effect of imputation vs weighting
+# Research Question 4: Comparing Correction Methods (Weighting vs. Imputation)
 
-means and variances
-Weighted vs original  http://localhost:8787/files/Dropbox/Work/projects/12_teds_selectionbias/3_rq3_2_weighting_results.html#changes-in-means-and-variances
-Imputed vs original http://localhost:8787/files/Dropbox/Work/projects/12_teds_selectionbias/5_rq5_3_results.html#changes-in-means-and-variances Combined figure  /plots/pngs/5_rq3_rq5_combined_plot.png
+**Objective:** Compare the effectiveness of weighting and imputation approaches for correcting selection bias.
 
-Correlations 
-12_teds_selectionbias/3_rq3_2_weighting_results.html#results-table
-12_teds_selectionbias/5_rq5_3_results.html#gt-results-table
+<div class="note-box">
+**Note:** A complete list of variables used for multiple imputation can be found in the [following table](5_rq5_3_results.html#table-of-all-variables-for-imputation).
+</div>
 
-ACE estimates
+## Means & Variances
+
+| Resource | Description |
+|:---------|:------------|
+| [Weighted vs. Original](3_rq3_2_weighting_results.html#changes-in-means-and-variances) | Effect of weighting on means and variances |
+| [Imputed vs. Original](5_rq5_3_results.html#changes-in-means-and-variances) | Effect of imputation on means and variances |
+| [Combined Comparison Figure](plots/pngs/5_rq3_rq5_combined_plot.png) | Side-by-side comparison of both methods |
+
+## Correlations
+
+| Resource | Description |
+|:---------|:------------|
+| [Weighting Results Table](3_rq3_2_weighting_results.html#results-table) | Correlation changes with weighting |
+| [Imputation Results Table](5_rq5_3_results.html#gt-results-table) | Correlation changes with imputation |
+
+## ACE Estimates
+
+| Resource | Description |
+|:---------|:------------|
+| [Weighting ACE Table](3_rq3_2_weighting_results.html#table) | ACE estimate changes with weighting |
+| [Imputation ACE Table](5_rq5_3_results.html#table) | ACE estimate changes with imputation |
 
 
 

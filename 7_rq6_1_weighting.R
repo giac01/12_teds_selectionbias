@@ -241,11 +241,11 @@ weighted_comparisons = list()
 
 weighted_comparisons[[1]] = future_lapply(1:B, function(i) {
     compare_df_weighting(
-      df1     = select(df,                        all_of(rq6y)),
-      df2     = select(attritioned_datasets[[1]], all_of(rq6y)),
-      df_miss =            missingcode_list[[1]],
-      df_x    = select(df_imputed_long,           all_of(rq1x)),
-      vars    = rq6y
+      df1     = select(df,                        all_of(rq6y)),                # Original (unattritioned) dataset
+      df2     = select(attritioned_datasets[[1]], all_of(rq6y)),                # Attritioned dataset
+      df_miss =            missingcode_list[[1]],                               # Missingness indicators 
+      df_x    = select(df_imputed_long,           all_of(rq1x)),                # Imputed Baseline variables used to generate weights
+      vars    = rq6y                                                            # Outcome variables
     )
   }, 
 future.seed = 1,

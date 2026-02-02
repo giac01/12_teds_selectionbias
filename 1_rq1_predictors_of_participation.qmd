@@ -87,6 +87,90 @@ df_rq1_imputed = df_rq1_imputed %>%
 
 ```
 
+#### Variables in imputation model
+
+```{r}
+
+# Function to map variable prefix to study wave
+get_study_wave = function(var_name) {
+  prefix = substr(var_name, 1, 1)
+  wave_map = c(
+    "a" = "1st Contact",
+    "b" = "2 Year",
+    "c" = "3 Year",
+    "d" = "4 Year",
+    "e" = "In Home",
+    "g" = "7 Year",
+    "h" = "8 Year",
+    "i" = "9 Year",
+    "j" = "10 Year",
+    "l" = "12 Year",
+    "n" = "14 Year",
+    "p" = "16 Year",
+    "r" = "18 Year",
+    "u" = "21 Year",
+    "z" = "26 Year"
+  )
+  return(wave_map[prefix])
+}
+
+rq1_imputation_vars = colnames(df_rq1)
+impute_vars_labels = var_to_label(rq1_imputation_vars) %>%
+  sapply(., function(x) ifelse(is.null(x[1]), "", x[1]))
+
+# Create formatted table for imputation variables
+v_impute = data.frame(
+  Description = impute_vars_labels,
+  `Teds Code` = ifelse(rq1_imputation_vars %in% colnames(df0), rq1_imputation_vars, paste0(rq1_imputation_vars, "*")),
+  `Range or Level` = sapply(rq1_imputation_vars, function(var) {
+    if (var %in% colnames(df)) {
+      if (class(df[[var]]) == "numeric") {
+        paste0(round(min(df[[var]], na.rm = TRUE), 2), " - ", round(max(df[[var]], na.rm = TRUE), 2))
+      } else if (is.factor(df[[var]])) {
+        factor_levels = levels(df[[var]])
+        paste(c(paste0(factor_levels[1], "*"), factor_levels[-1]), collapse = ", ")
+      } else {
+        paste(unique(df[[var]]), collapse = ", ")
+      }
+    } else {
+      "Variable not found"
+    }
+  }),
+  N = sapply(rq1_imputation_vars, function(var) {
+    if (var %in% colnames(df)) {
+      sum(!is.na(df[[var]]))
+    } else {
+      0
+    }
+  }),
+  `Study.Wave` = sapply(rq1_imputation_vars, get_study_wave)
+)
+
+v_impute$Study.Wave[v_impute$Teds.Code=="cohort"]=""
+
+gt(v_impute) %>%
+  cols_label_with(fn = ~ gsub("\\.", " ", .x)) %>%
+  tab_style(
+    style = cell_text(size = px(12)),
+    locations = cells_body()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(12)),
+    locations = cells_column_labels()
+  ) %>%
+  cols_hide(N) %>%
+  tab_source_note(
+    source_note = "Note. Range or Level shows min-max values for numeric variables or factor levels for categorical variables (reference level marked with *). Variable codes with an asterisk (*) have been derived or modified from the original dataset."
+  ) %>%
+  tab_options(
+    table.width = "70%"
+  ) %>%
+  cols_width(
+    Description ~ px(300),
+    everything() ~ px(120)
+  )
+
+```
 
 ### Create Long Imputed dataset for twin-level analyses
 

@@ -34,12 +34,12 @@ get_study_wave = function(var_name) {
   prefix = substr(var_name, 1, 1)
   wave_map = c(
     "a" = "1st Contact",
-    "b" = "2 Year", 
+    "b" = "2 Year",
     "c" = "3 Year",
     "d" = "4 Year",
     "e" = "In Home",
     "g" = "7 Year",
-    "h" = "8 Year", 
+    "h" = "8 Year",
     "i" = "9 Year",
     "j" = "10 Year",
     "l" = "12 Year",
@@ -50,6 +50,25 @@ get_study_wave = function(var_name) {
     "z" = "26 Year"
   )
   return(wave_map[prefix])
+}
+
+# Function to clean description labels
+clean_description = function(x) {
+  x %>%
+    # Remove range info at end (e.g., ", 0-22", ", 1-9", ", 4-11")
+    str_remove(", \\d+-\\d+$") %>%
+    # Remove "see value labels"
+    str_remove(", see value labels") %>%
+    str_remove("see value labels") %>%
+    # Spell out abbreviations inline
+    str_replace("SOC employment", "Standard Occupational Classification employment") %>%
+    str_replace("MHQ\\)", "Mental Health Questionnaire)") %>%
+    str_replace("SLQ\\)", "questionnaire)") %>%
+    str_replace("G-game", "G-game (general cognitive ability)") %>%
+    str_replace_all(" qnr", " questionnaire") %>%
+    # Clean up extra whitespace
+
+    str_squish()
 }
 
 v_rq1x = 
@@ -74,22 +93,35 @@ v_rq1x =
   )
 
 v_rq1x$Description = str_remove(v_rq1x$Description,"\\(1st.*")
+v_rq1x$Description = clean_description(v_rq1x$Description)
 
 # Manual edit for cens01pop98density study wave
 v_rq1x$`Study.Wave`[v_rq1x$`Teds.Code` == "cens01pop98density"] = "1st Contact"
 v_rq1x$`Study.Wave`[v_rq1x$`Teds.Code` == "pollution1998pca"] = "1st Contact"
 
-v_rq1y = 
+# Clean uniform descriptions for participation indicator variables
+rq1y_twin_descriptions = c(
+  "Parent-report twin booklet data present",
+  "Web test data present",
+  "Self-report questionnaire data present",
+  "Self-report behaviour booklet data present",
+  "Self-report questionnaire data present",
+  "TEDS21 phase 1 self-report questionnaire data present",
+  "TEDS26 Mental Health Questionnaire data present",
+  "CATSLife web test data present"
+)
+
+v_rq1y =
   data.frame(
     `Short Label` = rq1y_twin_labels_clean,
-    Description = rq1y_twin_labels,
-    `Teds Code` = ifelse(rq1y_twin1 %in% colnames(df0), rq1y_twin1,paste0(rq1y_twin1,"*")),
+    Description = rq1y_twin_descriptions,
+    `Teds Code` = ifelse(rq1y_twin1 %in% colnames(df0), rq1y_twin1, paste0(rq1y_twin1, "*")),
     `Range or Level` = sapply(rq1y_twin1, function(var) {
       if (class(df[[var]]) == "numeric") {
         paste0(round(min(df[[var]], na.rm = TRUE), 2), " — ", round(max(df[[var]], na.rm = TRUE), 2))
       } else if (is.factor(df[[var]])) {
         factor_levels = levels(df[[var]])
-        paste(c(paste0(factor_levels[1],"*"), factor_levels[-1]), collapse = ", ")
+        paste(c(paste0(factor_levels[1], "*"), factor_levels[-1]), collapse = ", ")
       } else {
         paste(unique(df[[var]]), collapse = ", ")
       }
@@ -99,7 +131,6 @@ v_rq1y =
     }),
     `Study Wave` = sapply(rq1y_twin, get_study_wave)
   )
-v_rq1y$Description = str_remove(v_rq1y$Description,"\\(1st.*")
 
 v_rq2 = data.frame(
   `Short Label` = rq2y_labels_short,
@@ -123,10 +154,30 @@ v_rq2 = data.frame(
 
 v_rq2$Description = str_remove(v_rq2$Description,"\\(2.*")
 
+v_rq3 = data.frame(
+  `Short Label` = rq6y_labels,
+  Description   = clean_description(var_to_label(rq6y)),
+  `Teds Code` = ifelse(rq6y %in% colnames(df0), rq6y, paste0(rq6y, "*")),
+  `Range or Level` = sapply(rq6y, function(var) {
+    if (class(df[[var]]) == "numeric") {
+      paste0(round(min(df[[var]], na.rm = TRUE), 2), " — ", round(max(df[[var]], na.rm = TRUE), 2))
+    } else if (is.factor(df[[var]])) {
+      factor_levels = levels(df[[var]])
+      paste(c(paste0(factor_levels[1], "*"), factor_levels[-1]), collapse = ", ")
+    } else {
+      paste(unique(df[[var]]), collapse = ", ")
+    }
+  }),
+  N = sapply(rq6y, function(var) {
+    sum(!is.na(df[[var]]))
+  }),
+  `Study Wave` = sapply(rq6y, get_study_wave)
+)
+
 v_rq5 = data.frame(
   `Short Label` = rq5y_labels_short,
-  Description   = var_to_label(rq5y),
-  `Teds Code` = ifelse(rq5y %in% colnames(df0), rq5y,paste0(rq5y,"*")),
+  Description   = clean_description(var_to_label(rq5y)),
+  `Teds Code` = ifelse(rq5y %in% colnames(df0), rq5y, paste0(rq5y, "*")),
   `Range or Level` = sapply(rq5y, function(var) {
     if (class(df[[var]]) == "numeric") {
       paste0(round(min(df[[var]], na.rm = TRUE), 2), " — ", round(max(df[[var]], na.rm = TRUE), 2))
@@ -147,25 +198,30 @@ v_rq5 = data.frame(
 v_rq1x_indexed = cbind(row_group = "RQ1 Variables", row_id = 1:nrow(v_rq1x), v_rq1x)
 v_rq1y_indexed = cbind(row_group = "RQ1 Outcome Variables", row_id = (nrow(v_rq1x)+1):(nrow(v_rq1x)+nrow(v_rq1y)), v_rq1y)
 v_rq2_indexed = cbind(row_group = "RQ2 Variables", row_id = (nrow(v_rq1x)+nrow(v_rq1y)+1):(nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)), v_rq2)
-v_rq5_indexed = cbind(row_group = "RQ5 Variables", row_id = (nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+1):(nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+nrow(v_rq5)), v_rq5)
+v_rq3_indexed = cbind(row_group = "RQ3 Variables", row_id = (nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+1):(nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+nrow(v_rq3)), v_rq3)
+v_rq5_indexed = cbind(row_group = "RQ5 Variables", row_id = (nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+nrow(v_rq3)+1):(nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+nrow(v_rq3)+nrow(v_rq5)), v_rq5)
 
-v_rq_combined = rbind(v_rq1x_indexed, v_rq1y_indexed, v_rq2_indexed, v_rq5_indexed)
+v_rq_combined = rbind(v_rq1x_indexed, v_rq1y_indexed, v_rq2_indexed, v_rq3_indexed, v_rq5_indexed)
 
 gt(v_rq_combined) %>%
   tab_row_group(
-    label = "RQ4-5 Variables",
+    label = "E) RQ4 Outcome Variables",
     rows = row_group == "RQ5 Variables"
   ) %>%
   tab_row_group(
-    label = "RQ2 Variables", 
+    label = "D) RQ3 Outcome Variables",
+    rows = row_group == "RQ3 Variables"
+  ) %>%
+  tab_row_group(
+    label = "C) RQ2 Outcome Variables",
     rows = row_group == "RQ2 Variables"
   ) %>%
   tab_row_group(
-    label = "RQ1-Y (participation indicator variables)",
+    label = "B) RQ1-2 Participation Indicators (1 = yes, 0 = no)",
     rows = row_group == "RQ1 Outcome Variables"
   ) %>%
   tab_row_group(
-    label = "RQ1-X (baseline variables used to predict later participation)",
+    label = "A) Baseline variables used to predict later participation, and for IP weighting",
     rows = row_group == "RQ1 Variables"
   ) %>%
   cols_hide(c(row_group, row_id)) %>%
@@ -184,10 +240,12 @@ gt(v_rq_combined) %>%
   tab_style(
     style = cell_text(font = "Times New Roman", size = px(12)),
     locations = cells_row_groups()
+  ) %>%
+  tab_footnote(
+    footnote = "Note. MFQ = Mood and Feelings Questionnaire; SDQ = Strengths and Difficulties Questionnaire; GCSE = General Certificate of Secondary Education; KS3 = Key Stage 3; GAD-D = Generalized Anxiety Disorder scale; PARCA = Parent Report of Children's Abilities; MZ = Monozygotic; DZ = Dizygotic; HNC = Higher National Certificate; HND = Higher National Diploma; CSE = Certificate of Secondary Education."
   )
 
 ```
-
 
 # Participation-Related plots
 
@@ -701,8 +759,9 @@ save_plot("11_pairwise_missingness_plot", width = 6, height = 6)
 
 ```
 
+# Descriptive stats on specific variables
 
-# Age of twins at each time point
+## Age of twins at each time point
 
 [View full-size plot](plots/11_participant_ages_each_timepoint.pdf){target="_blank"}
 
@@ -734,3 +793,101 @@ save_plot("11_participant_ages_each_timepoint", width = 12, height = 12)
 
 ```
 
+## Education
+
+```{r}
+
+all(table(df$amohqual)==table(df$amohqualn))
+
+df %>%
+  filter(twin ==1) %>%
+  count(amohqual) %>%
+  mutate(
+    percent = n/sum(n)
+  ) %>%
+  gt() %>% 
+  fmt_percent(columns = percent)
+
+
+```
+
+## Relationship between maternal education and child outcomes
+
+This section examines whether maternal education level predicts child academic and cognitive outcomes. We regress each outcome on maternal education using dummy coding (treating each education level as a separate category), which allows us to detect non-linear relationships.
+
+```{r}
+
+# Helper function to create marginal effects plot
+plot_education_effects = function(model, y_label) {
+  marginaleffects::predictions(model, by = "amohqual") %>%
+    data.frame() %>%
+    rename(
+      prediction = estimate,
+      education_level = amohqual
+    ) %>%
+    ggplot(aes(y = prediction, x = education_level, group = 1)) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+    geom_point(size = 2) +
+    geom_line() +
+    labs(
+      x = "Maternal Education Level",
+      y = y_label
+    ) +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
+    )
+}
+
+```
+
+### KS3 Academic Achievement (Age 14)
+
+```{r}
+
+model_ks3 = df %>%
+  filter(twin == 1) %>%
+  filter(!is.na(amohqual)) %>%
+  lm(npks3tall1 ~ amohqual, data = .)
+
+summary(model_ks3)
+
+plot_education_effects(model_ks3, "Predicted KS3 Score")
+
+save_plot("11_meducation_ks3_plot", width = 6, height = 5)
+
+```
+
+### GCSE Core Subjects Grade (Age 16)
+
+```{r}
+
+model_gcse = df %>%
+  filter(twin == 1) %>%
+  filter(!is.na(amohqual)) %>%
+  lm(pcexgcsecoregrdm1 ~ amohqual, data = .)
+
+summary(model_gcse)
+
+plot_education_effects(model_gcse, "Predicted GCSE Score")
+
+save_plot("11_meducation_gcse_plot", width = 6, height = 5)
+
+```
+
+### Cognitive Ability (Age 12)
+
+```{r}
+
+model_cog = df %>%
+  filter(twin == 1) %>%
+  filter(!is.na(amohqual)) %>%
+  lm(lcg1 ~ amohqual, data = .)
+
+summary(model_cog)
+
+plot_education_effects(model_cog, "Predicted Cognitive Score (g)")
+
+save_plot("11_meducation_cognitive_plot", width = 6, height = 5)
+
+```

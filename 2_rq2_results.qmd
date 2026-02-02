@@ -136,6 +136,7 @@ rownames(bootstrap_summary_df) = NULL
 ### Calculate bootstrap summaries for ACE separately ---------------------------
 
 bootstrap_summary_df_ace = ace_df %>%
+  filter(name != "amohqualn1") %>%
   mutate(
     group = recode(group,
       "df1"  = "Attritioned",
@@ -149,7 +150,7 @@ bootstrap_summary_df_ace = ace_df %>%
   summarise(
     .mean_qi_pd(value),
     .groups = "drop"
-  )
+  ) 
 
 
 variable_comparisons_df = bootstrap_summary_df %>%
@@ -892,7 +893,7 @@ bootstrap_summary_df_ace %>%
 
 bootstrap_summary_df_ace %>%
   filter(par %in% c("a","c","e")) %>%
-  group_by(sex, par, group, dataset_label) %>%
+  group_by(dataset_label) %>%
   mutate(
     pval = stats::p.adjust(pval, method = "holm"),
   ) %>%

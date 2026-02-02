@@ -1,6 +1,6 @@
 # Docker Container Used 
 
-# bignardig/tidyverse451:v1 #(newer container than used for other analyses)
+# bignardig/tidyverse451:v7 #(newer container than used for other analyses)
 
 # Load Data --------------------------------------------------------------------
 
@@ -27,7 +27,6 @@ umx::umxACE(
   mzData = filter(df1, sexzyg == "MZ male"),
   dzData = filter(df1, sexzyg == "DZ male"), 
   sep = "",
-  equateMeans = FALSE,
   addCI = TRUE,
   intervals = TRUE
 ))
