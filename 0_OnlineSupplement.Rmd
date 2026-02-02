@@ -164,5 +164,12 @@ A complete list of variables used for multiple imputation can be found in the [f
 | [Weighting ACE Table](3_rq3_2_weighting_results.html#table) | ACE estimate changes with weighting |
 | [Imputation ACE Table](5_rq5_3_results.html#table) | ACE estimate changes with imputation |
 
+---
 
+# Discussion
 
+**Supplementary analyses referenced in the Discussion section.**
+
+| Resource | Description |
+|:---------|:------------|
+| [Maternal Education & Child Outcomes](11_descriptives.html#relationship-between-maternal-education-and-child-outcomes) | Relationship between maternal education level and child academic/cognitive outcomes |

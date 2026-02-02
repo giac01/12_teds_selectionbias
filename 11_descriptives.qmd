@@ -800,12 +800,20 @@ save_plot("11_participant_ages_each_timepoint", width = 12, height = 12)
 all(table(df$amohqual)==table(df$amohqualn))
 
 df %>%
-  filter(twin ==1) %>%
+  filter(twin == 1) %>%
   count(amohqual) %>%
   mutate(
-    percent = n/sum(n)
+    numeric_code = as.numeric(amohqual),
+    percent = n / sum(n)
   ) %>%
-  gt() %>% 
+  select(numeric_code, amohqual, n, percent) %>%
+  gt() %>%
+  cols_label(
+    numeric_code = "Code",
+    amohqual = "Education Level",
+    n = "N",
+    percent = "Percent"
+  ) %>%
   fmt_percent(columns = percent)
 
 
@@ -813,7 +821,11 @@ df %>%
 
 ## Relationship between maternal education and child outcomes
 
-This section examines whether maternal education level predicts child academic and cognitive outcomes. We regress each outcome on maternal education using dummy coding (treating each education level as a separate category), which allows us to detect non-linear relationships.
+In some analyses, maternal education is treated as a numeric variable (1-8), which assumes a linear relationship with child outcomes. To check whether this assumption is reasonable, we examine the predicted child education & cognition outcomes at each maternal education level.
+
+We regress child outcomes on maternal education using dummy coding (i.e., treating each education level as a separate category). The plots below show the predicted outcome for each education level. If the linearity assumption holds, these points should fall approximately on a straight line.
+
+We find that mothers with A Levels have generally similar child outcomes to those with Higher National Certificate and Higher National Diploma qualifications. Thus, the assumption of linearity seems unreasonable, and it might be problematic to have these two categories as separate numeric codes. 
 
 ```{r}
 

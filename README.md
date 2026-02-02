@@ -55,28 +55,6 @@ Analysis code for studying selection bias in the Twins Early Development Study (
 
 ### Research Question 3
 
-**Objective:** Test the effect of inverse probability weighting on data collected at later time points.
-
-| Script | Description | Output |
-|:-------|:------------|:------:|
-| [`3_rq3_1_weighting_bootstrap.R`](3_rq3_1_weighting_bootstrap.R) | Run IP weighting + bootstrap analysis | - |
-| [`3_rq3_2_weighting_results.qmd`](3_rq3_2_weighting_results.qmd) | Visualise and present results | [HTML](3_rq3_2_weighting_results.html) |
-
----
-
-### Research Question 4
-
-**Objective:** Test the effect of imputing data collected at later time points.
-
-| Script | Description | Output |
-|:-------|:------------|:------:|
-| [`5_rq5_1_run_imputation.R`](5_rq5_1_run_imputation.R) | Generate imputed datasets | - |
-| [`5_rq5_2_run_bootstrapping.R`](5_rq5_2_run_bootstrapping.R) | Run bootstrapping on imputed datasets | - |
-
----
-
-### Research Question 5
-
 **Objective:** Using four variables with low missingness (Y12: Depression, Y12: Externalising, Y12: Cognitive ability, Y16: GCSE core subjects), test the effect of attritioning based on late time points and evaluate whether imputation or weighting can correct for attrition effects.
 
 #### Original vs. Attritioned (no correction)
@@ -100,6 +78,27 @@ Analysis code for studying selection bias in the Twins Early Development Study (
 | [`8_rq6_1_imputation.R`](8_rq6_1_imputation.R) | Generate K imputed datasets | - |
 | [`8_rq6_2_run_bootstrapping.R`](8_rq6_2_run_bootstrapping.R) | Run bootstrap comparison on imputed data | - |
 | [`8_rq6_3_imputation_results.qmd`](8_rq6_3_imputation_results.qmd) | Visualise and present results | [HTML](8_rq6_3_imputation_results.html) |
+
+---
+
+### Research Question 4
+
+**Objective:** Test the effect of inverse probability weighting and multiple imputation on data collected at later time points.
+
+#### IP Weighting
+
+| Script | Description | Output |
+|:-------|:------------|:------:|
+| [`3_rq3_1_weighting_bootstrap.R`](3_rq3_1_weighting_bootstrap.R) | Run IP weighting + bootstrap analysis | - |
+| [`3_rq3_2_weighting_results.qmd`](3_rq3_2_weighting_results.qmd) | Visualise and present results | [HTML](3_rq3_2_weighting_results.html) |
+
+#### Multiple Imputation
+
+| Script | Description | Output |
+|:-------|:------------|:------:|
+| [`5_rq5_1_run_imputation.R`](5_rq5_1_run_imputation.R) | Generate imputed datasets | - |
+| [`5_rq5_2_run_bootstrapping.R`](5_rq5_2_run_bootstrapping.R) | Run bootstrapping on imputed datasets | - |
+| [`5_rq5_3_results.qmd`](5_rq5_3_results.qmd) | Visualise and present results | [HTML](5_rq5_3_results.html) |
 
 ---
 
