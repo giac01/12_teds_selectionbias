@@ -1,0 +1,268 @@
+---
+title: "RQ3: Original vs Weighted Results & RQ5: Original vs Imputed results"
+format: 
+  html:
+    embed-resources: true
+    fig-width: 8
+    fig-height: 8
+    code-link: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    toc: true
+    grid:
+      body-width: 900px
+editor: source
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# Load data
+
+
+```{r}
+#| output: false
+
+source("0_load_data.R")
+
+weighted_comparisons     = readRDS(file = file.path("results", "3_weighted_comparisons.Rds"))
+
+cat("Number bootstraps:", length(weighted_comparisons))
+
+bootstrap_summary_w        = readRDS(file = file.path("results", "3_weighted_comparisons_bootstrap.Rds")) %>%
+                              mutate(rq = "Weighting") %>%
+                              rename(parameter = "stat", outcome = "var")
+
+bootstrap_summary_i     = readRDS(file = file.path("results", "5_bootstrap_summary_df.Rds")) %>%
+                              mutate(rq = "Imputation")
+# bootstrap_summary_df_ace = readRDS(file = file.path("results", "5_bootstrap_summary_df_ace.Rds"))
+# boot_compare_results     = readRDS(file = file.path("results", "5_boot_compare_results.Rds"))
+```
+
+## Clean results
+
+```{r}
+# Create custom labels for facets
+parameter_labels = labeller(
+  parameter = as_labeller(c(
+    smd = "''~frac(bar(X)[adjusted] - bar(X)[original], SD[original])",
+    var = "''~frac(Var[adjusted] - Var[original], Var[original])~'×'~100"
+  ), label_parsed),
+  category = label_value  # Use default labelling for category
+)
+
+# Create category mapping
+outcome_categories = c(
+  "Y12: Cognitive ability" = "Education",
+  "Y14: Cognitive ability" = "Education",
+  "Y16: Cognitive ability" = "Education",
+  "Y21: G-game total score" = "Education",
+  "Y14: KS3 academic achievement" = "Education",
+  "Y16: GCSE core subjects grade" = "Education",
+  "Y21: Highest qualification" = "Education",
+  "Y26: Highest qualification" = "Education",
+  "Y12: Depression (MFQ)" = "Internalizing",
+  "Y16: Depression (MFQ)" = "Internalizing",
+  "Y21: Depression (MFQ)" = "Internalizing",
+  "Y26: Depression (MFQ)" = "Internalizing",
+  "Y21: Anxiety (GAD-D)" = "Internalizing",
+  "Y26: Anxiety (GAD-D)" = "Internalizing",
+  "Y12: Externalising" = "Externalizing",
+  "Y16: Externalising" = "Externalizing",
+  "Y21: Externalising" = "Externalizing",
+  "Y26: Externalising" = "Externalizing"
+)
+
+results_tbl = rbind.data.frame(
+  bootstrap_summary_w,
+  bootstrap_summary_i
+) %>%
+  group_by(rq, parameter) %>%
+  mutate(
+    pval_adj = p.adjust(pval, method = "holm"),
+    sig      = pval_adj < .05
+         
+         ) %>%
+  ungroup() %>% 
+  filter(parameter %in% c("smd","var")) %>%
+  mutate(outcome = rq5y_labels_short[match(outcome, rq5y)]) %>%
+  mutate(outcome = factor(outcome, levels = rq5y_labels_short)) %>%
+  mutate(category = outcome_categories[as.character(outcome)]) %>%
+  mutate(category = factor(category, levels = c("Education & Cognition", "Internalizing", "Externalizing"))) %>%
+  # Convert variance to percentage
+  mutate(
+    y    = ifelse(parameter == "var", y * 100, y),
+    ymin = ifelse(parameter == "var", ymin * 100, ymin),
+    ymax = ifelse(parameter == "var", ymax * 100, ymax)
+  ) 
+```
+
+Create plot
+
+```{r}
+
+results_tbl %>% 
+  ggplot(aes(x = outcome, y = y, ymin = ymin, ymax = ymax, group = rq)) +
+  geom_hline( yintercept = 0) +
+    geom_line(aes(col = rq)) +
+  geom_point(aes(shape = rq, fill = ifelse(sig, rq, NA), col = ifelse(sig, rq, "grey50")), size = 3, stroke = 1) +
+  geom_errorbar(aes(col = ifelse(sig, rq, "grey50"))) +
+  scale_shape_manual(values = c("Weighting" = 21,        "Imputation" = 22), guide = guide_legend(override.aes = list(fill = c("Imputation" = "#e66101", "Weighting" = "#5e3c99"), col = c("Imputation" = "#e66101", "Weighting" = "#5e3c99")))) +
+  scale_fill_manual( values = c("Weighting" = "#5e3c99", "Imputation" = "#e66101"), na.translate = FALSE, guide = "none") +
+  scale_color_manual(values = c("Weighting" = "#5e3c99", "Imputation" = "#e66101", "grey50" = "grey50"), breaks = c("Weighting", "Imputation"), guide = "none") +
+  facet_grid(parameter ~ category, scales = "free", space = "free_x", labeller = parameter_labels) +
+  ggh4x::facetted_pos_scales(
+    y = list(
+      parameter == "smd" ~ scale_y_continuous(),
+      parameter == "var" ~ scale_y_continuous(labels = scales::label_number(suffix = "%"))
+    )
+  ) +
+  labs(
+    y = NULL,
+    x = NULL,
+    col = NULL,
+    shape = NULL,
+    linetype = NULL
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = -45, vjust = 1, hjust = 0),
+    legend.position = c(0.05, 0.95),
+    legend.justification = c(0, 1),
+    legend.background = element_rect(fill = "white", color = "black")
+  )
+
+save_plot("5_rq3_rq5_combined_plot", width = 7, height = 6.5, trim = TRUE)
+
+
+
+```
+
+[📊Link to plot](/plots/pngs/5_rq3_rq5_combined_plot.png)
+
+## Results table
+
+```{r}
+
+results_tbl %>%
+  select(rq, parameter, outcome, y, ymin, ymax, pval, pval_adj) %>%
+  pivot_wider(
+    id_cols = c(outcome, parameter),
+    names_from = rq,
+    values_from = c(y, ymin, ymax, pval, pval_adj),
+    names_glue = "{rq}_{.value}"
+  ) %>%
+  select(
+    outcome, parameter,
+    Weighting_y, Weighting_ymin, Weighting_ymax, Weighting_pval_adj,
+    Imputation_y, Imputation_ymin, Imputation_ymax, Imputation_pval_adj
+  ) %>%
+  arrange(parameter, outcome) %>%
+  gt(groupname_col = "parameter") %>%
+  tab_row_group(label = "Standardized Mean Difference", rows = parameter == "smd") %>%
+  tab_row_group(label = "Variance % Change", rows = parameter == "var") %>%
+  cols_hide(parameter) %>%
+
+  # Rename columns
+  cols_label(
+    outcome = "Outcome",
+    Weighting_y = "Est",
+    Weighting_ymin = "LB",
+    Weighting_ymax = "UB",
+    Weighting_pval_adj = md("p<sub>adj</sub>"),
+    Imputation_y = "Est",
+    Imputation_ymin = "LB",
+    Imputation_ymax = "UB",
+    Imputation_pval_adj = md("p<sub>adj</sub>")
+  ) %>%
+
+  # Create column spanners
+  tab_spanner(
+    label = "Weighting",
+    columns = starts_with("Weighting_")
+  ) %>%
+  tab_spanner(
+    label = "Imputation",
+    columns = starts_with("Imputation_")
+  ) %>%
+
+  # Format numbers
+  fmt(
+    columns = c(Weighting_y, Weighting_ymin, Weighting_ymax,
+                Imputation_y, Imputation_ymin, Imputation_ymax),
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+  fmt(
+    columns = c(Weighting_pval_adj, Imputation_pval_adj),
+    fns = function(x) {gbtoolbox::apa_num(x, n_decimal_places = 3)}
+  ) %>%
+
+  # Styling - uniform font size
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_column_spanners()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_body()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10), align = "center"),
+    locations = cells_row_groups()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = cells_footnotes()
+  ) %>%
+
+  # Highlight significant results - Weighting positive (light green)
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(
+      columns = starts_with("Weighting_"),
+      rows = Weighting_pval_adj < 0.05 & Weighting_y > 0
+    )
+  ) %>%
+  # Highlight significant results - Weighting negative (light red)
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),
+    locations = cells_body(
+      columns = starts_with("Weighting_"),
+      rows = Weighting_pval_adj < 0.05 & Weighting_y < 0
+    )
+  ) %>%
+  # Highlight significant results - Imputation positive (light green)
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(
+      columns = starts_with("Imputation_"),
+      rows = Imputation_pval_adj < 0.05 & Imputation_y > 0
+    )
+  ) %>%
+  # Highlight significant results - Imputation negative (light red)
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),
+    locations = cells_body(
+      columns = starts_with("Imputation_"),
+      rows = Imputation_pval_adj < 0.05 & Imputation_y < 0
+    )
+  ) %>%
+
+  # Add footnotes
+  tab_footnote(
+    footnote = md("<em>Note.</em> Est = Estimate, LB = Lower Bound 95% CI, UB = Upper Bound 95% CI. Significant (p<sub>Bonferroni-Holm</sub> < .05) effects are highlighted in green (increases) or red (decreases). Variance % Change values are already multiplied by 100."),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each method (imputation/weighting) and parameter (SMD/Variance).",
+    locations = cells_column_labels(columns = contains("pval_adj")),
+    placement = "right"
+  ) %>%
+  opt_footnote_marks(marks = c("*", "†"))
+
+```
