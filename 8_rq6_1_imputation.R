@@ -157,6 +157,8 @@ tasks = expand.grid(
                        names = c("timepoint", "sexzyg"),
                        cols_remove = FALSE)
 
+saveRDS(tasks, file.path("results","8_1_tasks.Rds"))
+
 ## Run all imputations in parallel ---------------------------------------------
 
 plan(multicore, workers = n_workers)

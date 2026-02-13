@@ -53,6 +53,16 @@ The codebase is structured so that computationally intensive analyses are run us
 <div class="note-box">
 **Note:** The research question numbering in the codebase differs from how they are presented in the paper.
 </div>
+
+---
+
+# Descriptive statistics
+
+| Resource | Description |
+|:---------|:------------|
+| [Participant Ages](11_descriptives.html#table) | Distribution of age at each timepoint |
+| [Maternal Education](11_descriptives.html#education) | Distribution of maternal education levels |
+
 ---
 
 # Research Question 1: Predictors of Participation
@@ -134,6 +144,12 @@ A complete list of variables used for multiple imputation can be found in the [f
 | Attritioned + Weighting vs. Original | [ACE Difference Table](7_rq6_2_weighting_results.html#table---changes-in-ace-estimates) |
 | Attritioned + Imputation vs. Original | [ACE Difference Table](8_rq6_3_imputation_results.html#table---changes-in-ace-estimates) |
 
+## Fraction of Missing Information
+
+| Resource | Description |
+|:---------|:------------|
+| [FMI for Sample Means](8_rq6_3_imputation_results.html#calculation-for-sample-means) | FMI for imputed sample means at each attrition timepoint |
+
 # Research Question 4: Comparing Correction Methods (Weighting vs. Imputation)
 
 **Objective:** Compare the effectiveness of weighting and imputation approaches for correcting selection bias.
@@ -163,6 +179,12 @@ A complete list of variables used for multiple imputation can be found in the [f
 |:---------|:------------|
 | [Weighting ACE Table](3_rq3_2_weighting_results.html#table) | ACE estimate changes with weighting |
 | [Imputation ACE Table](5_rq5_3_results.html#table) | ACE estimate changes with imputation |
+
+## Fraction of Missing Information
+
+| Resource | Description |
+|:---------|:------------|
+| [FMI for Sample Means](5_rq5_3_results.html#calculation-for-sample-means) | FMI for imputed sample means |
 
 ---
 

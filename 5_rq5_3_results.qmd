@@ -72,6 +72,54 @@ original_dataset <- df %>%
 
 # Descriptive stats
 
+## Fraction of Missing Information 
+
+### Calculation for **sample means**
+
+Here, we calculate the fraction of missing information (FMI) for each variable mean.
+
+```{r}
+
+
+fmi_original =  map_dfr(rq5y, function(v) {                                     # starts loop for each 
+    # browser()                                                                 # For checking this code...
+
+    res = df_rq5_imputed %>%
+      group_by(.imp) %>%
+      summarise(
+        n = sum(!is.na(!!sym(v))),                                              # Number of imputed values
+        Q = mean(!!sym(v), na.rm = TRUE),                                       # Vector of imputed means
+        U = stats::var(!!sym(v), na.rm = TRUE) / n                              # Vector of imputed sample mean variances
+        ) 
+
+    result = mice::pool.scalar(Q = res$Q, U = res$U)
+
+    tibble(
+      variable  = v,
+      estimate  = result$qbar,
+      se        = sqrt(result$t),
+      fmi       = result$fmi
+    )
+  })
+
+fmi_original %>%
+  mutate(variable = rq5y_labels_short[match(variable, rq5y)]) %>%
+  gt() %>%
+  fmt_number(decimals = 3) %>%
+  cols_label(
+    variable = "Variable",
+    estimate = "Estimate",
+    se       = "SE",
+    fmi      = "FMI"
+  ) %>%
+  cols_hide(c("estimate", "se")) %>% 
+  tab_style(
+    style    = cell_text(size = px(12)),
+    locations = cells_body()
+  )
+
+```
+
 ## Missingness plots
 
 ```{r}

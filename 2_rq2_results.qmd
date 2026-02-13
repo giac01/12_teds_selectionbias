@@ -427,11 +427,9 @@ variable_comparisons_df %>%
 
   save_plot("2_rq2_circular_heatmap_smd", width = 8, height = 8)
 
-
-
-
-
 ```
+
+[📊 View Full Resolution SMD Heatmap (PNG)](plots/pngs/2_rq2_circular_heatmap_smd.png)
 
 ### Variance Differences
 
@@ -515,6 +513,7 @@ variable_comparisons_df %>%
 
 ```
 
+[📊 View Full Resolution Variance Heatmap (PNG)](plots/pngs/2_rq2_circular_heatmap_var.png)
 
 ## Plot data distributions
 
@@ -1057,6 +1056,103 @@ save_plot("2_rq2_ace_comparison_by_timepoint", width = 21, height = 9, trim = FA
 
 # Supplementary Analyses 
 
+## Effect of attritioning on sample sizes
+
+```{r}
+
+response_statistics = df %>%
+  select(randomtwinid, rq2y, rq1y_twin1) %>% 
+  mutate(all1 = 1) %>% 
+  pivot_longer(cols = all_of(rq2y), names_to = "variable", values_to = "score") %>% 
+  pivot_longer(cols = all_of(c("all1", rq1y_twin1)), names_to = "timepoint", values_to = "participation_indicator") %>% 
+  filter(!is.na(score)) %>%
+  filter(participation_indicator ==1)  %>%
+  group_by(variable, timepoint) %>% 
+  summarise(
+    n = dplyr::n(),
+    .groups = "drop"
+  ) %>%
+  group_by(variable) %>% 
+  mutate(
+    max = base::max(n),
+    percent = n/max
+  )
+
+response_statistics %>%
+  mutate(
+    variable = rq2y_labels_short[match(variable, rq2y)],
+    variable = factor(variable, levels = rq2y_labels_short),
+    timepoint = rq1y_twin_labels_clean_extrashort[match(timepoint, rq1y_twin1)],
+    timepoint = ifelse(is.na(timepoint), "Original", timepoint),
+    timepoint = factor(timepoint, levels = c("Original", rq1y_twin_labels_clean_extrashort)),
+    original  = factor(ifelse(timepoint == "Original", "Original", "Attritioned"))
+  ) %>%
+  ggplot(aes(x = timepoint, y = n, group = variable)) +
+  geom_line() +
+  geom_point(aes(shape = original, size = original)) +
+  scale_shape_manual(values = c("Original" = 18, "Attritioned" = 16)) +
+  scale_size_manual(values = c("Original" = 3.5, "Attritioned" = 2)) +
+  labs(
+    y = "Sample size post-attritioning",
+    x = NULL
+  ) +
+  facet_wrap(~variable, nrow = 2) +
+  theme_bw() +
+  theme(
+    axis.text   = element_text(color = "black"),
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 7),
+    legend.position = "none"
+  )
+
+save_plot("2_attrition_numbers", width = 7, height = 4)
+
+```
+
+[📊 View Full Resolution Attrition Numbers Plot (PNG)](plots/pngs/2_attrition_numbers.png)
+
+### Sample Size Table
+
+```{r}
+
+response_statistics %>%
+  mutate(
+    variable = rq2y_labels_short[match(variable, rq2y)],
+    variable = factor(variable, levels = rq2y_labels_short),
+    timepoint = rq1y_twin_labels_clean_extrashort[match(timepoint, rq1y_twin1)],
+    timepoint = ifelse(is.na(timepoint), "Original", timepoint),
+    # Combine n and percent into formatted string
+    n_pct = paste0(format(n, big.mark = ","), " (", sprintf("%.1f%%", percent * 100), ")")
+  ) %>%
+  select(variable, timepoint, n_pct) %>%
+  pivot_wider(names_from = timepoint, values_from = n_pct) %>%
+  arrange(variable) %>%
+  gt() %>%
+  cols_label(
+    variable = "Variable"
+  ) %>%
+  tab_spanner(
+    label = "Sample Size (% of Original) by Attrition Timepoint",
+    columns = -variable
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = list(
+      cells_body(),
+      cells_stub(),
+      cells_row_groups(),
+      cells_column_labels(),
+      cells_column_spanners(),
+      cells_footnotes()
+    )
+  ) %>%
+  tab_footnote(
+    footnote = "Original = full sample before any attrition. Other columns show sample sizes (and percentage of original) after removing participants who did not take part at that timepoint.",
+    placement = "right"
+  ) %>%
+  cols_move_to_start(columns = c(variable, Original))
+
+```
+
 ## How predictive are our variables of later attrition?
 
 ### Correlations
@@ -1177,6 +1273,8 @@ save_plot("2_prediction_accuracy", width = 9, height = 6)
 
 ```
 
+[📊 View Full Resolution Prediction Accuracy Plot (PNG)](plots/pngs/2_prediction_accuracy.png)
+
 ### Full model results 
 
 ```{r}
@@ -1279,6 +1377,8 @@ glm_model_comparison_results_df %>%
 
 save_plot("2_rq2_variable_importance", width = 14, height = 7)
 ```
+
+[📊 View Full Resolution Variable Importance Plot (PNG)](plots/pngs/2_rq2_variable_importance.png)
 
 ## Comparison of maternal education scores
 

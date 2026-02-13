@@ -23,6 +23,7 @@ editor_options:
 #| output: false
 
 source("0_load_data.R")
+
 ```
 
 # Table describing each variable 
@@ -765,6 +766,7 @@ save_plot("11_pairwise_missingness_plot", width = 6, height = 6)
 
 [View full-size plot](plots/11_participant_ages_each_timepoint.pdf){target="_blank"}
 
+### Plot
 
 ```{r}
 
@@ -773,7 +775,7 @@ df_age = df %>%
   select(-contains("genpro"), -contains("mumage"), - contains("dadage"), -ends_with("2")) 
 
 df_age_long = df_age %>%
-  `colnames<-`(var_to_label(colnames(df_age))) %>%
+  `colnames<-`(paste0(var_to_label(colnames(df_age)), " (", colnames(df_age), ")")) %>%
   pivot_longer(cols = everything())
 
 df_age_long %>% 
@@ -790,6 +792,57 @@ df_age_long %>%
 
 save_plot("11_participant_ages_each_timepoint", width = 12, height = 12)
 
+
+```
+
+### Table
+
+```{r}
+
+df_age_long %>%
+  mutate(name = factor(name, levels = paste0(var_to_label(colnames(df_age)), " (", colnames(df_age), ")"))) %>%
+  group_by(name) %>%
+  summarise(
+    n = sum(!is.na(value)),
+    mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE),
+    min = min(value, na.rm = TRUE),
+    p10 = quantile(value, 0.10, na.rm = TRUE),
+    p90 = quantile(value, 0.90, na.rm = TRUE),
+    max = max(value, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  gt() %>%
+  cols_label(
+    name = "Timepoint",
+    n = "N",
+    mean = "Mean",
+    sd = "SD",
+    min = "Min",
+    p10 = "10th",
+    p90 = "90th",
+    max = "Max"
+  ) %>%
+  fmt_number(
+    columns = c(mean, sd),
+    decimals = 2
+  ) %>%
+  fmt_number(
+    columns = c(min, p10, p90, max),
+    decimals = 1
+  ) %>%
+  fmt_number(
+    columns = n,
+    use_seps = TRUE,
+    decimals = 0
+  ) %>%
+  tab_header(
+    title = "Participant Age at Each Timepoint"
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  )
 
 ```
 
