@@ -1,0 +1,987 @@
+---
+title: "RQ6: Combined Analysis of Bias Across Conditions"
+format: 
+  html:
+    embed-resources: true
+    fig-width: 8
+    fig-height: 8
+    code-link: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+    toc: true
+    grid:
+      body-width: 900px
+editor: source
+editor_options: 
+  chunk_output_type: console
+---
+
+# Load & Clean Data
+
+```{r}
+#| output: false
+
+source("0_load_data.R")
+
+df = df %>%
+  filter(!(randomfamid %in% exclude_fams_rq1x)) %>%
+  filter(!(randomfamid %in% exclude_fams_onesib)) %>%
+  filter(!(randomfamid %in% exclude_fams_rq6y))
+
+## range of participation outcomes to use for attrition
+
+range_participation_outcomes = 6:8
+
+# Subset vectors to only include participation outcomes in range
+rq1y_twin                         = rq1y_twin[range_participation_outcomes]
+rq1y_twin1                        = rq1y_twin1[range_participation_outcomes]
+rq1y_twin2                        = rq1y_twin2[range_participation_outcomes]
+rq1y_twin_labels                  = rq1y_twin_labels[range_participation_outcomes]
+rq1y_twin_labels_clean            = rq1y_twin_labels_clean[range_participation_outcomes]
+rq1y_twin_labels_clean_extrashort = rq1y_twin_labels_clean_extrashort[range_participation_outcomes]
+
+## range of participation outcomes to use for attiritioning 
+
+range_participation_outcomes = 6:8
+
+res_unadj = readRDS(file = file.path("results", "6_variable_comparisons.Rds"))
+res_weigh = readRDS(file = file.path("results", "7_weighted_comparisons.Rds"))
+res_imput = readRDS(file = file.path("results", "8_rq6_boot_compare_results.Rds"))
+
+
+```
+
+
+```{r}
+#| include: false
+
+names(res_unadj)
+res_unadj$u1cdata1$bootstrap_iter %>% names()
+
+# Data extraction: 
+res_unadj$u1cdata1$bootstrap_iter$md #all  mean differences for attritioning on u1cdata1 time point
+res_weigh[[1]][[1]]$md # each iteration is stored in different i
+res_weigh[[1]][[2]]$md # second iteration
+res_imput$u1cdata1$md # first imputed dataset (has 40 bootstrap iterations in each)
+res_imput$u1cdata2$md # second imputed dataset
+
+res_unadj$u1cdata1$bootstrap_iter$smd #all  mean differences for attritioning on u1cdata1 time point
+res_weigh[[1]][[1]]$smd # each iteration is stored in different i
+res_weigh[[1]][[2]]$smd # second iteration
+res_imput$u1cdata1$smd # first imputed dataset (has 40 bootstrap iterations in each)
+res_imput$u1cdata2$smd # second imputed dataset
+
+res_unadj$u1cdata1$bootstrap_iter$cor_resid #all  mean differences for attritioning on u1cdata1 time point
+res_weigh[[1]][[1]]$cor_resid
+
+# LEAVE THE ABOVE FOR NOW - I"LL REMOVE IT LATER.
+
+```
+
+## Create Cleaned Datasets
+
+```{r}
+# Correlation pair names (6 unique pairs from 4 variables)
+test_correlation_matrix = matrix(
+  nrow = length(rq6y),
+  ncol = length(rq6y)
+)
+
+for (i in seq_along(rq6y)) {
+  for (j in seq_along(rq6y)) {
+    test_correlation_matrix[i, j] = paste(rq6y[i], rq6y[j], collapse = " ")
+  }
+}
+
+x = test_correlation_matrix[lower.tri(test_correlation_matrix)]
+cor_x_var = str_extract(x, "^\\S+")
+cor_y_var = str_extract(x, "\\S+$")
+cor_pairs = paste0("cor_", cor_x_var, "_", cor_y_var)
+
+rm(test_correlation_matrix, x)
+```
+
+### Unadjusted Dataset
+
+```{r}
+# Function to extract and combine unadjusted data for one timepoint
+extract_unadj = function(res, timepoint_idx) {
+  timepoint = rq1y_twin1[timepoint_idx]
+  boot_iter = res[[timepoint]]$bootstrap_iter
+
+  df = tibble(
+    timepoint = rq1y_twin_labels_clean_extrashort[timepoint_idx],
+    iteration = 1:nrow(boot_iter$md)
+  )
+
+  # Add md columns
+  md_df = as_tibble(boot_iter$md, .name_repair = "minimal")
+  colnames(md_df) = paste0("md_", rq6y)
+
+  # Add smd columns
+  smd_df = as_tibble(boot_iter$smd, .name_repair = "minimal")
+  colnames(smd_df) = paste0("smd_", rq6y)
+
+  # Add var columns
+  var_df = as_tibble(boot_iter$var, .name_repair = "minimal")
+  colnames(var_df) = paste0("var_", rq6y)
+
+  # Add cor_resid columns
+  cor_df = as_tibble(boot_iter$cor_resid, .name_repair = "minimal")
+  colnames(cor_df) = cor_pairs
+
+  bind_cols(df, md_df, smd_df, var_df, cor_df)
+}
+
+# Combine all timepoints
+df_unadj = map_dfr(seq_along(rq1y_twin1), ~extract_unadj(res_unadj, .x)) %>%
+  mutate(condition = "Unadjusted")
+
+df_unadj
+```
+
+### Weighted Dataset
+
+```{r}
+# Check structure of weighted results
+# res_weigh[[timepoint_index]][[iteration]]$parameter
+
+# Function to extract and combine weighted data for one timepoint
+extract_weighted = function(res, timepoint_idx) {
+  # browser()
+  n_iter = length(res[[timepoint_idx]])
+
+  # Pre-allocate lists
+  md_list = vector("list", n_iter)
+  smd_list = vector("list", n_iter)
+  var_list = vector("list", n_iter)
+  cor_list = vector("list", n_iter)
+
+  for (i in seq_len(n_iter)) {
+    iter_data = res[[timepoint_idx]][[i]]
+    md_list[[i]] = iter_data$md
+    smd_list[[i]] = iter_data$smd
+    var_list[[i]] = iter_data$var
+    cor_list[[i]] = iter_data$cor_resid
+  }
+
+  # Combine into matrices
+  md_mat = do.call(rbind, md_list)
+  smd_mat = do.call(rbind, smd_list)
+  var_mat = do.call(rbind, var_list)
+  cor_mat = do.call(rbind, cor_list)
+
+  # Create tibble
+  df = tibble(
+    timepoint = rq1y_twin_labels_clean_extrashort[timepoint_idx],
+    iteration = 1:n_iter
+  )
+
+  # Add md columns
+  md_df = as_tibble(md_mat, .name_repair = "minimal")
+  colnames(md_df) = paste0("md_", rq6y)
+
+  # Add smd columns
+  smd_df = as_tibble(smd_mat, .name_repair = "minimal")
+  colnames(smd_df) = paste0("smd_", rq6y)
+
+  # Add var columns
+  var_df = as_tibble(var_mat, .name_repair = "minimal")
+  colnames(var_df) = paste0("var_", rq6y)
+
+  # Add cor_resid columns
+  # BUG FIX: The raw weighted results include 10 correlation values (lower
+  # triangle including diagonal). We need only the 6 off-diagonal pairs,
+  # at positions 2,3,4,6,7,9 in the 10-element vector.
+  # Compute off-diagonal indices dynamically from the number of variables.
+  n_vars = length(rq6y)
+  dummy_mat = matrix(0, n_vars, n_vars)
+  dummy_mat[lower.tri(dummy_mat, diag = TRUE)] = seq_len(n_vars * (n_vars + 1) / 2)
+  off_diag_idx = dummy_mat[lower.tri(dummy_mat, diag = FALSE)]
+  cor_df = as_tibble(cor_mat, .name_repair = "minimal")[, off_diag_idx]
+  colnames(cor_df) = cor_pairs
+
+  bind_cols(df, md_df, smd_df, var_df, cor_df)
+}
+
+# Combine all timepoints
+df_weigh = map_dfr(seq_along(rq1y_twin1), ~extract_weighted(res_weigh, .x)) %>%
+  mutate(condition = "Weighted")
+
+df_weigh
+```
+
+### Imputed Dataset
+
+```{r}
+# For imputed: 250 imputed datasets × 40 iterations per dataset = 10,000 per timepoint
+# res_imput$u1cdata1$md is a list of 40 vectors
+# res_imput$u1cdata1, u1cdata2, ..., u1cdata250 for timepoint 1
+
+# Function to extract imputed data for one timepoint
+extract_imputed = function(res, timepoint_idx, n_imputed = 250) {
+  # Derive prefix from rq1y_twin1 (e.g., "u1cdata1" -> "u1cdata")
+  timepoint_prefix = gsub("1$", "", rq1y_twin1[timepoint_idx])
+
+  all_data = vector("list", n_imputed)
+
+  for (m in seq_len(n_imputed)) {
+    dataset_name = paste0(timepoint_prefix, m)
+    imp_data = res[[dataset_name]]
+
+    n_iter = length(imp_data$md)
+
+    # Extract each parameter
+    md_mat = do.call(rbind, imp_data$md)
+    smd_mat = do.call(rbind, imp_data$smd)
+    var_mat = do.call(rbind, imp_data$var)
+    cor_mat = do.call(rbind, imp_data$cor_resid)
+    # Create tibble for this imputed dataset
+    # Make iteration unique across all imputations: 1-40 for m=1, 41-80 for m=2, etc.
+    df = tibble(
+      timepoint = rq1y_twin_labels_clean_extrashort[timepoint_idx],
+      imputation = m,
+      iteration = ((m - 1) * n_iter) + 1:n_iter
+    )
+
+    # Add parameter columns
+    md_df = as_tibble(md_mat, .name_repair = "minimal")
+    colnames(md_df) = paste0("md_", rq6y)
+
+    smd_df = as_tibble(smd_mat, .name_repair = "minimal")
+    colnames(smd_df) = paste0("smd_", rq6y)
+
+    var_df = as_tibble(var_mat, .name_repair = "minimal")
+    colnames(var_df) = paste0("var_", rq6y)
+
+    cor_df = as_tibble(cor_mat, .name_repair = "minimal")
+    colnames(cor_df) = cor_pairs
+
+    all_data[[m]] = bind_cols(df, md_df, smd_df, var_df, cor_df)
+  }
+
+  bind_rows(all_data)
+}
+
+# Combine all timepoints
+df_imput = map_dfr(seq_along(rq1y_twin1), ~extract_imputed(res_imput, .x)) %>%
+  mutate(condition = "Imputed")
+
+df_imput 
+```
+
+## Verify Datasets
+
+```{r}
+#| output: false
+
+head(df_unadj)
+head(df_weigh)
+head(df_imput)
+
+colnames(df_unadj)
+colnames(df_weigh)
+colnames(df_imput)
+
+# Check dimensions
+cat("Unadjusted dataset:\n")
+cat("  Rows:", nrow(df_unadj), "(expected: 30,000 = 10,000 × 3 timepoints)\n")
+cat("  Cols:", ncol(df_unadj), "\n\n")
+
+cat("Weighted dataset:\n
+")
+cat("  Rows:", nrow(df_weigh), "(expected: 30,000 = 10,000 × 3 timepoints)\n")
+cat("  Cols:", ncol(df_weigh), "\n\n")
+
+cat("Imputed dataset:\n")
+cat("  Rows:", nrow(df_imput), "(expected: 30,000 = 250 × 40 × 3 timepoints)\n")
+cat("  Cols:", ncol(df_imput), "\n\n")
+
+# Preview column names
+cat("Column names:\n")
+names(df_unadj)
+
+```
+
+## checks
+
+```{r}
+
+# gemini, add testthat for all TRUE!
+library(testthat) # Ensure testthat is loaded
+
+test_that("Timepoint columns are identical across dataframes", {
+  expect_true(identical(df_unadj$timepoint, df_imput$timepoint))
+  expect_true(identical(df_unadj$timepoint, df_weigh$timepoint))
+  
+  df_imput %>%
+    filter(timepoint == "Y21") %>% 
+    pull(iteration) %>% 
+    duplicated() %>% 
+    `!` %>%
+    all() %>% 
+    expect_true()
+})
+
+```
+
+# Calculate Bias Reduction
+
+## Data Wrangling
+
+### Main results - bias (not difference)
+
+```{r}
+shared_var = Reduce(intersect, list(colnames(df_unadj), colnames(df_weigh), colnames(df_imput)))
+
+combined_results = rbind(df_unadj[shared_var],df_weigh[shared_var],df_imput[shared_var]) %>%  
+  select(-starts_with("md_")) %>% 
+  pivot_longer(
+    cols    = c(-timepoint, -iteration, -condition),
+    names_to = "stat"
+  )
+
+bias_summary = combined_results %>%
+  group_by(condition, timepoint, stat) %>%
+  reframe(
+    bias = .mean_qi_pd(value)
+  ) %>%
+  unnest(bias) %>%
+  # Split stat into param and variable(s)
+  mutate(
+    param = str_extract(stat, "^[^_]+"),
+    variable_raw = str_remove(stat, "^[^_]+_")
+  ) %>%
+  # For correlations, extract both variables
+  mutate(
+    var1 = case_when(
+      param == "cor" ~ str_extract(variable_raw, "^[^_]+"),
+      TRUE ~ variable_raw
+    ),
+    var2 = case_when(
+      param == "cor" ~ str_extract(variable_raw, "[^_]+$"),
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  # Convert to nice labels
+  mutate(
+    var1_label = rq6y_labels[match(var1, rq6y)],
+    var2_label = rq6y_labels[match(var2, rq6y)],
+    variable_label = case_when(
+      param == "cor" ~ paste0(var1_label, " × ", var2_label),
+      TRUE ~ var1_label
+    ),
+    param = case_when(
+      param == "smd" ~ "Standardized Mean Difference",
+      param == "var" ~ "Variance % Change",
+      param == "cor" ~ "Correlation Change",
+      TRUE ~ param
+    ),
+    param = factor(param, levels = c("Standardized Mean Difference", "Variance % Change", "Correlation Change"))
+  ) %>%
+  # Order timepoint, condition, and variables
+  mutate(
+    timepoint = factor(timepoint, levels = rq1y_twin_labels_clean_extrashort),
+    condition = factor(condition, levels = c("Unadjusted", "Weighted", "Imputed")),
+    var1_order = match(var1, rq6y),
+    var2_order = ifelse(is.na(var2), 0, match(var2, rq6y))
+  ) %>%
+  arrange(param, condition, var1_order, var2_order, timepoint) %>%
+  mutate(variable_label = factor(variable_label, levels = unique(variable_label))) %>%
+  select(condition, timepoint, param, variable_label, y, ymin, ymax, pval) %>%
+  group_by(condition, timepoint, param) %>%
+  mutate(
+    pval_adj = stats::p.adjust(pval, method = "holm")
+  )
+
+bias_summary %>%
+  ungroup() %>%
+  gt(groupname_col = c("param", "condition"), rowname_col = "variable_label") %>%
+  cols_label(
+    condition = "Condition",
+    timepoint = "Timepoint",
+    y = "Est",
+    ymin = "LB",
+    ymax = "UB",
+    pval = md("p"),
+    pval_adj = md("p<sub>Holm</sub>")
+  ) %>%
+  fmt_number(
+    columns = c(y, ymin, ymax),
+    decimals = 3
+  ) %>%
+  fmt_number(
+    columns = c(pval, pval_adj),
+    decimals = 4
+  ) %>%
+  # Styling - uniform font size
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = list(
+      cells_body(),
+      cells_stub(),
+      cells_row_groups(),
+      cells_column_labels()
+    )
+  ) %>%
+  # Highlight significant positive (green)
+  tab_style(
+    style = cell_fill(color = "#ffd9d1"),
+    locations = cells_body(
+      columns = c(y, ymin, ymax, pval, pval_adj),
+      rows = pval_adj < 0.05 & y > 0
+    )
+  ) %>%
+  # Highlight significant negative (red)
+  tab_style(
+    style = cell_fill(color = "#b6c3e0"),
+    locations = cells_body(
+      columns = c(y, ymin, ymax, pval, pval_adj),
+      rows = pval_adj < 0.05 & y < 0
+    )
+  ) %>%
+  # Footnotes
+  tab_footnote(
+    footnote = md("<em>Note.</em> Est = Estimate, LB = Lower Bound 95% CI, UB = Upper Bound 95% CI. Significant (p<sub>adj</sub> < 0.05) effects highlighted in green (increases) or red (decreases). SMD = (Mean<sub>condition</sub> - Mean<sub>original</sub>) / SD<sub>original</sub>. Variance % change = (Var<sub>condition</sub> - Var<sub>original</sub>) / Var<sub>original</sub>. Correlation change = r<sub>condition</sub> - r<sub>original</sub>."),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = "P values are Bonferroni-Holm adjusted within each condition × timepoint × parameter group",
+    locations = cells_column_labels(columns = pval_adj),
+    placement = "right"
+  ) %>%
+  opt_footnote_marks(marks = c("*", "†"))
+
+```
+
+### Main results - bias reduction relative to unadjusted
+
+```{r}
+combined_results_wide = combined_results %>%
+  mutate(
+    param = str_extract(stat, "^[^_]+"),
+    variable_raw = str_remove(stat, "^[^_]+_")
+  ) %>%
+  select(-stat) %>%
+  pivot_wider(
+    id_cols = c(timepoint, iteration, param, variable_raw),
+    values_from = "value",
+    names_from = "condition",
+  ) %>%
+  ungroup() %>%
+  mutate(
+    diff1      = Unadjusted - Weighted,
+    diffratio1 = (Unadjusted - Weighted)/Unadjusted,
+    se1        = (Unadjusted - Weighted)^2,
+    diff2      = Unadjusted - Imputed,
+    diffratio2 = (Unadjusted - Imputed)/Unadjusted,
+    se2        = (Unadjusted - Imputed)^2
+  ) %>%
+  group_by(param, variable_raw, timepoint) %>%
+  reframe(
+    pbetter1   = mean(abs(Weighted) < abs(Unadjusted)),
+    diff1      = .mean_qi_pd(diff1),
+    diffratio1 = .mean_qi_pd(diffratio1),
+    mse1       = mean(se1),
+    pbetter2   = mean(abs(Imputed) < abs(Unadjusted)),
+    diff2      = .mean_qi_pd(diff2),
+    diffratio2 = .mean_qi_pd(diffratio2),
+    mse2       = mean(se2)
+  ) %>%
+  unnest(c(diff1, diffratio1, diff2, diffratio2), names_sep = "_")
+
+combined_results_wide
+
+
+```
+
+
+
+#### Bias Reduction: Unadjusted vs Weighted
+
+```{r}
+# Prepare diffratio1 table (Unadjusted - Weighted) / Unadjusted
+diffratio1_summary = combined_results_wide %>%
+  select(param, variable_raw, timepoint, pbetter1,
+         y = diffratio1_y, ymin = diffratio1_ymin, ymax = diffratio1_ymax) %>%
+  # Add variable labels
+  mutate(
+    var1 = case_when(
+      param == "cor" ~ str_extract(variable_raw, "^[^_]+"),
+      TRUE ~ variable_raw
+    ),
+    var2 = case_when(
+      param == "cor" ~ str_extract(variable_raw, "[^_]+$"),
+      TRUE ~ NA_character_
+    ),
+    var1_label = rq6y_labels[match(var1, rq6y)],
+    var2_label = rq6y_labels[match(var2, rq6y)],
+    variable_label = case_when(
+      param == "cor" ~ paste0(var1_label, " × ", var2_label),
+      TRUE ~ var1_label
+    ),
+    param = case_when(
+      param == "smd" ~ "Standardized Mean Difference",
+      param == "var" ~ "Variance % Change",
+      param == "cor" ~ "Correlation Change",
+      TRUE ~ param
+    ),
+    param = factor(param, levels = c("Standardized Mean Difference", "Variance % Change", "Correlation Change")),
+    timepoint = factor(timepoint, levels = rq1y_twin_labels_clean_extrashort),
+    var1_order = match(var1, rq6y),
+    var2_order = ifelse(is.na(var2), 0, match(var2, rq6y))
+  ) %>%
+  arrange(param, var1_order, var2_order, timepoint) %>%
+  mutate(variable_label = factor(variable_label, levels = unique(variable_label))) %>%
+  select(param, timepoint, variable_label, y, ymin, ymax, pbetter1) %>%
+  mutate(p_val = bayestestR::pd_to_p(pmax(pbetter1, 1 - pbetter1))) %>%
+  group_by(param, timepoint) %>%
+  mutate(p_adj = p.adjust(p_val, method = "bonferroni")) %>%
+  ungroup()
+
+diffratio1_summary %>%
+  ungroup() %>%
+  gt(groupname_col = "param", rowname_col = "variable_label") %>%
+  cols_label(
+    timepoint = "Timepoint",
+    y = "Est",
+    ymin = "LB",
+    ymax = "UB",
+    pbetter1 = md("P<sub>better</sub>"),
+    p_val = md("p"),
+    p_adj = md("p<sub>adj</sub>")
+  ) %>%
+  fmt_number(columns = c(y, ymin, ymax, pbetter1), decimals = 3) %>%
+  fmt_number(columns = c(p_val, p_adj), decimals = 3) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = list(
+      cells_body(), cells_stub(), cells_row_groups(), cells_column_labels()
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#b6c3e0"),
+    locations = cells_body(
+      columns = c(y, ymin, ymax, pbetter1, p_val, p_adj),
+      rows = p_adj < 0.05 & pbetter1 > 0.5
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#ffd9d1"),
+    locations = cells_body(
+      columns = c(y, ymin, ymax, pbetter1, p_val, p_adj),
+      rows = p_adj < 0.05 & pbetter1 < 0.5
+    )
+  ) %>%
+  tab_header(
+    title = "Bias Reduction: Weighting vs Unadjusted",
+    subtitle = md("(Bias<sub>Unadjusted</sub> − Bias<sub>Weighted</sub>) / Bias<sub>Unadjusted</sub>")
+  ) %>%
+  tab_footnote(
+    footnote = md("<em>Note.</em> Est = Estimate, LB = Lower Bound 95% CI, UB = Upper Bound 95% CI. Significant (p<sub>adj</sub> < 0.05) effects highlighted in blue (weighting reduces bias) or red (weighting increases bias)."),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = md("P<sub>better</sub> = proportion of bootstrap iterations where |Bias<sub>Weighted</sub>| < |Bias<sub>Unadjusted</sub>|. Values > 0.5 indicate weighting reduces bias; values < 0.5 indicate weighting increases bias."),
+    locations = cells_column_labels(columns = pbetter1),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = md("p = two-tailed p-value equivalent derived from P<sub>better</sub> using bayestestR::pd_to_p(). Computed as 2 × min(P<sub>better</sub>, 1 − P<sub>better</sub>)."),
+    locations = cells_column_labels(columns = p_val),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = "p_adj = Bonferroni-corrected p-value within each timepoint.",
+    locations = cells_column_labels(columns = p_adj),
+    placement = "right"
+  ) %>%
+  opt_footnote_marks(marks = c("*", "†", "‡", "§"))
+```
+
+#### Bias Reduction: Unadjusted vs Imputed
+
+```{r}
+# Prepare diffratio2 table (Unadjusted - Imputed) / Unadjusted
+diffratio2_summary = combined_results_wide %>%
+  select(param, variable_raw, timepoint, pbetter2,
+         y = diffratio2_y, ymin = diffratio2_ymin, ymax = diffratio2_ymax) %>%
+  # Add variable labels
+  mutate(
+    var1 = case_when(
+      param == "cor" ~ str_extract(variable_raw, "^[^_]+"),
+      TRUE ~ variable_raw
+    ),
+    var2 = case_when(
+      param == "cor" ~ str_extract(variable_raw, "[^_]+$"),
+      TRUE ~ NA_character_
+    ),
+    var1_label = rq6y_labels[match(var1, rq6y)],
+    var2_label = rq6y_labels[match(var2, rq6y)],
+    variable_label = case_when(
+      param == "cor" ~ paste0(var1_label, " × ", var2_label),
+      TRUE ~ var1_label
+    ),
+    param = case_when(
+      param == "smd" ~ "Standardized Mean Difference",
+      param == "var" ~ "Variance % Change",
+      param == "cor" ~ "Correlation Change",
+      TRUE ~ param
+    ),
+    param = factor(param, levels = c("Standardized Mean Difference", "Variance % Change", "Correlation Change")),
+    timepoint = factor(timepoint, levels = rq1y_twin_labels_clean_extrashort),
+    var1_order = match(var1, rq6y),
+    var2_order = ifelse(is.na(var2), 0, match(var2, rq6y))
+  ) %>%
+  arrange(param, var1_order, var2_order, timepoint) %>%
+  mutate(variable_label = factor(variable_label, levels = unique(variable_label))) %>%
+  select(param, timepoint, variable_label, y, ymin, ymax, pbetter2) %>%
+  mutate(p_val = bayestestR::pd_to_p(pmax(pbetter2, 1 - pbetter2))) %>%
+  group_by(param, timepoint) %>%
+  mutate(p_adj = p.adjust(p_val, method = "bonferroni")) %>%
+  ungroup()
+
+diffratio2_summary %>%
+  ungroup() %>%
+  gt(groupname_col = "param", rowname_col = "variable_label") %>%
+  cols_label(
+    timepoint = "Timepoint",
+    y = "Est",
+    ymin = "LB",
+    ymax = "UB",
+    pbetter2 = md("P<sub>better</sub>"),
+    p_val = md("p"),
+    p_adj = md("p<sub>adj</sub>")
+  ) %>%
+  fmt_number(columns = c(y, ymin, ymax, pbetter2), decimals = 3) %>%
+  fmt_number(columns = c(p_val, p_adj), decimals = 3) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = list(
+      cells_body(), cells_stub(), cells_row_groups(), cells_column_labels()
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#b6c3e0"),
+    locations = cells_body(
+      columns = c(y, ymin, ymax, pbetter2, p_val, p_adj),
+      rows = p_adj < 0.05 & pbetter2 > 0.5
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#ffd9d1"),
+    locations = cells_body(
+      columns = c(y, ymin, ymax, pbetter2, p_val, p_adj),
+      rows = p_adj < 0.05 & pbetter2 < 0.5
+    )
+  ) %>%
+  tab_header(
+    title = "Bias Reduction: Imputed vs Unadjusted",
+    subtitle = md("(Bias<sub>Unadjusted</sub> − Bias<sub>Imputed</sub>) / Bias<sub>Unadjusted</sub>")
+  ) %>%
+  tab_footnote(
+    footnote = md("<em>Note.</em> Est = Estimate, LB = Lower Bound 95% CI, UB = Upper Bound 95% CI. Significant (p<sub>adj</sub> < 0.05) effects highlighted in blue (imputation reduces bias) or red (imputation increases bias)."),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = md("P<sub>better</sub> = proportion of bootstrap iterations where |Bias<sub>Imputed</sub>| < |Bias<sub>Unadjusted</sub>|. Values > 0.5 indicate imputation reduces bias; values < 0.5 indicate imputation increases bias."),
+    locations = cells_column_labels(columns = pbetter2),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = md("p = two-tailed p-value equivalent derived from P<sub>better</sub> using bayestestR::pd_to_p(). Computed as 2 × min(P<sub>better</sub>, 1 − P<sub>better</sub>)."),
+    locations = cells_column_labels(columns = p_val),
+    placement = "right"
+  ) %>%
+  tab_footnote(
+    footnote = "p_adj = Bonferroni-corrected p-value within each timepoint.",
+    locations = cells_column_labels(columns = p_adj),
+    placement = "right"
+  ) %>%
+  opt_footnote_marks(marks = c("*", "†", "‡", "§"))
+```
+
+### Mean Squared Error
+
+```{r}
+
+combined_results_mse = combined_results %>%
+  mutate(
+    condition = factor(condition, levels = c("Unadjusted","Weighted", "Imputed")),
+    param = str_extract(stat, "^[^_]+"),
+    variable_raw = str_remove(stat, "^[^_]+_"),
+    var1 = case_when(
+      param == "cor" ~ str_extract(variable_raw, "^[^_]+"),
+      TRUE ~ variable_raw
+    ),
+    var2 = case_when(
+      param == "cor" ~ str_extract(variable_raw, "[^_]+$"),
+      TRUE ~ NA_character_
+    ),
+    var1_label = rq6y_labels[match(var1, rq6y)],
+    var2_label = rq6y_labels[match(var2, rq6y)],
+    variable_pair = paste0(var1_label, " × ", var2_label),
+    variable = rq6y_labels[match(variable_raw, rq6y)],
+    variable = ifelse(is.na(variable), variable_pair, variable),
+    value = value^2
+  ) 
+
+combined_results_mse %>% 
+  filter(timepoint == "Y26 (web test)") %>% 
+  filter(param == "cor") %>% 
+  select(-stat) %>% 
+  ggplot(aes(y = value, x = condition)) +
+  geom_violin(fill = "black") + 
+  facet_grid(param ~ variable, scales = "free_y") + 
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90)
+  )
+  
+
+
+```
+
+
+#### Consistently Most Accurate Method (Heatmap)
+
+```{r}
+# For each iteration, determine which method has lowest squared error
+# Then calculate proportion of times each method wins
+mse_consistency = combined_results_mse %>%
+  select(variable, param, timepoint, condition, iteration, value) %>%
+  pivot_wider(
+    names_from = condition,
+    values_from = value
+  ) %>%
+  mutate(
+    best = case_when(
+      Imputed <= Weighted & Imputed <= Unadjusted ~ "Imputed",
+      Weighted <= Imputed & Weighted <= Unadjusted ~ "Weighted",
+      TRUE ~ "Unadjusted"
+    )
+  ) %>%
+  group_by(variable, param, timepoint) %>%
+  summarise(
+    p_unadjusted = mean(best == "Unadjusted"),
+    p_weighted = mean(best == "Weighted"),
+    p_imputed = mean(best == "Imputed"),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    # Only highlight if one method wins >95% of the time
+    best_method = case_when(
+      p_imputed > 0.95 ~ "Imputed",
+      p_weighted > 0.95 ~ "Weighted",
+      p_unadjusted > 0.95 ~ "Unadjusted",
+      TRUE ~ "None"
+    ),
+    best_method = factor(best_method, levels = c("Unadjusted", "Weighted", "Imputed", "None"))
+  )
+
+# Create heatmap showing consistently winning method
+mse_consistency %>%
+  mutate(
+    param = case_when(
+      param == "smd" ~ "SMD",
+      param == "var" ~ "Variance",
+      param == "cor" ~ "Correlation"
+    ),
+    param = factor(param, levels = c("SMD", "Variance", "Correlation")),
+    timepoint = factor(timepoint, levels = c("Y21", "Y26 (q'aire)", "Y26 (web test)"))
+  ) %>%
+  ggplot(aes(x = timepoint, y = variable, fill = best_method)) +
+  geom_tile(color = "grey50", linewidth = 0.5) +
+  facet_wrap(~param, scales = "free_y", ncol = 3) +
+  scale_fill_manual(
+    values = c("Unadjusted" = "#fee08b", "Weighted" = "#d73027", "Imputed" = "#1a9850", "None" = "white"),
+    name = "Consistently Best (>95%)"
+  ) +
+  labs(
+    title = "Most Accurate Method (Lowest MSE)",
+    subtitle = "Highlighted only when one method is most accurate in >95% of bootstrap iterations",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.text.y = element_text(angle = 45, hjust = 1, size = 7),
+    strip.text = element_text(face = "bold", size = 10),
+    panel.grid = element_blank(),
+    legend.position = "bottom"
+  )
+
+save_plot("9_lowest_mse_method", width = 8, height = 8)
+
+```
+
+#### Proportion of Iterations Each Method is Most Accurate (Stacked Bar)
+
+```{r}
+# Stacked bar chart showing proportion of times each method wins
+mse_consistency_long = mse_consistency %>%
+  select(variable, param, timepoint, p_unadjusted, p_weighted, p_imputed) %>%
+  pivot_longer(
+    cols = starts_with("p_"),
+    names_to = "method",
+    values_to = "proportion",
+    names_prefix = "p_"
+  ) %>%
+  mutate(
+    method = str_to_title(method),
+    method = factor(method, levels = c("Unadjusted", "Weighted", "Imputed")),
+    param = case_when(
+      param == "smd" ~ "SMD",
+      param == "var" ~ "Variance",
+      param == "cor" ~ "Correlation"
+    ),
+    param = factor(param, levels = c("SMD", "Variance", "Correlation")),
+    timepoint = factor(timepoint, levels = c("Y21", "Y26 (q'aire)", "Y26 (web test)"))
+  )
+
+mse_consistency_long %>%
+  ggplot(aes(x = variable, y = proportion, fill = method)) +
+  geom_col(position = "stack", width = 0.8) +
+  facet_grid(timepoint ~ param, scales = "free_x") +
+  scale_fill_manual(
+    values = c("Unadjusted" = "#fee08b", "Weighted" = "#d73027", "Imputed" = "#1a9850"),
+    name = "Method"
+  ) +
+  scale_y_continuous(labels = scales::percent, breaks = c(0, 0.5, 1)) +
+  labs(
+    title = "Proportion of Iterations Each Method is Most Accurate (Lowest Mean Squared Error)",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 20, hjust = 1, size = 8),
+    axis.text.y = element_text(size = 7),
+    strip.text.x = element_text(face = "bold", size = 9),
+    strip.text.y = element_text(angle = 0, size = 8),
+    panel.grid = element_blank(),
+    legend.position = "right"
+  )
+
+save_plot("9_lowest_mse_method_stacked", width = 9, height = 6)
+
+```
+
+# Extra Plots
+
+## Correlation Differences
+
+```{r}
+
+# Shared wrangling used by both the annotations and the main plot
+plot_data_cor = combined_results %>%
+  mutate(
+    condition    = factor(condition, levels = c("Unadjusted", "Weighted", "Imputed")),
+    param        = str_extract(stat, "^[^_]+"),
+    variable_raw = str_remove(stat, "^[^_]+_")
+  ) %>%
+  filter(param == "cor") %>%
+  mutate(
+    var1       = str_extract(variable_raw, "^[^_]+"),
+    var2       = str_extract(variable_raw, "[^_]+$"),
+    var1_label = rq6y_labels[match(var1, rq6y)],
+    var2_label = rq6y_labels[match(var2, rq6y)],
+    pair_label = paste0(var1_label, " ×\n", var2_label),
+    timepoint  = factor(timepoint, levels = rq1y_twin_labels_clean_extrashort)
+  )
+
+# Point estimate + 95% CI per condition × pair × timepoint (for in-panel annotations)
+panel_labels = plot_data_cor %>%
+  group_by(condition, pair_label, timepoint) %>%
+  summarise(
+    est = mean(value),
+    lo  = quantile(value, 0.025),
+    hi  = quantile(value, 0.975),
+    .groups = "drop"
+  ) %>%
+  mutate(label = sprintf("%+.3f [%+.3f, %+.3f]", est, lo, hi))
+
+```
+
+### Descriptive Stats
+
+```{r}
+
+plot_data_cor %>%  
+  group_by(condition) %>% 
+  summarise(
+    .mean_qi_pd(value, .width = .95)
+  )
+
+plot_data_cor %>%  
+  group_by(condition) %>% 
+  summarise(
+    .mean_qi_pd(value, .width = .99)
+  )
+
+```
+
+
+### Complex Plot
+
+```{r}
+
+plot_data_cor %>%
+  ggplot(aes(x = value, fill = condition, color = condition)) +
+  geom_density(alpha = 0.25, linewidth = 0.6) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey30", linewidth = 0.5) +
+  # Annotations: one geom_text per condition so each gets its own colour and vjust row
+  geom_text(
+    data = filter(panel_labels, condition == "Unadjusted"),
+    aes(x = -Inf, y = Inf, label = label),
+    color = "#b07800", hjust = -0.05, vjust = 1.3,
+    size = 1.8, family = "mono", inherit.aes = FALSE
+  ) +
+  geom_text(
+    data = filter(panel_labels, condition == "Weighted"),
+    aes(x = -Inf, y = Inf, label = label),
+    color = "#7b241c", hjust = -0.05, vjust = 2.8,
+    size = 1.8, family = "mono", inherit.aes = FALSE
+  ) +
+  geom_text(
+    data = filter(panel_labels, condition == "Imputed"),
+    aes(x = -Inf, y = Inf, label = label),
+    color = "#1a7040", hjust = -0.05, vjust = 4.3,
+    size = 1.8big, family = "mono", inherit.aes = FALSE
+  ) +
+  facet_grid(pair_label ~ timepoint, scales = "free_y") +
+  scale_fill_manual(
+    values = c("Unadjusted" = "#f0a500", "Weighted" = "#c0392b", "Imputed" = "#27ae60"),
+    labels = c("Unadjusted" = "Attritioned (Unadjusted)", "Weighted" = "Attritioned + Weighted", "Imputed" = "Attritioned + Imputed"),
+    name = "Method"
+  ) +
+  scale_color_manual(
+    values = c("Unadjusted" = "#b07800", "Weighted" = "#7b241c", "Imputed" = "#1a7040"),
+    labels = c("Unadjusted" = "Attritioned (Unadjusted)", "Weighted" = "Attritioned + Weighted", "Imputed" = "Attritioned + Imputed"),
+    name = "Method"
+  ) +
+  labs(
+    title    = "Bootstrap Distribution of Correlation Changes by Method and Timepoint",
+    subtitle = "Dashed line at zero = no change relative to full-participation sample",
+    x        = expression("Correlation change (" * r[attritioned] * " - " * r[original] * ")"),
+    y        = "Density"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x        = element_text(angle = 30, hjust = 1, size = 8),
+    axis.text.y        = element_blank(),
+    axis.ticks.y       = element_blank(),
+    strip.text.x       = element_text(face = "bold", size = 9),
+    strip.text.y       = element_text(size = 9, angle = 0, hjust = 0),
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.y = element_blank(),
+    legend.position    = "bottom",
+    plot.title         = element_text(size = 11, face = "bold"),
+    plot.subtitle      = element_text(size = 9, color = "grey40")
+  )
+
+save_plot("9_extra_correlation_densities", width = 8, height = 9)
+```
+
