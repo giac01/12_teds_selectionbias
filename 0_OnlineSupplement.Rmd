@@ -48,7 +48,7 @@ a:hover { color: #2980b9; }
 
 Supplementary tables with additional information not included in the main manuscript (e.g., exact p-values, confidence intervals) can be found in the links below.
 
-The codebase is structured so that computationally intensive analyses are run using R scripts, with results saved as .Rmd files. Extraction of results and creation of tables and plots is then done in Quarto (.qmd) scripts. The tables and figures from those scripts are linked below.
+The codebase is structured so that computationally intensive analyses are run using R scripts, with results saved as .Rdata files. Extraction of results and creation of tables and plots is then done in Quarto (.qmd) scripts. The tables and figures from those scripts are linked below.
 
 <div class="note-box">
 **Note:** The research question numbering in the codebase differs from how they are presented in the paper.
