@@ -500,7 +500,7 @@ mfq_labels = df %>%
   select(all_of(mfq)) %>%
   sapply(., function(x) attr(x, "label"))
 
-rq6y_labels = rq5y_labels_short[match(rq6y, rq5y)]
+rq6y_labels = c("Y12: Depression (MFQ)", "Y12: Externalising (SDQ)", "Y12: Cognitive ability", "Y16: GCSE grade")
 
 ## Check Labels and variables match --------------------------------------------
 

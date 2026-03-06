@@ -175,46 +175,21 @@ v_rq3 = data.frame(
   `Study Wave` = sapply(rq6y, get_study_wave)
 )
 
-v_rq5 = data.frame(
-  `Short Label` = rq5y_labels_short,
-  Description   = clean_description(var_to_label(rq5y)),
-  `Teds Code` = ifelse(rq5y %in% colnames(df0), rq5y, paste0(rq5y, "*")),
-  `Range or Level` = sapply(rq5y, function(var) {
-    if (class(df[[var]]) == "numeric") {
-      paste0(round(min(df[[var]], na.rm = TRUE), 2), " — ", round(max(df[[var]], na.rm = TRUE), 2))
-    } else if (is.factor(df[[var]])) {
-      factor_levels = levels(df[[var]])
-      paste(c(paste0(factor_levels[1],"*"), factor_levels[-1]), collapse = ", ")
-    } else {
-      paste(unique(df[[var]]), collapse = ", ")
-    }
-  }),
-  N = sapply(rq5y, function(var) {
-    sum(!is.na(df[[var]]))
-  }),
-  `Study Wave` = sapply(rq5y, get_study_wave)
-)
-
 # Combine all v_rq dataframes with row indices for grouping
 v_rq1x_indexed = cbind(row_group = "RQ1 Variables", row_id = 1:nrow(v_rq1x), v_rq1x)
 v_rq1y_indexed = cbind(row_group = "RQ1 Outcome Variables", row_id = (nrow(v_rq1x)+1):(nrow(v_rq1x)+nrow(v_rq1y)), v_rq1y)
 v_rq2_indexed = cbind(row_group = "RQ2 Variables", row_id = (nrow(v_rq1x)+nrow(v_rq1y)+1):(nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)), v_rq2)
 v_rq3_indexed = cbind(row_group = "RQ3 Variables", row_id = (nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+1):(nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+nrow(v_rq3)), v_rq3)
-v_rq5_indexed = cbind(row_group = "RQ5 Variables", row_id = (nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+nrow(v_rq3)+1):(nrow(v_rq1x)+nrow(v_rq1y)+nrow(v_rq2)+nrow(v_rq3)+nrow(v_rq5)), v_rq5)
 
-v_rq_combined = rbind(v_rq1x_indexed, v_rq1y_indexed, v_rq2_indexed, v_rq3_indexed, v_rq5_indexed)
+v_rq_combined = rbind(v_rq1x_indexed, v_rq1y_indexed, v_rq2_indexed, v_rq3_indexed)
 
 gt(v_rq_combined) %>%
   tab_row_group(
-    label = "E) RQ4 Outcome Variables",
-    rows = row_group == "RQ5 Variables"
-  ) %>%
-  tab_row_group(
-    label = "D) RQ3 Outcome Variables",
+    label = "D) RQ2-3 Adolescence Measures",
     rows = row_group == "RQ3 Variables"
   ) %>%
   tab_row_group(
-    label = "C) RQ2 Outcome Variables",
+    label = "C) RQ2 Toddlerhood Measures",
     rows = row_group == "RQ2 Variables"
   ) %>%
   tab_row_group(
@@ -377,8 +352,7 @@ save_plot("11_participation_rate_by_cohort_selectedy2", width = 11, height = 9)
 ```{r}
 
 df %>%
-  select(cohort, all_of(rq1y_twin1)) %>%
-  # select(cohort, !starts_with(vars_to_na)) %>%
+  select(cohort, all_of(c("acontact",rq1y_twin1))) %>%
   group_by(cohort) %>%
   summarise(across(everything(), 
                    ~ length(which(. == 1)) / length(which(. >= 0)),
@@ -387,9 +361,8 @@ df %>%
   pivot_longer(cols = -cohort, names_to = "Time Point", values_to = "Participation Rate") %>%
   mutate(
     `Time Point` = factor(`Time Point`, 
-                              levels = paste0(rq1y_twin,"1"), 
-                              labels = rq1y_twin_labels),
-    # Time_numeric = as.numeric(`Time Point`),
+                              levels = c("acontact",rq1y_twin1), 
+                              labels = c("Baseline",rq1y_twin_labels_clean_extrashort)),
     cohort = gsub(" twins", "",cohort),
     cohort = gsub(" to ", "-",cohort)
     ) %>%
@@ -403,10 +376,6 @@ df %>%
     size = 3,
     show.legend = FALSE
   ) +
-  # scale_x_continuous(
-  #   breaks = 1:length(c("acontact", rq1y)),
-  #   labels = var_to_label(c("acontact", rq1y))
-  # ) +
   scale_y_continuous(labels = scales::percent_format(), limits = c(0,1)) +
   theme_bw() +
   labs(x = "Time Point", 
@@ -416,6 +385,41 @@ df %>%
   theme(legend.position = c(.8,.8),
         axis.text.x = element_text(angle = 45, hjust = 1)) + 
   theme(plot.margin = margin(t = 1, r = 1, b = 1, l = 10, unit = "mm")) 
+
+df %>%
+  select(all_of(c("acontact",rq1y_twin1))) %>%
+  summarise(across(everything(), 
+                   ~ length(which(. == 1)) / length(which(. >= 0)),
+                   .names = "{.col}"),
+            .groups = "keep") %>%
+  pivot_longer(cols = everything(), names_to = "Time Point", values_to = "Participation Rate") %>%
+  mutate(
+    `Time Point` = factor(`Time Point`, 
+                              levels = c("acontact",rq1y_twin1), 
+                              labels = c("Baseline",rq1y_twin_labels_clean_extrashort))
+    ) %>%
+  ggplot(aes(x = `Time Point`, y = `Participation Rate`, group = 1)) + 
+  geom_point(size = 3) +
+  geom_line(linewidth = 1) +
+  geom_text(
+    aes(label = paste0(round(`Participation Rate` * 100, 1), "%")),
+    col = "#2c3e50",
+    vjust = 3,
+    hjust = 0.5,
+    size = 3,
+    show.legend = FALSE
+  ) +
+  scale_y_continuous(labels = scales::percent_format(), limits = c(0,1)) +
+  theme_bw() +
+  labs(x = "Time Point", 
+       y = "Participation Rate", 
+       color = "Cohort",
+       title = "Participation Rates Over Time (Twin-level participation)") +
+  theme(legend.position = c(.8,.8),
+        axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(plot.margin = margin(t = 1, r = 1, b = 1, l = 10, unit = "mm")) 
+
+save_plot("11_participation_rates_twinlevel", width = 6, height = 4)
 
 ```
 
@@ -590,7 +594,53 @@ estimates %>%
 
   save_plot("11_ACE_time", width = 7, height = 3)
 
+```
 
+#### ACE Estimates Table
+
+```{r}
+
+var_labels_vec = setNames(rq1y_twin_labels_clean, rq1y_twin)
+
+ace_gt_data = ci %>%
+  mutate(
+    par_clean = case_when(
+      par == "a1" ~ "A",
+      par == "c1" ~ "C",
+      par == "e1" ~ "E"
+    ),
+    time_point = var_labels_vec[variable],
+    time_point = factor(time_point, levels = rq1y_twin_labels_clean)
+  ) %>%
+  select(time_point, sex, par_clean, est, lower, upper) %>%
+  pivot_wider(
+    names_from  = par_clean,
+    values_from = c(est, lower, upper),
+    names_glue  = "{par_clean}_{.value}"
+  ) %>%
+  arrange(sex, time_point) %>%
+  mutate(sex = tools::toTitleCase(sex))
+
+ace_gt_data %>%
+  gt(groupname_col = "sex") %>%
+  tab_spanner(label = "A (Genetic)",          columns = starts_with("A_")) %>%
+  tab_spanner(label = "C (Shared Env.)",       columns = starts_with("C_")) %>%
+  tab_spanner(label = "E (Non-shared Env.)",   columns = starts_with("E_")) %>%
+  cols_label(
+    time_point = "Time Point",
+    A_est = "Est.", A_lower = "Lower", A_upper = "Upper",
+    C_est = "Est.", C_lower = "Lower", C_upper = "Upper",
+    E_est = "Est.", E_lower = "Lower", E_upper = "Upper"
+  ) %>%
+  fmt_number(columns = where(is.numeric), decimals = 3) %>%
+  sub_missing(missing_text = "\u2014") %>%
+  tab_header(
+    title    = "ACE Estimates for Participation Indicators",
+    subtitle = "Point estimates with 95% confidence intervals"
+  ) %>%
+  tab_footnote(
+    footnote = "Note. A = additive genetic; C = shared environment; E = non-shared environment. Values are variance components."
+  )
 
 ```
 
@@ -956,3 +1006,33 @@ plot_education_effects(model_cog, "Predicted Cognitive Score (g)")
 save_plot("11_meducation_cognitive_plot", width = 6, height = 5)
 
 ```
+
+# Example of attritioning for presentations
+
+
+```{r}
+
+df %>%
+  filter(!is.na(lsdqext1)) %>%
+  mutate(lsdqext1_attritioned = ifelse(zcdata1==1, lsdqext1, NA)) %>%
+  select(lsdqext1, lsdqext1_attritioned) %>%
+  pivot_longer(cols = everything()) %>%
+  mutate(
+    name = factor(ifelse(name=="lsdqext1", "Original", "Attritioned (Y26 Web Test)"),
+                  levels = c("Original", "Attritioned (Y26 Web Test)"))
+  ) %>%
+  ggplot(aes(x = value, fill = name)) +
+  geom_histogram(bins = 12, color = "white", linewidth = 0.2) +
+  facet_wrap(~name, ncol = 1) +
+  scale_fill_manual(values = c("Original" = "#4C72B0", "Attritioned (Y26 Web Test)" = "#DD8452")) +
+  theme_bw() +
+  labs(x = "Year 2 Externalising Symptoms", y = "Count") +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "grey90"),
+        strip.text = element_text(face = "bold", size = 11),
+        panel.grid.minor = element_blank())
+
+save_plot("11_attritioning_example", width  = 4, height = 6)
+
+```
+

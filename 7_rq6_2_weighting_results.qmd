@@ -342,7 +342,7 @@ heatmap_data_smd = weighted_comparisons_df %>%
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", y)), ""),
-        size = 4.5
+        size = 6.5
     ),
     color = "black"
   ) +
@@ -358,7 +358,7 @@ heatmap_data_smd = weighted_comparisons_df %>%
     guide = "none"
   ) +
   labs(
-    subtitle = expression(frac(bar(X)[attrition + weighted] - bar(X)[original], SD[original])),
+    subtitle = expression(frac(bar(X)[attritioned + weighted] - bar(X)[original], SD[original])),
     tag = "A2"
   ) +
   theme_minimal() +
@@ -419,7 +419,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        paste0(sprintf("%.1f", y * 100), "%"), ""),
-        size = 4.5
+        size = 6.5
     ),
     color = "black"
   ) +
@@ -430,12 +430,12 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     mid = "white",
     high = "#d73027",
     midpoint = 0,
-    limits = c(-.126, .126),
+    limits = c(-.135, .135),
     na.value = "white",
     guide = "none"
   ) +
   labs(
-    subtitle = expression(frac(Var[attrition + weighted] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
+    subtitle = expression(frac(Var[attritioned + weighted] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
     tag = "B2"
   ) +
   theme_minimal() +

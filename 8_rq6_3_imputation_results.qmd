@@ -452,7 +452,7 @@ heatmap_data_smd = imputed_comparisons_df %>%
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", y)), ""),
-        size = 4.5
+        size = 6.5
     ),
     color = "black"
   ) +
@@ -468,7 +468,7 @@ heatmap_data_smd = imputed_comparisons_df %>%
     guide = "none"
   ) +
   labs(
-    subtitle = expression(frac(bar(X)[attrition + imputed] - bar(X)[original], SD[original])),
+    subtitle = expression(frac(bar(X)[attritioned + imputed] - bar(X)[original], SD[original])),
     tag = "A3"
   ) +
   theme_minimal() +
@@ -529,7 +529,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        paste0(sprintf("%.1f", y * 100), "%"), ""),
-        size = 4.5
+        size = 6.5
     ),
     color = "black"
   ) +
@@ -540,12 +540,12 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     mid = "white",
     high = "#d73027",
     midpoint = 0,
-    limits = c(-.126, .126),
+    limits = c(-.135, .135),
     na.value = "white",
     guide = "none"
   ) +
   labs(
-    subtitle = expression(frac(Var[attrition + imputed] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
+    subtitle = expression(frac(Var[attritioned + imputed] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
     tag = "B3"
   ) +
   theme_minimal() +
@@ -1236,6 +1236,43 @@ save_plot("8_attrition_imputation_numbers", width = 9, height = 4)
 ```
 
 [📊 View Full Resolution Sample Size Plot (PNG)](plots/pngs/8_attrition_imputation_numbers.png)
+
+#### Attrition Only Plot
+
+```{r}
+
+response_statistics %>%
+  filter(condition == "Attritioned") %>%
+  mutate(
+    variable = rq6y_labels[match(variable, rq6y_prefix)],
+    variable = factor(variable, levels = rq6y_labels),
+    timepoint = factor(timepoint, levels = c("Original", rq1y_twin_labels_clean_extrashort)),
+    original = factor(ifelse(timepoint == "Original", "Original", "Attritioned"))
+  ) %>%
+  ggplot(aes(x = timepoint, y = n, group = variable)) +
+  geom_line() +
+  geom_point(aes(shape = original, size = original)) +
+  scale_shape_manual(values = c("Original" = 18, "Attritioned" = 16)) +
+  scale_size_manual(values = c("Original" = 3.5, "Attritioned" = 2)) +
+  labs(
+    y = "Sample size post-attritioning",
+    x = NULL
+  ) +
+  facet_wrap(~variable, nrow = 1) +
+  theme_bw() +
+  theme(
+    axis.text = element_text(color = "black"),
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 7),
+    axis.title.y = element_text(size = 9),
+    strip.text = element_text(size = 6),
+    legend.position = "none"
+  )
+
+save_plot("8_attrition_numbers", width = 6, height = 2)
+
+```
+
+[📊 View Full Resolution Attrition Plot (PNG)](plots/pngs/8_attrition_numbers.png)
 
 #### Sample Size Table
 

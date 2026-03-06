@@ -104,7 +104,7 @@ rownames(variable_comparisons_df0) = NULL
 
 ```{r}
 # Get original variances for rescaling
-original_variances = sapply(rq6y, function(x) stats::var(df[[x]], na.rm = TRUE))
+# original_variances = sapply(rq6y, function(x) stats::var(df[[x]], na.rm = TRUE))
 
 # variable_comparisons_df0 created above in "Transform Raw Results to Dataframe" section
 # Optionally can load from disk:
@@ -118,14 +118,14 @@ variable_comparisons_df = variable_comparisons_df0 %>%
   ) %>%
   # Rescale variance values
   pivot_longer(cols = starts_with("y")) %>%
-  mutate(
-    var_constant = original_variances[match(.$variable, rq6y_labels)],
-    value = case_when(
-      stat == "var" ~ value / var_constant,
-      TRUE ~ value
-    )
-  ) %>%
-  select(-var_constant) %>%
+  # mutate(
+  #   var_constant = original_variances[match(.$variable, rq6y_labels)],
+  #   value = case_when(
+  #     stat == "var" ~ value / var_constant,
+  #     TRUE ~ value
+  #   )
+  # ) %>%
+  # select(-var_constant) %>%
   pivot_wider(
     values_from = value,
     names_from  = name
@@ -316,7 +316,7 @@ ggplot(heatmap_data_smd, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", y)), ""),
-        size = 4.5
+        size = 6.5
     ),
     color = "black"
   ) +
@@ -332,7 +332,7 @@ ggplot(heatmap_data_smd, aes(x = Variables_wrapped, y = outcome_labeled)) +
     guide = "none"
   ) +
   labs(
-    subtitle = expression(frac(bar(X)[attrition] - bar(X)[original], SD[original])),
+    subtitle = expression(frac(bar(X)[attritioned] - bar(X)[original], SD[original])),
     tag = "A1"
   ) +
   theme_minimal() +
@@ -393,7 +393,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        paste0(sprintf("%.1f", y * 100), "%"), ""),
-        size = 4.5
+        size = 6.5
     ),
     color = "black"
   ) +
@@ -404,12 +404,12 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     mid = "white",
     high = "#d73027",
     midpoint = 0,
-    limits = c(-.126, .126),
+    limits = c(-.135, .135),
     na.value = "white",
     guide = "none"
   ) +
   labs(
-    subtitle = expression(frac(Var[attrition] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
+    subtitle = expression(frac(Var[attritioned] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
     tag = "B1"
   ) +
   theme_minimal() +
@@ -637,6 +637,48 @@ cor_table
 
 ```
 
+### Percentiles of effects
+
+```{r}
+bind_rows(correlation_comparisons, .id = "timepoint") %>%
+  mutate(
+    x_var_label = rq6y_labels[match(x_var, rq6y)],
+    y_var_label = rq6y_labels[match(y_var, rq6y)],
+    pair = paste(x_var_label, "×", y_var_label)
+  ) %>%
+  select(pair, y, pval_adj) %>%
+  summarise(
+    n_pairs = dplyr::n(),
+    mean    = mean(abs(y)),
+    p50     = quantile(abs(y), .50),
+    p90     = quantile(abs(y), .90),
+    p95     = quantile(abs(y), .95),
+    max     = max(abs(y))
+  ) %>%
+  gt() %>%
+  cols_label(
+    n_pairs = "Pairs (total)",
+    mean    = "Mean",
+    p50     = "Median",
+    p90     = "90th",
+    p95     = "95th",
+    max     = "Max"
+  ) %>%
+  fmt_number(columns = c(mean, p50, p90, p95, max), decimals = 3) %>%
+  tab_spanner(
+    label = md("|Correlation Change| Percentiles"),
+    columns = c(p50, p90, p95, max)
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(11)),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners())
+  ) %>%
+  tab_footnote(
+    footnote = md("<em>Note.</em> Percentiles of |r<sub>attritioned</sub> − r<sub>original</sub>| across all variable pairs and timepoints."),
+    placement = "right"
+  )
+```
+
 ### Plot of original correlations
 
 ```{r}
@@ -645,12 +687,19 @@ df %>%
   select(rq6y) %>%
   `colnames<-`(rq6y_labels) %>%
   as.data.frame() %>%
-  gbtoolbox::plot_correlations() +
+  gbtoolbox::plot_correlations(
+    confidence_interval = FALSE,
+    text_size_r = 5
+  ) +
   labs(
     title = "Original (unattritioned) correlations",
-    subtitle =  "Below Diagonal: Correlations.\nDiagonal: Univariate Sample Sizes.  \nAbove Diagonal: Pairwise Sample Sizes & 95% CI")
+    subtitle = "**Below Diagonal:** Correlations.<br>**Diagonal:** Univariate Sample Sizes.<br>**Above Diagonal:** Pairwise Sample Sizes") +
+  theme(
+    axis.text = element_text(color = "black", size = 10),
+    plot.subtitle = ggtext::element_markdown()
+  )
 
-save_plot("6_rq6_original_correlations", height = 6, width = 6)
+save_plot("6_rq6_original_correlations", height = 5.2, width = 5.2)
 ```
 
 [View Plot](/plots/pngs/6_rq6_original_correlations.png)
@@ -803,6 +852,139 @@ ace_differences_tbl %>%
 
 ```
 
+### Percentiles of effects
+
+```{r}
+ace_differences_tbl %>%
+  select(y) %>%
+  summarise(
+    n_tests = dplyr::n(),
+    mean    = mean(abs(y)),
+    p50     = quantile(abs(y), .50),
+    p90     = quantile(abs(y), .90),
+    p95     = quantile(abs(y), .95),
+    max     = max(abs(y))
+  ) %>%
+  gt() %>%
+  cols_label(
+    n_tests = "Tests (total)",
+    mean    = "Mean",
+    p50     = "Median",
+    p90     = "90th",
+    p95     = "95th",
+    max     = "Max"
+  ) %>%
+  fmt_number(columns = c(mean, p50, p90, p95, max), decimals = 3) %>%
+  tab_spanner(
+    label = md("|ACE Difference| Percentiles"),
+    columns = c(p50, p90, p95, max)
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(11)),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners())
+  ) %>%
+  tab_footnote(
+    footnote = md("<em>Note.</em> Percentiles of |ACE<sub>attritioned</sub> − ACE<sub>original</sub>| across all variables, timepoints, and ACE components (A, C, E)."),
+    placement = "right"
+  )
+```
+
+### Directional Consistency Across Variables
+
+```{r}
+# For each ACE component × variable, how many of the 6 sex × timepoint
+# combinations show a positive vs negative change, and how many are significant?
+ace_differences_tbl %>%
+  mutate(
+    par        = toupper(par),
+    name_clean = rq6y_labels[match(name, rq6y)]
+  ) %>%
+  group_by(par, name_clean) %>%
+  summarise(
+    n          = dplyr::n(),
+    n_pos      = sum(y > 0),
+    n_neg      = sum(y < 0),
+    n_sig_pos  = sum(pval < 0.05 & y > 0),
+    n_sig_neg  = sum(pval < 0.05 & y < 0),
+    mean_diff  = mean(y),
+    .groups    = "drop"
+  ) %>%
+  arrange(par, name_clean) %>%
+  gt(groupname_col = "par", rowname_col = "name_clean") %>%
+  cols_label(
+    n          = "N",
+    n_pos      = md("N &uarr;"),
+    n_neg      = md("N &darr;"),
+    n_sig_pos  = md("N sig &uarr;"),
+    n_sig_neg  = md("N sig &darr;"),
+    mean_diff  = "Mean diff"
+  ) %>%
+  fmt_number(columns = mean_diff, decimals = 3) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = list(
+      cells_body(), cells_stub(), cells_row_groups(), cells_column_labels()
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = n_pos, rows = n_pos == n)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#f8cecc"),
+    locations = cells_body(columns = n_neg, rows = n_neg == n)
+  ) %>%
+  tab_footnote(
+    footnote = md("<em>Note.</em> N = number of sex × timepoint combinations (max 6). N &uarr; / N &darr; = number with positive/negative change (Attritioned − Original). N sig = number with p<sub>unadj</sub> < 0.05. Cells highlighted when all combinations agree in direction."),
+    placement = "right"
+  )
+```
+
+### Forest Plot of ACE Changes
+
+```{r}
+ace_differences_tbl %>%
+  mutate(
+    par           = toupper(par),
+    sex           = str_to_title(sex),
+    name_clean    = rq6y_labels[match(name, rq6y)],
+    name_clean    = factor(name_clean, levels = rev(rq6y_labels)),
+    dataset_label = factor(
+      rq1y_twin_labels_clean_extrashort[match(dataset, rq1y_twin1)],
+      levels = rq1y_twin_labels_clean_extrashort[range_participation_outcomes]
+    ),
+    significant   = pval_adj < 0.05
+  ) %>%
+  ggplot(aes(
+    x     = y,
+    xmin  = ymin,
+    xmax  = ymax,
+    y     = name_clean,
+    color = dataset_label,
+    alpha = significant
+  )) +
+  geom_pointrange(position = position_dodge(width = 0.6), size = 0.4, linewidth = 0.7) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40", linewidth = 0.5) +
+  facet_grid(sex ~ par, scales = "free_x") +
+  scale_color_brewer(palette = "Dark2", name = "Attrition timepoint") +
+  scale_alpha_manual(values = c("TRUE" = 1, "FALSE" = 0.35), guide = "none") +
+  labs(
+    title    = "Changes in ACE Estimates by Variable",
+    subtitle = "Attritioned − Original (95% CI). Dashed line = no change. Faded = non-significant (p\u2090\u2090\u2090 \u2265 0.05).",
+    x        = "ACE Difference",
+    y        = NULL
+  ) +
+  theme_bw() +
+  theme(
+    strip.text      = element_text(face = "bold", size = 10),
+    axis.text       = element_text(color = "black", size = 9),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+save_plot("6_rq6_ace_forest", width = 7, height = 5)
+```
+
 ### ACE Estimates Plot
 
 ```{r}
@@ -849,6 +1031,72 @@ save_plot("6_rq6_ace_comparison", width = 5, height = 8)
 [📊 View Full Resolution ACE Comparison Plot (PNG)](plots/pngs/6_rq6_ace_comparison.png)
 
 Although we see large-ish increases in the shared environment for depression symptoms in males, this is not significant even before multiple comparisons are corrected for. 
+
+## Effect of attritioning on sample sizes
+
+```{r}
+
+response_statistics_rq6 = df %>%
+  select(randomtwinid, all_of(rq6y), all_of(rq1y_twin1[range_participation_outcomes])) %>%
+  mutate(all1 = 1) %>%
+  pivot_longer(cols = all_of(rq6y), names_to = "variable", values_to = "score") %>%
+  pivot_longer(cols = all_of(c("all1", rq1y_twin1[range_participation_outcomes])), names_to = "timepoint", values_to = "participation_indicator") %>%
+  filter(!is.na(score)) %>%
+  filter(participation_indicator == 1) %>%
+  group_by(variable, timepoint) %>%
+  summarise(
+    n = dplyr::n(),
+    .groups = "drop"
+  ) %>%
+  group_by(variable) %>%
+  mutate(
+    max     = base::max(n),
+    percent = n / max
+  )
+
+response_statistics_rq6 %>%
+  mutate(
+    variable  = rq6y_labels[match(variable, rq6y)],
+    variable  = factor(variable, levels = rq6y_labels),
+    timepoint = rq1y_twin_labels_clean_extrashort[match(timepoint, rq1y_twin1)],
+    timepoint = ifelse(is.na(timepoint), "Original", timepoint),
+    timepoint = factor(timepoint, levels = c("Original", rq1y_twin_labels_clean_extrashort[range_participation_outcomes])),
+    original  = factor(ifelse(timepoint == "Original", "Original", "Attritioned"))
+  ) %>%
+  ggplot(aes(x = timepoint, y = n, group = variable)) +
+  geom_line() +
+  geom_point(aes(shape = original, size = original)) +
+  geom_text(
+    data = ~ filter(.x, timepoint == "Original"),
+    aes(label = paste0("N = ", as.character(n))),
+    vjust = .5, hjust = 1.2, size = 2.2, angle = 90, fontface = "bold"
+  ) +
+  geom_text(
+    data = ~ filter(.x, timepoint != "Original"),
+    aes(label = paste0(round(percent * 100, digits = 1), "%")),
+    vjust = .5, hjust = -.35, size = 1.9, angle = 90
+  ) +
+  scale_y_continuous(limits = c(0, NA)) +
+  scale_shape_manual(values = c("Original" = 18, "Attritioned" = 16)) +
+  scale_size_manual(values = c("Original" = 3.5, "Attritioned" = 2)) +
+  labs(
+    y     = "Sample size post-attritioning",
+    x     = NULL,
+    title = "Adolescence Measures"
+  ) +
+  facet_wrap(~variable, nrow = 1) +
+  theme_bw() +
+  theme(
+    axis.text   = element_text(color = "black"),
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 7),
+    legend.position = "none"
+  )
+
+save_plot("6_rq6_attrition_numbers", width = 7, height = 2.2)
+
+```
+
+[📊 View Full Resolution Attrition Numbers Plot (PNG)](plots/pngs/6_rq6_attrition_numbers.png)
 
 ```{r}
 

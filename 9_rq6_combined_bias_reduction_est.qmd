@@ -985,3 +985,185 @@ plot_data_cor %>%
 save_plot("9_extra_correlation_densities", width = 8, height = 9)
 ```
 
+# ACE Estimates
+
+## Extract ACE Differences from All Conditions
+
+### Unadjusted
+
+```{r}
+# Unadjusted: use pre-computed bootstrap summaries already stored in res_unadj
+ace_diff_unadj = lapply(seq_along(rq1y_twin1), function(i) {
+  res_unadj[[rq1y_twin1[i]]]$ace_diff_summary %>%
+    mutate(
+      timepoint  = rq1y_twin_labels_clean_extrashort[i],
+      condition  = "Unadjusted",
+      name_clean = rq6y_labels[match(name, rq6y)]
+    )
+}) %>%
+  bind_rows()
+
+ace_diff_unadj
+```
+
+### Weighted
+
+```{r}
+# Weighted: summarise raw bootstrap iterations
+ace_diff_weigh_list = vector("list", length(rq1y_twin1))
+
+for (i in seq_along(rq1y_twin1)) {
+  ace_results = lapply(res_weigh[[i]], function(x) x$ace)
+  ace_results = lapply(ace_results, function(x) {
+    x[[2]]$group = "difference"
+    x[[4]]$group = "difference"
+    return(x)
+  })
+  ace_results = lapply(ace_results, function(x) do.call(rbind, x))
+  ace_results = do.call(rbind, ace_results) %>%
+    filter(par %in% c("a", "c", "e"))
+
+  ace_diff_weigh_list[[i]] = ace_results %>%
+    filter(group == "difference") %>%
+    group_by(par, name, sex) %>%
+    summarise(.mean_qi_pd(value), .groups = "drop") %>%
+    mutate(
+      timepoint  = rq1y_twin_labels_clean_extrashort[i],
+      condition  = "Weighted",
+      name_clean = rq6y_labels[match(name, rq6y)]
+    )
+}
+
+ace_diff_weigh = bind_rows(ace_diff_weigh_list)
+ace_diff_weigh
+```
+
+### Imputed
+
+```{r}
+# Imputed: summarise across bootstrap iterations × imputed datasets
+n_imputed_ace = 250
+
+ace_diff_imput_list = vector("list", length(rq1y_twin1))
+
+for (tp in seq_along(rq1y_twin1)) {
+  timepoint_prefix = gsub("1$", "", rq1y_twin1[tp])
+
+  all_ace = vector("list", n_imputed_ace)
+  for (m in seq_len(n_imputed_ace)) {
+    dataset_name = paste0(timepoint_prefix, m)
+    imp_data     = res_imput[[dataset_name]]
+    # imp_data$ace: list of bootstrap iterations, each a list of dataframes
+    ace_iter     = lapply(imp_data$ace, function(x) do.call(rbind, x))
+    all_ace[[m]] = do.call(rbind, ace_iter)
+  }
+
+  ace_diff_imput_list[[tp]] = bind_rows(all_ace) %>%
+    filter(par %in% c("a", "c", "e"), group == "diff") %>%
+    group_by(par, name, sex) %>%
+    summarise(.mean_qi_pd(value), .groups = "drop") %>%
+    mutate(
+      timepoint  = rq1y_twin_labels_clean_extrashort[tp],
+      condition  = "Imputed",
+      name_clean = rq6y_labels[match(name, rq6y_prefix)]
+    )
+}
+
+ace_diff_imput = bind_rows(ace_diff_imput_list)
+ace_diff_imput
+```
+
+## Combined ACE Differences Table
+
+```{r}
+ace_diff_combined = bind_rows(ace_diff_unadj, ace_diff_weigh, ace_diff_imput) %>%
+  mutate(
+    condition = factor(condition, levels = c("Unadjusted", "Weighted", "Imputed")),
+    timepoint = factor(timepoint, levels = rq1y_twin_labels_clean_extrashort),
+    par       = toupper(par),
+    sex       = str_to_title(sex)
+  ) %>%
+  group_by(condition, timepoint, sex) %>%
+  mutate(pval_adj = stats::p.adjust(pval, method = "holm")) %>%
+  ungroup()
+
+ace_diff_combined %>%
+  select(sex, condition, timepoint, par, name_clean, y, ymin, ymax, pval, pval_adj) %>%
+  arrange(sex, name_clean, par, condition, timepoint) %>%
+  gt(groupname_col = "sex") %>%
+  cols_label(
+    condition  = "Condition",
+    timepoint  = "Timepoint",
+    par        = "Par",
+    name_clean = "Variable",
+    y          = "Est",
+    ymin       = "Lower",
+    ymax       = "Upper",
+    pval       = md("p"),
+    pval_adj   = md("p<sub>adj</sub>")
+  ) %>%
+  fmt_number(columns = c(y, ymin, ymax), decimals = 3) %>%
+  fmt_number(columns = c(pval, pval_adj), decimals = 4) %>%
+  tab_style(
+    style = cell_text(size = px(10)),
+    locations = list(
+      cells_body(), cells_stub(), cells_row_groups(), cells_column_labels()
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#ffd9d1"),
+    locations = cells_body(
+      columns = c(y, ymin, ymax, pval, pval_adj),
+      rows = pval_adj < 0.05 & y > 0
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#b6c3e0"),
+    locations = cells_body(
+      columns = c(y, ymin, ymax, pval, pval_adj),
+      rows = pval_adj < 0.05 & y < 0
+    )
+  ) %>%
+  tab_footnote(
+    footnote = md("<em>Note.</em> Difference = Attritioned − Original. Par: A = additive genetic, C = shared environment, E = unique environment. Significant (p<sub>adj</sub> < 0.05) effects highlighted in orange (increases) or blue (decreases). P values Bonferroni-Holm adjusted within each condition × timepoint × sex group."),
+    placement = "right"
+  )
+```
+
+## ACE Bias Reduction Plot
+
+```{r}
+ace_diff_combined %>%
+  ggplot(aes(
+    x     = y,
+    xmin  = ymin,
+    xmax  = ymax,
+    y     = condition,
+    color = condition
+  )) +
+  geom_pointrange(size = 0.3, linewidth = 0.6) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40", linewidth = 0.4) +
+  facet_grid(name_clean + sex ~ par + timepoint, scales = "free_x") +
+  scale_color_manual(
+    values = c("Unadjusted" = "#f0a500", "Weighted" = "#c0392b", "Imputed" = "#27ae60")
+  ) +
+  labs(
+    title    = "ACE Bias Across Conditions",
+    subtitle = "Difference = Attritioned − Original (95% CI). Dashed line = no bias.",
+    x        = "ACE Difference",
+    y        = NULL,
+    color    = "Condition"
+  ) +
+  theme_bw() +
+  theme(
+    strip.text.x     = element_text(size = 7, face = "bold"),
+    strip.text.y     = element_text(size = 7, angle = 0),
+    axis.text.y      = element_text(size = 8),
+    axis.text.x      = element_text(size = 7),
+    panel.grid.minor = element_blank(),
+    legend.position  = "bottom"
+  )
+
+save_plot("9_ace_bias_conditions", width = 10, height = 12)
+```
+

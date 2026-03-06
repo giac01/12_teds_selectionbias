@@ -68,7 +68,7 @@ Analysis code for studying selection bias in the Twins Early Development Study (
 
 | Script | Description | Output |
 |:-------|:------------|:------:|
-| [`7_rq7_1_weighting.R`](7_rq7_1_weighting.R) | Run IP weighting analysis | - |
+| [`7_rq6_1_weighting.R`](7_rq6_1_weighting.R) | Run IP weighting analysis | - |
 | [`7_rq6_2_weighting_results.qmd`](7_rq6_2_weighting_results.qmd) | Visualise and present results | [HTML](7_rq6_2_weighting_results.html) |
 
 #### Original vs. Attritioned + Imputed
@@ -79,26 +79,11 @@ Analysis code for studying selection bias in the Twins Early Development Study (
 | [`8_rq6_2_run_bootstrapping.R`](8_rq6_2_run_bootstrapping.R) | Run bootstrap comparison on imputed data | - |
 | [`8_rq6_3_imputation_results.qmd`](8_rq6_3_imputation_results.qmd) | Visualise and present results | [HTML](8_rq6_3_imputation_results.html) |
 
----
-
-### Research Question 4
-
-**Objective:** Test the effect of inverse probability weighting and multiple imputation on data collected at later time points.
-
-#### IP Weighting
+#### Combined Bias Reduction Estimates
 
 | Script | Description | Output |
 |:-------|:------------|:------:|
-| [`3_rq3_1_weighting_bootstrap.R`](3_rq3_1_weighting_bootstrap.R) | Run IP weighting + bootstrap analysis | - |
-| [`3_rq3_2_weighting_results.qmd`](3_rq3_2_weighting_results.qmd) | Visualise and present results | [HTML](3_rq3_2_weighting_results.html) |
-
-#### Multiple Imputation
-
-| Script | Description | Output |
-|:-------|:------------|:------:|
-| [`5_rq5_1_run_imputation.R`](5_rq5_1_run_imputation.R) | Generate imputed datasets | - |
-| [`5_rq5_2_run_bootstrapping.R`](5_rq5_2_run_bootstrapping.R) | Run bootstrapping on imputed datasets | - |
-| [`5_rq5_3_results.qmd`](5_rq5_3_results.qmd) | Visualise and present results | [HTML](5_rq5_3_results.html) |
+| [`9_rq6_combined_bias_reduction_est.qmd`](9_rq6_combined_bias_reduction_est.qmd) | Compare bias reduction across all correction methods | [HTML](9_rq6_combined_bias_reduction_est.html) |
 
 ---
 
@@ -113,8 +98,6 @@ export MKL_NUM_THREADS=1
 export VECLIB_MAXIMUM_THREADS=1
 
 Rscript 2_rq2_1_run_bootstrapping.R && \
-Rscript 3_rq3_1_weighting_bootstrap.R && \
-Rscript 5_rq5_1_run_imputation.R
 Rscript 6_rq6_1_run_bootstrap_attritioning.R && \
 Rscript 7_rq6_1_weighting.R && \
 Rscript 8_rq6_2_run_bootstrapping.R
