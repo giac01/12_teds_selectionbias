@@ -34,7 +34,7 @@ Analysis code for studying selection bias in the Twins Early Development Study (
 
 ### Research Question 1
 
-**Objective:** Identify which factors at Year 2 predict participation at later time points.
+**Objective:** Identify which baseline factors predict participation at later time points.
 
 | Script | Description | Output |
 |:-------|:------------|:------:|
@@ -46,10 +46,19 @@ Analysis code for studying selection bias in the Twins Early Development Study (
 
 **Objective:** Analyze the effect of selecting Year 2 data conditional on later participation ("attritioning").
 
+#### Toddlerhood Measures (Baseline & Year 2)
+
 | Script | Description | Output |
 |:-------|:------------|:------:|
 | [`2_rq2_1_run_bootstrapping.R`](2_rq2_1_run_bootstrapping.R) | Run bootstrapping, attritioning, and analysis | - |
 | [`2_rq2_results.qmd`](2_rq2_results.qmd) | Visualise and present results | [HTML](2_rq2_results.html) |
+
+#### Adolescence Measures (Year 12 & 16)
+
+| Script | Description | Output |
+|:-------|:------------|:------:|
+| [`6_rq6_1_run_bootstrap_attritioning.R`](6_rq6_1_run_bootstrap_attritioning.R) | Compare original vs. attritioned | - |
+| [`6_rq6_2_results.qmd`](6_rq6_2_results.qmd) | Visualise and present results | [HTML](6_rq6_2_results.html) |
 
 ---
 
