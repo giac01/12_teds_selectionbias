@@ -74,7 +74,10 @@ The codebase is structured so that computationally intensive analyses are run us
 |:---------|:------------|
 | [Variables in Imputation Model](1_rq1_predictors_of_participation.html#variables-in-imputation-model) | List of variables used for imputation |
 | [Logistic Regression Coefficients](1_rq1_predictors_of_participation.html#twin-level-logistic-regression-coefficients) | Model coefficients predicting twin participation. N.B. differences in follow-up participation between ethnic groups can be found here. |
-| [Marginal Effects Plot](1_rq1_predictors_of_participation.html#plot-marginal-effects-of-maternal-education) | Marginal effect of maternal education on participation |
+| [Education Marginal Effects Plot*](1_rq1_predictors_of_participation.html#plot-marginal-effects-of-maternal-education) | Marginal effect of maternal education on participation |
+| [Ethnicity Marginal Effects Plot*](1_rq1_predictors_of_participation.html#plot-marginal-effects-of-ethnicity) | Marginal effect of ethnicity on participation |
+
+\* These [marginal effects](https://marginaleffects.com/chapters/predictions.html) translate the logistic regression model coefficients into  model-predicted probabilities of participation at each time point, which can be simpler to understand. 
 
 ---
 

@@ -802,9 +802,13 @@ all_predictions = map_dfr(1:length(twinmodels), function(i) {
     amohqual = unique
   )
 
-  pred = predict(twinmodels[[i]], newdata = data_grid, type = "response")
-  
-  cbind.data.frame(data_grid, estimate = pred) %>%
+  pred = predict(twinmodels[[i]], newdata = data_grid, type = "link", se.fit = TRUE)
+  cbind.data.frame(
+    data_grid,
+    estimate = plogis(pred$fit),
+    conf.low  = plogis(pred$fit - 1.96 * pred$se.fit),
+    conf.high = plogis(pred$fit + 1.96 * pred$se.fit)
+  ) %>%
     mutate(
       outcome = rq1y_twin_labels_clean_extrashort[i],
       amohqual = factor(amohqual, levels = levels(df$amohqual))
@@ -816,16 +820,78 @@ all_predictions %>%
   mutate(
     outcome = factor(outcome, levels = rq1y_twin_labels_clean_extrashort)
   ) %>%
-  ggplot(aes(x = amohqual, y = estimate, group = outcome, color = outcome)) + 
-  geom_point() + 
-  geom_line() + 
+  ggplot(aes(x = amohqual, y = estimate, group = outcome, color = outcome)) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  scale_y_continuous(
+    breaks = seq(0, 1, by = 0.1),
+    labels = scales::percent_format(accuracy = 1)
+  ) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(
     title = "Predicted Participation by Maternal Education Level",
-    subtitle = "Across all study timepoints",
+    subtitle = "Predicted probabilities and 95% CIs across all study timepoints",
     x = "Maternal Education Level",
-    y = "Predicted Probability",
+    y = "Predicted Probability of Participation",
+    color = "Study Wave",
+    caption = "Note: Predictions calculated using logistic regression models fitted separately for each study wave.\nAll other covariates held at their observed means (continuous) or modes (categorical)."
+  )
+
+```
+
+## Plot Marginal Effects of ethnicity
+
+```{r}
+
+# Calculate average predictions for ethnicity
+
+# Calculate predictions for all models
+
+all_predictions_ethnicity = map_dfr(1:length(twinmodels), function(i) {
+  data_grid = marginaleffects::datagrid(
+    model = twinmodels[[i]],
+    aethnicc = unique
+  )
+
+  pred = predict(twinmodels[[i]], newdata = data_grid, type = "link", se.fit = TRUE)
+  cbind.data.frame(
+    data_grid,
+    estimate = plogis(pred$fit),
+    conf.low  = plogis(pred$fit - 1.96 * pred$se.fit),
+    conf.high = plogis(pred$fit + 1.96 * pred$se.fit)
+  ) %>%
+    mutate(
+      outcome = rq1y_twin_labels_clean_extrashort[i],
+      aethnicc = factor(aethnicc, levels = levels(df$aethnicc))
+    )
+})
+
+# Plot all predictions together
+all_predictions_ethnicity %>%
+  mutate(
+    outcome = factor(outcome, levels = rq1y_twin_labels_clean_extrashort),
+    aethnicc = factor(
+      aethnicc,
+      levels = c("Asian", "White", "Other", "Mixed race", "Black")
+    )
+  ) %>%
+  ggplot(aes(x = aethnicc, y = estimate, group = outcome, color = outcome)) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  scale_y_continuous(
+    breaks = seq(0, 1, by = 0.1),
+    labels = scales::percent_format(accuracy = 1)
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title = "Predicted Participation by Ethnic Origin",
+    subtitle = "Predicted probabilities and 95% CIs across all study timepoints",
+    x = "Ethnicity",
+    y = "Predicted Probability of Participation",
     color = "Study Wave",
     caption = "Note: Predictions calculated using logistic regression models fitted separately for each study wave.\nAll other covariates held at their observed means (continuous) or modes (categorical)."
   )
