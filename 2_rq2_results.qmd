@@ -1614,3 +1614,197 @@ df %>%
 
 ```
 
+## Effect of attritioning maternal education removing HNC and HND
+
+### Original Coding
+
+```{r}
+
+entropy = function(x) {
+  counts = table(x)
+  p = as.numeric(counts) / sum(counts)
+  p = p[p > 0]
+  -sum(p * log2(p))
+}
+
+summary_stats = df %>% 
+  mutate(mat_edu = amohqualn1) %>% 
+  select(all_of(rq1y_twin1),mat_edu) %>% 
+  mutate(fullsample = 1) %>% 
+  pivot_longer(cols = !mat_edu) %>% 
+  group_by(name, value) %>% 
+  summarise(
+    mean = mean(mat_edu, na.rm = TRUE),
+    var  = sd(mat_edu, na.rm = TRUE)^2,
+    entropy = entropy(mat_edu),
+    n    = dplyr::n()
+  ) %>% 
+  filter(value == 1)
+
+summary_stats %>% 
+  mutate(
+    name = rq1y_twin_labels_clean_extrashort[match(name, rq1y_twin1)],
+    name = case_when(
+      is.na(name) ~ "Full Sample",
+      .default = name
+    )
+  ) %>% 
+  arrange(var) %>% 
+  ungroup() %>% 
+  select(-value) %>% 
+  gt() %>% 
+  fmt_number(
+    decimals = 3,
+    columns = !n
+    )
+
+
+```
+
+
+### Combining HNC and HND with A-levels
+
+HNC and HND qualifications are vocational and sit ambiguously between A-levels and undergraduate degrees in the original ordinal coding. Here they are collapsed into the A-level category to create a cleaner ordinal scale. The table shows the mean, variance, and entropy of the recoded maternal education variable for participants at each study timepoint and for the full sample. Higher entropy indicates a more evenly distributed education profile among participants; a decline in entropy relative to the full sample would indicate that attrition is concentrating the sample toward certain education levels.
+
+```{r}
+# table(df$amohqualn1,  df$amohqual)
+
+df3 = df %>% 
+  mutate(
+    mat_edu = case_when(
+      .default = amohqualn1,
+      amohqualn1 == 5 ~ 4,  # HNC -> A level
+      amohqualn1 == 6 ~ 4,  # HND -> A level
+      amohqualn1 == 7 ~ 5   #undergraduate degree
+
+    )
+  ) %>% 
+  select(all_of(rq1y_twin1),mat_edu)
+
+summary_stats = df3 %>% 
+  mutate(fullsample = 1) %>% 
+  pivot_longer(cols = !mat_edu) %>% 
+  group_by(name, value) %>% 
+  summarise(
+    mean = mean(mat_edu, na.rm = TRUE),
+    var  = sd(mat_edu, na.rm = TRUE)^2,
+    entropy = entropy(mat_edu),
+    n    = dplyr::n()
+  ) %>% 
+  filter(value == 1)
+
+summary_stats %>% 
+  mutate(
+    name = rq1y_twin_labels_clean_extrashort[match(name, rq1y_twin1)],
+    name = case_when(
+      is.na(name) ~ "Full Sample",
+      .default = name
+    )
+  ) %>% 
+  arrange(var) %>% 
+  ungroup() %>% 
+  select(-value) %>% 
+  gt() %>% 
+  fmt_number(
+    decimals = 3,
+    columns = !n
+    )
+
+
+table(df$amohqualn1, df3$mat_edu)
+
+```
+
+### Dichotomising education into degree vs. no degree
+
+Here maternal education is reduced to a binary variable: whether or not the mother holds an undergraduate or postgraduate degree. This is a common simplification in the literature and avoids assumptions about the spacing of the ordinal scale. The table shows the proportion of mothers with a degree (mean), variance, and entropy among participants at each timepoint and in the full sample. A rising proportion of degree-educated mothers across timepoints would indicate that attrition disproportionately removes families from lower education backgrounds.
+
+```{r}
+
+df4 = df %>%
+  mutate(
+    mat_edu_degree = case_when(
+      amohqualn1 >= 7 ~ 1L,  # undergraduate degree or above
+      amohqualn1 <  7 ~ 0L,
+      .default = NA_integer_
+    )
+  ) %>%
+  select(all_of(rq1y_twin1), mat_edu_degree)
+
+summary_stats_degree = df4 %>%
+  mutate(fullsample = 1) %>%
+  pivot_longer(cols = !mat_edu_degree) %>%
+  group_by(name, value) %>%
+  summarise(
+    mean    = mean(mat_edu_degree, na.rm = TRUE),
+    var     = sd(mat_edu_degree, na.rm = TRUE)^2,
+    entropy = entropy(mat_edu_degree),
+    n       = dplyr::n()
+  ) %>%
+  filter(value == 1)
+
+summary_stats_degree %>%
+  mutate(
+    name = rq1y_twin_labels_clean_extrashort[match(name, rq1y_twin1)],
+    name = case_when(
+      is.na(name) ~ "Full Sample",
+      .default = name
+    )
+  ) %>%
+  arrange(var) %>%
+  ungroup() %>%
+  select(-value) %>%
+  gt() %>%
+  fmt_number(
+    decimals = 3,
+    columns = !n
+  )
+
+table(df$amohqualn1, df4$mat_edu_degree)
+
+```
+
+## Distribution of maternal education: full sample vs. Y26 Webtest participants
+
+The plot below compares the distribution of maternal education (`amohqual`) between the full TEDS sample and those who participated at the Y26 Webtest (`zcdata1 == 1`). Bars show the proportion of mothers at each education level within each group. 
+
+```{r}
+
+df %>%
+  mutate(group = if_else(zcdata1 == 1, "Y26 Webtest participants", "Full sample")) %>%
+  bind_rows(mutate(., group = "Full sample")) %>%
+  filter(!is.na(amohqual)) %>%
+  group_by(group, amohqual) %>%
+  summarise(n = dplyr::n(), .groups = "drop") %>%
+  group_by(group) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup() %>%
+  mutate(amohqual = factor(amohqual, levels = levels(df$amohqual))) %>%
+  ggplot(aes(x = amohqual, y = prop, fill = group)) +
+  geom_col(position = "dodge") +
+  geom_text(
+    aes(label = scales::percent(prop, accuracy = 0.1)),
+    position = position_dodge(width = 0.9),
+    vjust = -0.4,
+    size = 2.5
+  ) +
+  scale_y_continuous(
+    labels = scales::percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.1))
+  ) +
+  scale_fill_manual(values = c("Full sample" = "#d53031", "Y26 Webtest participants" = "#00929c")) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = c(0.98, 0.98),
+    legend.justification = c("right", "top"),
+    legend.background = element_rect(colour = "grey80")
+  ) +
+  labs(
+    x = "Maternal Education Level",
+    y = "Proportion",
+    fill = "Group"
+  )
+
+```
+

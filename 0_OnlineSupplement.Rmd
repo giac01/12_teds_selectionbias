@@ -113,6 +113,12 @@ The codebase is structured so that computationally intensive analyses are run us
 | [ACE Results Table](2_rq2_results.html#ace-estimates-differences-table-complete) | Heritability estimates comparison |
 | [ACE Comparison Figure](plots/pngs/2_rq2_ace_comparison_by_timepoint.png) | ACE estimates by timepoint |
 
+### Maternal Education Supplementary Analyses
+
+| Resource | Description |
+|:---------|:------------|
+| [Maternal Education Distribution](2_rq2_results.html#distribution-of-maternal-education-full-sample-vs.-y26-webtest-participants) | Comparison of maternal education distribution between the full sample and Y26 Webtest participants |
+
 ## Adolescent Outcomes
 
 ### Sample Sizes
@@ -141,6 +147,7 @@ The codebase is structured so that computationally intensive analyses are run us
 |:---------|:------------|
 | [ACE Results Table](6_rq6_2_results.html#table---changes-in-ace-estimates) | Heritability estimates comparison |
 | [ACE Comparison Figure](plots/pngs/6_rq6_ace_comparison.png) | ACE estimates comparison |
+
 
 ---
 
