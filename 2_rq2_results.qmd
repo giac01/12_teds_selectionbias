@@ -23,10 +23,16 @@ editor_options:
 
 The script [2_rq2_1_run_bootstrapping.R](2_rq2_1_run_bootstrapping.R){target="_blank"} runs the bootstrap analyses and saves the results - which are then cleaned and presented below. 
 
+Note that we exclude 164 twins/families with only a single twin in the analyses. 
+
 ```{r}
 #| output: false
 
 source("0_load_data.R")
+
+df = df %>% 
+  filter(!(randomfamid %in% exclude_fams_onesib)) 
+
 rm(rq1y, rq1y_labels, rq1y_labels_clean)
 
 # Load new bootstrap results
@@ -1771,9 +1777,12 @@ The plot below compares the distribution of maternal education (`amohqual`) betw
 ```{r}
 
 df %>%
-  mutate(group = if_else(zcdata1 == 1, "Y26 Webtest participants", "Full sample")) %>%
-  bind_rows(mutate(., group = "Full sample")) %>%
-  filter(!is.na(amohqual)) %>%
+  # filter(twin==1) %>% 
+  select(zcdata1, amohqual) %>%
+  mutate(fullsample = 1) %>%
+  pivot_longer(cols = c(fullsample, zcdata1), names_to = "group", values_to = "participated") %>%
+  filter(participated == 1, !is.na(amohqual)) %>%
+  mutate(group = if_else(group == "fullsample", "Full sample", "Y26 Webtest participants")) %>%
   group_by(group, amohqual) %>%
   summarise(n = dplyr::n(), .groups = "drop") %>%
   group_by(group) %>%

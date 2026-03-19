@@ -19,10 +19,15 @@ editor_options:
 
 # Load initial script
 
+Note that we exclude 164 twins/families with only a single twin in the analyses. 
+
 ```{r}
 #| output: false
 
 source("0_load_data.R")
+
+df = df %>% 
+  filter(!(randomfamid %in% exclude_fams_onesib)) 
 
 ```
 
