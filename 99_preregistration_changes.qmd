@@ -1,0 +1,46 @@
+---
+title: "Changes from the pre-registration"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    grid:
+      body-width: 900px
+editor: source
+---
+
+Here, we describe all changes from the [pre-registration](https://osf.io/v8sgf/files/tp8h3) to the manuscript. Note that the pre-registration is available as a PDF in the "files" section of the OSF registration.
+
+## All Research Questions
+
+### Major Changes
+
+* Participation time points 2, 7, and 14 were dropped from all analyses because not all participants were eligible to participate at these time points.
+* We dropped RQ5 from the final report because it was not sufficiently informative and to reduce the length of the manuscript.
+
+## RQ1
+
+### Major Changes
+
+* Hellinger's distance was dropped from the analyses as testing found that results were highly sensitive to the choice of kernel density estimator.
+* The standardised root mean squared residual (SRMR) was dropped from the analyses — instead, we present differences between each pairwise correlation.
+* We compare correlations between variables instead of covariances.
+
+
+### Minor Changes
+
+* We dropped the following variables from the analyses: twin genetic problems (agenpro1/2), mother/father social class (amoclass/afaclass), mother/father has a job (amojob/afajob), mother/father needs special qualification for job (amospq/afaspq).
+
+## RQ2
+
+### Major Changes
+
+* We added baseline maternal education as an outcome variable.
+* We added four adolescent outcomes (depression, externalising, cognitive ability and GCSE scores) as outcome variables.
+* As with RQ1, we omitted Hellinger's distance and SRMR from the models, and compared correlations instead of covariances.
+
+
+### Minor Changes
+
+* Instead of using IP weights fitted to model participation at a given timepoint, we used IP weights fitted to model missingness in each variable or pair of variables.
+* We increased the number of imputed datasets to 100.

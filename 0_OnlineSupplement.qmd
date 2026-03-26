@@ -1,14 +1,15 @@
 ---
-title: "Supplementary Materials for Selection Bias in TEDS Paper "
-output:
-  html_document:
+title: "Supplementary Materials for Selection Bias in TEDS Paper"
+format:
+  html:
     theme: flatly
     toc: true
-    toc_float:
-      collapsed: false
-      smooth_scroll: true
-    toc_depth: 3
-    number_sections: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: true
+    grid:
+      body-width: 900px
+editor: source
 ---
 
 <script>
@@ -53,6 +54,14 @@ The codebase is structured so that computationally intensive analyses are run us
 <div class="note-box">
 **Note:** The research question numbering in the codebase differs from how they are presented in the paper.
 </div>
+
+---
+
+# Changes from the Pre-registration
+
+| Resource | Description |
+|:---------|:------------|
+| [Pre-registration Changes](99_preregistration_changes.html) | All deviations from the pre-registered analysis plan |
 
 ---
 
