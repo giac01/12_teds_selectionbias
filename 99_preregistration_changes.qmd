@@ -9,6 +9,8 @@ format:
 editor: source
 ---
 
+← [Back to Online Supplement](0_OnlineSupplement.html)
+
 Here, we describe all changes from the [pre-registration](https://osf.io/v8sgf/files/tp8h3) to the manuscript. Note that the pre-registration is available as a PDF in the "files" section of the OSF registration.
 
 ## All Research Questions
