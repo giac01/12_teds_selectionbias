@@ -1,6 +1,6 @@
-# Run using docker container: bignardig/tidyverse451:v7
-# Run using commit: vbmbnbmnb (see commit message)
-# Run date: 13-Jan-2025
+# Run using docker container: bignardig/tidyverse451:v8
+# Run using commit: 2321sdfaadfsdf (see commit message)
+# Run date: 06-05-2026
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load data --------------------------------------------------------------------
@@ -11,9 +11,9 @@ rm(list=ls())
 source("0_load_data.R")
 imputed_datasets      = readRDS(file = file.path("results","8_1_imputed_mice.Rds"))
 
-range_participation_outcomes = 6:8
+range_participation_outcomes = 6:9
 n_workers                    = 16                                                # Number of parallel jobs to run (number of cores)]
-number_bootstraps_per_impute = 10000/250                                         # 1.2 hours
+number_bootstraps_per_impute = 10000/250                                         # 1.6 hours
 
 rq1y_twin                         = rq1y_twin[range_participation_outcomes]
 rq1y_twin1                        = rq1y_twin1[range_participation_outcomes]

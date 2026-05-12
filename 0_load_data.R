@@ -58,6 +58,8 @@ df0$lsdqext1         = 0
 df0$psdqext1         = 0
 df0$usdqext1         = 0 
 df0$zsdqext1         = 0
+df0$hasgeno1         = 0
+df0$hasgeno2         = 0
 
 attr(df0[["pollution1998pca"]], "label") = "Principal Component of 1998 pollution variables"
 attr(df0[["amohqualn"]],        "label") = "Maternal Education (formatted as numeric)"
@@ -70,6 +72,8 @@ attr(df0[["lsdqext1"]], "label") = "SDQ Externalising scale at 12"
 attr(df0[["psdqext1"]], "label") = "SDQ Externalising scale at 16"
 attr(df0[["usdqext1"]], "label") = "SDQ Externalising scale at 21"
 attr(df0[["zsdqext1"]], "label") = "SDQ Externalising scale at 26"
+attr(df0[["hasgeno1"]], "label") = "Genotyped"
+attr(df0[["hasgeno2"]], "label") = "Genotyped"
 
 df = df0
 
@@ -112,41 +116,7 @@ rq1x = c(
          "pollution1998pca"
 )
 
-# Family-level participation outcomes (DEPRECIATED / NOT BEING USED ANYMORE)
-
-rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr", "gpdata", "heightyr", "ipdata", "jtenyear", "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
-
-rq1y = c("btwoyear", "cthreeyr", "dfouryr", "gsevenyr",           "heightyr",           "jtenyear", "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
-
-rq1y_short = c(                  "dfouryr", "gsevenyr",           "heightyr",                       "ltwelvyr", "n14year", "p16year", "rcqdata", "uteds21data", "zmhdata")
-
-
 # Twin-level participation otucomes 
-
-# rq1y_twinsep = df %>% select(contains("data")) %>% colnames()
-# rq1y_twinsep_labels = var_to_label(rq1y_twinsep)
-# cbind(rq1y_twinsep, rq1y_twinsep_labels)
-
-rq1y_twin_full = c(
-  "btwdata", # removed because not all twins were eligible
-  "ctwdata", # removed because not all twins were eligible
-  "dtwdata",
-  "gcdata",  # removed because not all twins were eligible
-  "icdata",  # removed because not all twins were eligible
-  "jcdata",  # removed because not all twins were eligible
-  "lcwdata",
-  "lcqdata",
-  "pcwebdata", # removed because not all twins were eligible
-  "pcbhdata",
-  # removed more niche data collections: 
-  "pcl2data",  # Child LEAP-2 booklet data present at 16, 1Y 0N
-  "rcfdata",   # Fashion, Food and Music Preferences (FFMP) web study was carried out for cohort 3 twins (aged roughly 19 years) between March and April 2015.
-  "rckdata",   # Kings Challenge web study. A battery of 10 twin activities to test spatial abilities.
-  "rcqdata",
-  "u1cdata",
-  "zmhdata",
-  "zcdata")
-
 rq1y_twin = c(
   # "btwdata", # removed because not all twins were eligible
   # "ctwdata", # removed because not all twins were eligible
@@ -165,7 +135,9 @@ rq1y_twin = c(
   "rcqdata",
   "u1cdata",
   "zmhdata",
-  "zcdata")
+  "zcdata",
+  "hasgeno"
+  )
 
 rq1y_twin1 = paste0(rq1y_twin,"1")
 rq1y_twin2 = paste0(rq1y_twin,"2")
@@ -367,6 +339,32 @@ df$pollution1998pca = as.numeric(x$scores)
 
 rm(x)
 
+## Recode genotyped variables --------------------------------------------------
+
+table(df$zygos, df$sexzyg)
+
+# For MZ twins, if either twin was genotyped, set both to 1 (only one per pair is genotyped)
+df = df %>%
+  dplyr::mutate(
+    hasgeno1 = dplyr::case_when(
+      zygos == 1 ~ as.integer(genotyped1 == 1 | genotyped2 == 1),
+      TRUE ~ as.integer(genotyped1)
+    ),
+    hasgeno2 = dplyr::case_when(
+      zygos == 1 ~ as.integer(genotyped1 == 1 | genotyped2 == 1),
+      TRUE ~ as.integer(genotyped2)
+    )
+  )
+
+df$hasgeno1[df$aethnicc!="White"] = NA
+df$hasgeno2[df$aethnicc!="White"] = NA
+
+df$hasgeno1[is.na(df$aethnicc)] = NA
+df$hasgeno2[is.na(df$aethnicc)] = NA
+
+# df = df %>% 
+#   select(-genotyped1, -genotyped2)
+
 # Reset attributes -------------------------------------------------------------
 
 all_vars = colnames(df)
@@ -410,9 +408,9 @@ rq1x_labels_clean = c(
   "Pollution index"
 )
 
-rq1y_labels = rq1y %>% var_to_label()
-
-rq1y_labels_clean = clean_rq1y_label(rq1y_labels)
+# rq1y_labels = rq1y %>% var_to_label()
+# 
+# rq1y_labels_clean = clean_rq1y_label(rq1y_labels)
 
 rq1y_twin_labels = var_to_label(rq1y_twin1)
 
@@ -431,7 +429,8 @@ rq1y_twin_labels_clean = c(
   "Y18 (questionnaire)",
   "Y21 (TEDS21 phase-1 questionnaire)",
   "Y26 (TEDS26 questionnaire)",
-  "Y26 (CATSLife web tests)"
+  "Y26 (CATSLife web tests)",
+  "Genotyped"
 )
 
 rq1y_twin_labels_clean_extrashort = c(
@@ -449,7 +448,8 @@ rq1y_twin_labels_clean_extrashort = c(
   "Y18",
   "Y21",
   "Y26 (q'aire)",
-  "Y26 (web test)"
+  "Y26 (web test)",
+  "Genotyped"
 )
 
 cbind(rq1y_twin_labels, rq1y_twin_labels_clean, rq1y_twin_labels_clean_extrashort)
@@ -507,9 +507,6 @@ rq6y_labels = c("Y12: Depression (MFQ)", "Y12: Externalising (SDQ)", "Y12: Cogni
 testthat::test_that("Label lengths match variable lengths", {
   testthat::expect_equal(length(rq1x), length(rq1x_labels))
   testthat::expect_equal(length(rq1x), length(rq1x_labels_clean))
-  
-  testthat::expect_equal(length(rq1y), length(rq1y_labels))
-  testthat::expect_equal(length(rq1y), length(rq1y_labels_clean))
   
   testthat::expect_equal(length(rq1y_twin1), length(rq1y_twin_labels_clean))
   testthat::expect_equal(length(rq1y_twin1), length(rq1y_twin_labels_clean_extrashort))

@@ -41,7 +41,7 @@ df = df %>%
 
 ## range of participation outcomes to use for attrition
 
-range_participation_outcomes = 6:8
+range_participation_outcomes = 6:9
 
 # Subset vectors to only include participation outcomes in range
 rq1y_twin                         = rq1y_twin[range_participation_outcomes]
@@ -341,8 +341,8 @@ heatmap_data_smd = weighted_comparisons_df %>%
             size = 0.5) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
-                       gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", y)), ""),
-        size = 6.5
+                       gsub("^(-?)0\\.", "\\1.", sprintf("%.2f", y)), ""),
+        size = 7.5
     ),
     color = "black"
   ) +
@@ -419,7 +419,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        paste0(sprintf("%.1f", y * 100), "%"), ""),
-        size = 6.5
+        size = 7.5
     ),
     color = "black"
   ) +
@@ -525,7 +525,7 @@ plots = lapply(1:length(correlation_comparisons), function(i) {
 
 patchwork::wrap_plots(
   plots,
-  ncol = 3) +
+  ncol = 2) +
   plot_annotation(
     title = expression(Cor[attritioned + weighted] ~ - ~ ~ Cor[original]),
     theme = theme(

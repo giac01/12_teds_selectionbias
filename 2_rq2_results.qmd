@@ -177,12 +177,12 @@ attritioned_datasets = list()
 
 for (i in seq_along(rq1y_twin1)){
   
-  filter = as.numeric(df[[rq1y_twin1[i]]])==0 # 1 = present (Y), 2 = not-present (N)
+  filter = as.numeric(df[[rq1y_twin1[i]]])==0 # 0 = not present 
   
   attritioned_datasets[[i]] = df %>% 
     select(all_of(rq2y))
   
-  attritioned_datasets[[i]][filter,] = NA
+  attritioned_datasets[[i]][which(filter),] = NA
   
 }
 
@@ -358,23 +358,19 @@ variable_comparisons_df %>%
    heatmap_data_smd = variable_comparisons_df %>%
     filter(stat == "smd") %>%
     mutate(
+      variable = ifelse(variable == "Peer problems", "Peer prob.", variable),
       outcome_labeled = dataset,
       outcome_labeled = factor(outcome_labeled, levels = rq1y_twin_labels_clean_extrashort),
       Variables_wrapped = str_wrap(variable, width = 8),
+      Variables_wrapped = factor(Variables_wrapped, levels = c("Maternal\nEducation", "Conduct\nproblems", "Peer\nprob.", "Parent-report\ncognition", "Parent-admin\ncognition", "Vocabulary", "Hyperactivity", "Grammar",
+  "Emotional\nproblems", "Prosocial\nbehavior")),
       # Set fill value to NA if not significant, otherwise keep original sign
       fill_value = case_when(
         pval_adj < 0.05 ~ y,
         TRUE ~ NA
       )
-    ) %>%
-    # Order variables by number of significant effects
-    group_by(variable) %>%
-    mutate(n_significant = sum(pval_adj < 0.05)) %>%
-    ungroup() %>%
-    mutate(
-      Variables_wrapped = factor(Variables_wrapped,
-                                levels = unique(Variables_wrapped[order(-n_significant)]))
-    )
+    ) 
+
 
   ggplot(heatmap_data_smd, aes(x = Variables_wrapped, y = outcome_labeled)) +
     geom_tile(aes(fill = fill_value,
@@ -383,8 +379,8 @@ variable_comparisons_df %>%
     scale_color_identity() +
     geom_text(
       aes(label = ifelse(pval_adj < 0.05,
-                         gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", y)), ""),
-          size = ifelse(outcome_labeled == "Y4", 2, 3.5)
+                         gsub("^(-?)0\\.", "\\1.", sprintf("%.2f", y)), ""),
+          size = ifelse(outcome_labeled == "Y4", 2, 4.25)
       ),
       color = "black"
     ) +
@@ -399,8 +395,8 @@ variable_comparisons_df %>%
       guide = "none"
     ) +
     labs(
-      subtitle = expression(frac(bar(X)[attritioning] - bar(X)[original], SD[original])),
-      tag = "A0"
+      subtitle = expression(frac(bar(X)[attritioned] - bar(X)[original], SD[original])),
+      tag = "A1"
     ) +
     theme_minimal() +
     theme(
@@ -440,23 +436,18 @@ variable_comparisons_df %>%
    heatmap_data_var = variable_comparisons_df %>%
     filter(stat == "var") %>%
     mutate(
+      variable = ifelse(variable == "Peer problems", "Peer prob.", variable),
       outcome_labeled = dataset,
       outcome_labeled = factor(outcome_labeled, levels = rq1y_twin_labels_clean_extrashort),
       Variables_wrapped = str_wrap(variable, width = 8),
+      Variables_wrapped = factor(Variables_wrapped, levels = c("Maternal\nEducation", "Conduct\nproblems", "Peer\nprob.", "Parent-report\ncognition", "Parent-admin\ncognition", "Vocabulary", "Hyperactivity", "Grammar",
+  "Emotional\nproblems", "Prosocial\nbehavior")),
       # Set fill value to NA if not significant, otherwise keep original sign
       fill_value = case_when(
         pval_adj < 0.05 ~ y,
         TRUE ~ NA
       )
-    ) %>%
-    # Order variables by number of significant effects
-    group_by(variable) %>%
-    mutate(n_significant = sum(pval_adj < 0.05)) %>%
-    ungroup() %>%
-    mutate(
-      Variables_wrapped = factor(Variables_wrapped,
-                                levels = unique(Variables_wrapped[order(-n_significant)]))
-    )
+    ) 
 
   ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     geom_tile(aes(fill = fill_value,
@@ -465,8 +456,8 @@ variable_comparisons_df %>%
     scale_color_identity() +
     geom_text(
       aes(label = ifelse(pval_adj < 0.05,
-                         paste0(sprintf("%.1f", y * 100), "%"), ""),
-          size = ifelse(outcome_labeled == "Y4", 2, 3.5)
+                         paste0(sprintf("%.1f", y * 100), ""), ""), # ADD THE PERCENTAGE SYMBOL TO THE FIRST EMPTY "" IF NEEDED AAIN
+          size = ifelse(outcome_labeled == "Y4", 2, 4.2)
       ),
       color = "black"
     ) +
@@ -483,8 +474,8 @@ variable_comparisons_df %>%
       guide = "none"
     ) +
     labs(
-      subtitle = expression(frac(Var[attritioning] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
-      tag = "B0"
+      subtitle = expression(frac(Var[attritioned] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
+      tag = "B1"
     ) +
     theme_minimal() +
     theme(
@@ -789,7 +780,7 @@ cor_table
 
 df %>%
   filter(!(randomfamid %in% exclude_fams_onesib)) %>% 
-  select(rq2y) %>%
+  select(all_of(rq2y)) %>%
   data.frame() %>%
   `colnames<-`(rq2y_labels_short) %>%
    gbtoolbox::plot_correlations() +
@@ -806,7 +797,7 @@ save_plot(
 
 df %>%
   filter(!(randomfamid %in% exclude_fams_onesib)) %>% 
-  select(rq2y) %>%
+  select(all_of(rq2y)) %>%
   data.frame() %>%
   `colnames<-`(rq2y_labels_short) %>%
    gbtoolbox::plot_correlations(
@@ -1140,7 +1131,10 @@ bootstrap_summary_df_ace %>%
   geom_pointrange(position = position_dodge(width = 0.7), size = 0.3, linewidth = 0.6) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey40", linewidth = 0.5) +
   facet_grid(sex ~ par, scales = "free_x") +
-  scale_color_brewer(palette = "Dark2", name = "Attrition timepoint") +
+  scale_color_manual(
+    values = c(RColorBrewer::brewer.pal(8, "Dark2"), "#666666"),
+    name = "Attrition timepoint"
+  ) +
   scale_alpha_manual(values = c("TRUE" = 1, "FALSE" = 0.3), guide = "none") +
   labs(
     title    = "Changes in ACE Estimates by Variable",
@@ -1263,7 +1257,7 @@ save_plot("2_rq2_ace_comparison_by_timepoint", width = 21, height = 9, trim = FA
 ```{r}
 
 response_statistics = df %>%
-  select(randomtwinid, rq2y, rq1y_twin1) %>% 
+  select(randomtwinid, all_of(rq2y), all_of(rq1y_twin1)) %>% 
   mutate(all1 = 1) %>% 
   pivot_longer(cols = all_of(rq2y), names_to = "variable", values_to = "score") %>% 
   pivot_longer(cols = all_of(c("all1", rq1y_twin1)), names_to = "timepoint", values_to = "participation_indicator") %>% 
@@ -1430,6 +1424,7 @@ model_metrics = data.frame(
 model_metrics_ordered = model_metrics %>%
   mutate(
     year_num = as.numeric(str_extract(outcome, "\\d+")),
+    year_num = if_else(is.na(year_num), Inf, year_num),
     outcome = fct_reorder(outcome, year_num)
   )
 
@@ -1483,7 +1478,7 @@ plot_data %>%
   theme(
     strip.text = element_text(face = "bold"),
     plot.title = element_text(hjust = 0.5)
-  )
+  ) 
 
 save_plot("2_prediction_accuracy", width = 9, height = 6)
 
@@ -1805,7 +1800,8 @@ df %>%
   theme_bw() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = c(0.98, 0.98),
+    legend.position = "inside",
+    legend.position.inside = c(0.98, 0.98),
     legend.justification = c("right", "top"),
     legend.background = element_rect(colour = "grey80")
   ) +

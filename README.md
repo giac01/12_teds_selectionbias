@@ -109,7 +109,13 @@ export VECLIB_MAXIMUM_THREADS=1
 Rscript 2_rq2_1_run_bootstrapping.R && \
 Rscript 6_rq6_1_run_bootstrap_attritioning.R && \
 Rscript 7_rq6_1_weighting.R && \
+Rscript 8_rq6_1_imputation.R && \
 Rscript 8_rq6_2_run_bootstrapping.R
+
+quarto render 2_rq2_results.qmd
+quarto render 6_rq6_2_results.qmd
+quarto render 7_rq6_2_weighting_results.qmd
+quarto render 8_rq6_3_imputation_results.qmd
 ```
 
 ---

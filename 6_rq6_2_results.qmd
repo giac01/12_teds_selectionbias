@@ -28,6 +28,7 @@ Suggested by Yasmin.
 ## Load Data
 
 ```{r}
+#| label: load-data
 #| output: false
 
 source("0_load_data.R")
@@ -39,7 +40,7 @@ df = df %>%
 
 ## range of participation outcomes to use for attiritioning 
 
-range_participation_outcomes = 6:8
+range_participation_outcomes = 6:9
 
 variable_comparisons = readRDS(file.path("results","6_variable_comparisons.Rds"))
 
@@ -51,6 +52,7 @@ variable_comparisons = readRDS(file.path("results","6_variable_comparisons.Rds")
 Attrition time points
 
 ```{r}
+#| label: focal-variables-tables
 
 cbind(
   rq6y,
@@ -72,6 +74,7 @@ cbind(
 ### Transform Raw Results to Dataframe
 
 ```{r}
+#| label: transform-results
 # Load raw bootstrap results (already loaded above as variable_comparisons)
 # variable_comparisons = readRDS(file.path("results", "6_variable_comparisons.Rds"))
 
@@ -103,6 +106,7 @@ rownames(variable_comparisons_df0) = NULL
 ### Create Table
 
 ```{r}
+#| label: create-table
 # Get original variances for rescaling
 # original_variances = sapply(rq6y, function(x) stats::var(df[[x]], na.rm = TRUE))
 
@@ -142,6 +146,7 @@ variable_comparisons_df = variable_comparisons_df0 %>%
 ### GT Results Table
 
 ```{r}
+#| label: gt-results-table
 
 variable_comparisons_df %>%
   filter(stat %in% c("md", "smd", "var")) %>%
@@ -290,6 +295,7 @@ variable_comparisons_df %>%
 #### Standardised Mean Differences
 
 ```{r}
+#| label: heatmap-smd
 # Create circular heatmap for SMD
 heatmap_data_smd = variable_comparisons_df %>%
   filter(stat == "smd") %>%
@@ -315,8 +321,8 @@ ggplot(heatmap_data_smd, aes(x = Variables_wrapped, y = outcome_labeled)) +
             size = 0.5) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
-                       gsub("^(-?)0\\.", "\\1.", sprintf("%.3f", y)), ""),
-        size = 6.5
+                       gsub("^(-?)0\\.", "\\1.", sprintf("%.2f", y)), ""),
+        size = 7.5
     ),
     color = "black"
   ) +
@@ -367,6 +373,7 @@ save_plot("6_rq6_circular_heatmap_smd", width = 8, height = 8, trim = TRUE)
 #### Variance Differences
 
 ```{r}
+#| label: heatmap-var
 # Create circular heatmap for variance differences
 heatmap_data_var = variable_comparisons_df %>%
   filter(stat == "var") %>%
@@ -393,7 +400,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        paste0(sprintf("%.1f", y * 100), "%"), ""),
-        size = 6.5
+        size = 7.5
     ),
     color = "black"
   ) +
@@ -446,6 +453,7 @@ save_plot("6_rq6_circular_heatmap_var", width = 8, height = 8, trim = TRUE)
 First, some code to establish how to convert variable labels from matrix to dataframe formats.
 
 ```{r}
+#| label: cor-matrix-setup
 test_correlation_matrix = matrix(
   nrow = length(rq6y),
   ncol = length(rq6y)
@@ -465,9 +473,10 @@ y_var = str_extract(x, "\\S+$")
 rm(test_correlation_matrix,x)
 ```
 
-### Plot of differences in correlations
+### Plot differences in correlations
 
 ```{r}
+#| label: cor-diff-plot
 
 correlation_comparisons = lapply(variable_comparisons, function(x) x$bootstrap_summary$cor_resid)
 
@@ -514,7 +523,7 @@ plots = lapply(1:length(correlation_comparisons), function(i) {
 
 patchwork::wrap_plots(
   plots,
-  ncol = 3) +
+  ncol = 2) +
   plot_annotation(
     title = expression(Cor[attritioned] ~ - ~ ~ Cor[original]),
     theme = theme(
@@ -536,6 +545,7 @@ save_plot(
 ### GT Results table
 
 ```{r}
+#| label: cor-gt-table
 
 cor_table = bind_rows(correlation_comparisons, .id = "timepoint") %>%
   mutate(
@@ -640,6 +650,7 @@ cor_table
 ### Percentiles of effects
 
 ```{r}
+#| label: cor-percentiles
 bind_rows(correlation_comparisons, .id = "timepoint") %>%
   mutate(
     x_var_label = rq6y_labels[match(x_var, rq6y)],
@@ -682,9 +693,10 @@ bind_rows(correlation_comparisons, .id = "timepoint") %>%
 ### Plot of original correlations
 
 ```{r}
+#| label: cor-original-plot
 
 df %>%
-  select(rq6y) %>%
+  select(all_of(rq6y)) %>%
   `colnames<-`(rq6y_labels) %>%
   as.data.frame() %>%
   gbtoolbox::plot_correlations(
@@ -707,6 +719,7 @@ save_plot("6_rq6_original_correlations", height = 5.2, width = 5.2)
 ## ACE Comparison
 
 ```{r}
+#| label: ace-extract
 
 # Extract ACE estimates and differences from all datasets
 ace_estimates_list = lapply(variable_comparisons, function(x) x$ace_est_summary)
@@ -731,6 +744,7 @@ ace_differences$dataset_label = rq1y_twin_labels_clean[match(ace_differences$dat
 ### Table - ACE estimates
 
 ```{r}
+#| label: ace-estimates-table
 
 ace_estimates %>%
   filter(par %in% c("a", "c", "e")) %>%
@@ -789,6 +803,7 @@ ace_estimates %>%
 ### Table - Changes in ACE Estimates
 
 ```{r}
+#| label: ace-diff-table
 
 ace_differences_tbl = ace_differences  %>%
   group_by(dataset) %>%
@@ -855,6 +870,7 @@ ace_differences_tbl %>%
 ### Percentiles of effects
 
 ```{r}
+#| label: ace-percentiles
 ace_differences_tbl %>%
   select(y) %>%
   summarise(
@@ -892,6 +908,7 @@ ace_differences_tbl %>%
 ### Directional Consistency Across Variables
 
 ```{r}
+#| label: ace-direction
 # For each ACE component × variable, how many of the 6 sex × timepoint
 # combinations show a positive vs negative change, and how many are significant?
 ace_differences_tbl %>%
@@ -943,6 +960,7 @@ ace_differences_tbl %>%
 ### Forest Plot of ACE Changes
 
 ```{r}
+#| label: ace-forest-plot
 ace_differences_tbl %>%
   mutate(
     par           = toupper(par),
@@ -988,6 +1006,7 @@ save_plot("6_rq6_ace_forest", width = 7, height = 5)
 ### ACE Estimates Plot
 
 ```{r}
+#| label: ace-estimates-plot
 
 ace_estimates %>%
   mutate(
@@ -1035,6 +1054,7 @@ Although we see large-ish increases in the shared environment for depression sym
 ## Effect of attritioning on sample sizes
 
 ```{r}
+#| label: attrition-sample-sizes
 
 response_statistics_rq6 = df %>%
   select(randomtwinid, all_of(rq6y), all_of(rq1y_twin1[range_participation_outcomes])) %>%
@@ -1099,6 +1119,7 @@ save_plot("6_rq6_attrition_numbers", width = 7, height = 2.2)
 [📊 View Full Resolution Attrition Numbers Plot (PNG)](plots/pngs/6_rq6_attrition_numbers.png)
 
 ```{r}
+#| label: ace-depression-detail
 
 ace_differences_tbl %>%
   filter(sex == "male" & name == "lcmfqt1") %>%

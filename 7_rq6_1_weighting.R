@@ -1,6 +1,6 @@
-# Run using docker container: bignardig/tidyverse451:v6
-# Run using commit: asdasf23143xcv (see commit message)
-# Run date: 19-Dec-2015
+# Run using docker container: bignardig/tidyverse451:v8
+# Run using commit: 2321sdfaadfsdf (see commit message)
+# Run date: 06-05-2026
 
 # script MUST BE RUN IN TERMINAL USING:
 # export OMP_NUM_THREADS=1
@@ -18,7 +18,7 @@ rm(list=ls())
 
 source("0_load_data.R")
 
-range_participation_outcomes = 6:8
+range_participation_outcomes = 6:9
 mice_iter                    = 50                                               # Number of iterations of the MICE algorithm (which is ran only once)
 B                            = 10000                                              # Number of bootstrap resamples (200 takes 6 minutes, 10000 should take 5 hours)
 n_workers                    = 8                                               # Number of parallel jobs to run (number of cores)
@@ -60,7 +60,7 @@ for (i in seq_along(rq1y_twin1)){
   attritioned_datasets[[i]] = df %>% 
     select("randomfamid", "twin", "random", "x3zygos","sexzyg", all_of(rq6y))
   
-  attritioned_datasets[[i]][filter,rq6y] = NA
+  attritioned_datasets[[i]][which(filter),rq6y] = NA
   
 }
 
@@ -172,8 +172,6 @@ where_matrix = df_imputed_mice$where
 
 predictor_matrix = df_imputed_mice$predictorMatrix
 predictor_matrix[, "randomfamid"] = 0 
-predictor_matrix[,str_detect(colnames(predictor_matrix),"missing144_1|missing144_2")  ] = 0     # Getting some errors with collinearity here
-predictor_matrix[ str_detect(colnames(predictor_matrix),"missing144_1|missing144_2|"),] = 0
 
 df_imputed_mice = mice(
   df_impute,
@@ -284,7 +282,22 @@ future.packages = c("umx","OpenMX", "speedglm")
 td = Sys.time()
 print(paste("Analysis 3 completed in:", round(difftime(td, tc, units = "mins"), 2), "minutes"))
 
-print(paste("Total time for all analyses:", round(difftime(td, ta, units = "mins"), 2), "minutes"))
+weighted_comparisons[[4]] = future_lapply(1:B, function(i) {
+  compare_df_weighting(
+    df1     = select(df,                        all_of(rq6y)),
+    df2     = select(attritioned_datasets[[4]], all_of(rq6y)),
+    df_miss =            missingcode_list[[4]],
+    df_x    = select(df_imputed_long,           all_of(rq1x)),
+    vars    = rq6y
+  )
+},
+future.seed = 1,
+future.packages = c("umx","OpenMX", "speedglm")
+)
+te = Sys.time()
+print(paste("Analysis 4 completed in:", round(difftime(te, td, units = "mins"), 2), "minutes"))
+
+print(paste("Total time for all analyses:", round(difftime(te, ta, units = "mins"), 2), "minutes"))
 
 # Reset to sequential processing
 plan(sequential)

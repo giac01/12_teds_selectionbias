@@ -1,6 +1,6 @@
-# Run using docker container: bignardig/tidyverse451:v6
-# Run using commit: asdasf23143xcv (see commit message)
-# Run date: 19-Dec-2015
+# Run using docker container: bignardig/tidyverse451:v8
+# Run using commit: 2321sdfaadfsdf (see commit message)
+# Run date: 06-05-2026
 
 # Load data --------------------------------------------------------------------
 
@@ -15,14 +15,14 @@ df = df %>%
 
 ## range of participation outcomes to use for attiritioning 
 
-range_participation_outcomes = 6:8
+range_participation_outcomes = 6:9
 
 cat("Participation Outcomes:\n", paste0(rq1y_twin_labels_clean[range_participation_outcomes], sep="\n"))
 
 # Arguments --------------------------------------------------------------------
 
 B         = 10000 # 10000 reps took 4.335921 hours
-n_workers = 3 # Set to three as we only parellise over attrition time points
+n_workers = length(range_participation_outcomes) # Set to three as we only parellise over attrition time points
 
 # 100 takes 2.8 mins 
 
@@ -37,7 +37,7 @@ for (i in seq_along(rq1y_twin1)){
   attritioned_datasets[[i]] = df %>% 
     select("randomfamid", "twin", "random", "x3zygos","sexzyg", all_of(rq6y))
   
-  attritioned_datasets[[i]][filter,rq6y] = NA
+  attritioned_datasets[[i]][which(filter),rq6y] = NA
   
 }
 

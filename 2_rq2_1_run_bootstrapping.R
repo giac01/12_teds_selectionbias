@@ -1,7 +1,7 @@
 # Docker container info --------------------------------------------------------
-# bignardig/tidyverse442:v7
-# Run version: mkhfja2fas2
-# Run date: 25-01-2026
+# bignardig/tidyverse451:v8
+# Run version: 2321sdfaadfsdf
+# Run date: 06-05-2026
 
 # This script must be run in the terminal because it uses the plan multicore command. 
 
@@ -25,7 +25,7 @@ for (i in seq_along(rq1y_twin1)){
   attritioned_datasets[[i]] = df %>% 
     select("randomfamid", "twin", "random", "x3zygos", "sexzyg", all_of(rq2y_all))
   
-  attritioned_datasets[[i]][filter,rq2y_all] = NA
+  attritioned_datasets[[i]][which(filter),rq2y_all] = NA
   
 }
 

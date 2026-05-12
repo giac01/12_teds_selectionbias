@@ -25,7 +25,7 @@ Updated on 8-Jan-2026 to replace household variable with derived single parent v
 
 # Load Data
 
-```{r}
+```{r setup}
 #| output: false
 
 source("0_load_data.R")
@@ -34,7 +34,7 @@ set.seed(1)
 df_rq1 = df %>%
   filter(twin == 1) %>%
   filter(acontact == 1) %>%
-  select(all_of(c(rq1x, rq1y, rq1y_twin1, rq1y_twin2, "cohort")))
+  select(all_of(c(rq1x, rq1y_twin1, rq1y_twin2, "cohort")))
 
 df_rq1x = df_rq1 %>% 
   select(all_of(rq1x)) 
@@ -48,12 +48,12 @@ At some time points, participants in cohorts 3 & 4 were not all eligible to take
 
 ## List of variables
 
-```{r}
+```{r var-list}
 
 data.frame(
-  var = c(rq1x, rq1y, rq1y_twin),
-  labels = c(rq1x_labels, rq1y_labels, rq1y_twin_labels),
-  clean_labels = c(rq1x_labels_clean, rq1y_labels_clean, rq1y_twin_labels)
+  var = c(rq1x, rq1y_twin),
+  labels = c(rq1x_labels, rq1y_twin_labels),
+  clean_labels = c(rq1x_labels_clean, rq1y_twin_labels)
 )
 
 
@@ -63,14 +63,14 @@ data.frame(
 
 ### Imputation
 
-```{r}
+```{r impute}
 
 daddy_issues = df_rq1 %>%
   select(adadagetw, afasoc2, afahqual)
 
 df_rq1_imputed = df_rq1 %>%
   # select(-adadagetw, -afasoc2, -afahqual) %>% # removing these eliminates imputation warnings
-  mice(method = "pmm", m =1)
+  mice(method = "pmm", m = 1, maxit = 50, seed = 1)
 
 df_rq1_imputed$loggedEvents
 
@@ -89,7 +89,7 @@ df_rq1_imputed = df_rq1_imputed %>%
 
 #### Variables in imputation model
 
-```{r}
+```{r impute-vars-table}
 
 # Function to map variable prefix to study wave
 get_study_wave = function(var_name) {
@@ -178,7 +178,7 @@ For imputation, because predictor variables are only measured at the family leve
 
 For modelling twin-level outcomes with glm(), we need to convert outcomes to a long format with one row per twin. 
 
-```{r}
+```{r long-dataset}
 
 df_rq1_imputed$famid = 1:nrow(df_rq1_imputed)
 
@@ -204,7 +204,7 @@ df_rq1_long %>% sapply(., function(x) length(which(is.na(x))))
 
 ## Correlation of participation over time
 
-```{r}
+```{r participation-corr}
 
 df %>%
   filter(twin == 1) %>%
@@ -216,29 +216,30 @@ df %>%
     sample_size = FALSE,
     confidence_interval = FALSE
   )
-
-
-df %>% 
-  select(randomfamid,twin,all_of(rq1y)) %>% 
-  filter(twin == 1) %>%
-  select(-twin, -randomfamid) %>% 
-  `colnames<-`(c(rq1y_labels)) %>%
-  gbtoolbox::plot_correlations(
-    sample_size = FALSE,
-    confidence_interval = FALSE
-  ) + 
-  labs(
-    title = "Correlation between participation at different \ntime points",
-    subtitle = "N = 13020 (Number of families)"
-    )
-
 save_plot("1_correlation_participation", width = 9, height = 9)
+
+
+# df %>% 
+#   select(randomfamid,twin,all_of(rq1y)) %>% 
+#   filter(twin == 1) %>%
+#   select(-twin, -randomfamid) %>% 
+#   `colnames<-`(c(rq1y_labels)) %>%
+#   gbtoolbox::plot_correlations(
+#     sample_size = FALSE,
+#     confidence_interval = FALSE
+#   ) + 
+#   labs(
+#     title = "Correlation between participation at different \ntime points",
+#     subtitle = "N = 13020 (Number of families)"
+#     )
+# 
+# save_plot("1_correlation_participation", width = 9, height = 9)
 
 ```
 
-## List of predictor variables 
+## List of predictor variables
 
-```{r}
+```{r predictor-list}
 
 cbind(rq1x, rq1x_labels) %>%
   knitr::kable()
@@ -247,7 +248,7 @@ cbind(rq1x, rq1x_labels) %>%
 
 ## List of outcome variables
 
-```{r}
+```{r outcome-list}
 
 cbind(rq1y_twin1, rq1y_twin_labels) %>%
   knitr::kable()
@@ -261,7 +262,7 @@ cbind(rq1y_twin1, rq1y_twin_labels) %>%
 
 Fit logistic regression models to each participation outcome
 
-```{r}
+```{r fit-models}
 set.seed(1)
 
 twinmodels = list()
@@ -269,7 +270,8 @@ twinmodels = list()
 for (i in seq_along(rq1y_twin)){
   
   cat(i, "/", length(rq1y_twin),"\n")
-  formula <- as.formula(paste(rq1y_twin1[i], "~", paste(rq1x, collapse = "+")))
+  rq1x_i = if (rq1y_twin[i] == "hasgeno") rq1x[rq1x != "aethnicc"] else rq1x
+  formula <- as.formula(paste(rq1y_twin1[i], "~", paste(rq1x_i, collapse = "+")))
   twinmodels[[i]] = glm(formula, data = df_rq1_long, family = binomial, na.action = na.omit)
   
 }
@@ -283,9 +285,9 @@ This approach doesn't give us standard errors for our predictions.
 
 ** Predictions for participants at cohorts 3-4 at specific timepoints are kept in here!! **
 
-** For plotting purposes, the intercept is removed from predictions. ** 
+** For plotting purposes, the intercept is removed from predictions. **
 
-```{r}
+```{r calc-predictions}
 set.seed(1)
 
 twinmodels_predictions = list()
@@ -350,7 +352,7 @@ glm_model_comparison_results = future_lapply(
 
 ```
 
-```{r}
+```{r model-comparison-plot}
 glm_model_comparison_results_df = do.call("rbind.data.frame", glm_model_comparison_results)
 
 glm_model_comparison_results_df$Variables_full = rq1x_labels_clean[match(glm_model_comparison_results_df$Variables_Dropped, rq1x)]
@@ -437,7 +439,7 @@ save_plot("1_rq1_variable_importance_twin-level", width = 14, height = 7)
 
 #### Calc variable importance for plotting
 
-```{r}
+```{r var-importance}
 variable_importance = glm_model_comparison_results_df %>%
   filter(Variables_Dropped != "None") %>%
   group_by(Variables_full) %>%
@@ -453,7 +455,7 @@ variable_importance = glm_model_comparison_results_df %>%
 
 #### Circular Heatmap
 
-```{r}
+```{r circular-heatmap}
 rq1y_twin_labels_clean_extrashort2 = paste0(rq1y_twin_labels_clean_extrashort, " ")
 
 # Alternative circular heatmap approach
@@ -484,9 +486,28 @@ all_vars = c(levels(heatmap_data$Variables_wrapped))
 
 heatmap_data$Variables_wrapped = factor(heatmap_data$Variables_wrapped, levels = all_vars)
 
+# Placeholder tile for ethnicity × hasgeno1 (excluded from model by design)
+ethnicity_hasgeno_row = heatmap_data %>%
+  filter(Variables_Dropped == "aethnicc") %>%
+  slice(1) %>%
+  mutate(
+    outcome         = "hasgeno1",
+    outcome_labeled = rq1y_twin_labels_clean_extrashort2[match("hasgeno1", rq1y_twin1)],
+    nobs = NA, AIC = NA, BIC = NA, AUC = NA, mcfad_r2 = NA, Delta_BIC = NA,Delta_AIC=NA,
+    Delta_AUC       = 0,
+    Delta_AUC_fill  = NA,
+    Wald_p          = 1
+  )
+
+heatmap_data = bind_rows(heatmap_data, ethnicity_hasgeno_row) %>%
+  mutate(
+    outcome_labeled   = factor(outcome_labeled, levels = levels(heatmap_data$outcome_labeled)),
+    Variables_wrapped = factor(Variables_wrapped, levels = levels(heatmap_data$Variables_wrapped))
+  )
+
 ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_tile(aes(fill = Delta_AUC_fill, 
-                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1", "adrink", "anyngsib", "alookels", "afasoc2", "adadagetw", "alang"), "azure2", "black")), 
+                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1","anyngsib", "alookels", "afasoc2"), "azure2", "black")), 
             size = .5) +
   scale_color_identity() +
   geom_text(
@@ -540,7 +561,7 @@ save_plot("1_rq1_heatmap_twinparticipationpredictors", width = 8, height = 8, tr
 
 ### AUC and Variance Explained Plots
 
-```{r}
+```{r auc-r2-plot}
 
 model_metrics = do.call("rbind.data.frame", glm_model_comparison_results) %>%
   filter(Variables_full=="None") %>%
@@ -608,7 +629,7 @@ save_plot("1_rq1_twinlevel_prediction_accuracy", width = 5, height = 8, trim = T
 
 ### Twin-Level Logistic Regression Coefficients
 
-```{r}
+```{r coef-table}
 
 # Extract all coefficients from twin models and combine
 twinmodels_results0 = do.call(rbind, lapply(1:length(twinmodels), function(i) {
@@ -769,6 +790,10 @@ twinmodels_results %>%
     style = cell_fill(color = "#d5e8d4"),
     locations = cells_body(columns = "table_val_Y26 (web test)", rows = `Wald_p_Y26 (web test)` < 0.05)
   ) %>%
+  tab_style(
+    style = cell_fill(color = "#d5e8d4"),
+    locations = cells_body(columns = "table_val_Genotyped", rows = Wald_p_Genotyped < 0.05)
+  ) %>%
   cols_hide(columns = starts_with("Wald_p")) %>%
   cols_label_with(
     fn = function(x) str_remove(x, "table_val_")
@@ -790,7 +815,7 @@ twinmodels_results %>%
 
 ## Plot Marginal Effects of maternal education
 
-```{r}
+```{r marginal-meducation}
 
 # Calculate average predictions for maternal education variables
 
@@ -820,10 +845,11 @@ all_predictions %>%
   mutate(
     outcome = factor(outcome, levels = rq1y_twin_labels_clean_extrashort)
   ) %>%
-  ggplot(aes(x = amohqual, y = estimate, group = outcome, color = outcome)) +
+  ggplot(aes(x = amohqual, y = estimate, group = outcome, color = outcome, shape = outcome)) +
   geom_point() +
   geom_line() +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  scale_shape_manual(values = c(16, 17, 15, 18, 8, 3, 4, 25, 7)) +
   scale_y_continuous(
     breaks = seq(0, 1, by = 0.1),
     labels = scales::percent_format(accuracy = 1)
@@ -836,6 +862,7 @@ all_predictions %>%
     x = "Maternal Education Level",
     y = "Predicted Probability of Participation",
     color = "Study Wave",
+    shape = "Study Wave",
     caption = "Note: Predictions calculated using logistic regression models fitted separately for each study wave.\nAll other covariates held at their observed means (continuous) or modes (categorical)."
   )
 
@@ -843,13 +870,13 @@ all_predictions %>%
 
 ## Plot Marginal Effects of ethnicity
 
-```{r}
+```{r marginal-ethnicity}
 
 # Calculate average predictions for ethnicity
 
 # Calculate predictions for all models
 
-all_predictions_ethnicity = map_dfr(1:length(twinmodels), function(i) {
+all_predictions_ethnicity = map_dfr(1:(length(twinmodels)-1), function(i) {
   data_grid = marginaleffects::datagrid(
     model = twinmodels[[i]],
     aethnicc = unique
@@ -877,10 +904,11 @@ all_predictions_ethnicity %>%
       levels = c("Asian", "White", "Other", "Mixed race", "Black")
     )
   ) %>%
-  ggplot(aes(x = aethnicc, y = estimate, group = outcome, color = outcome)) +
+  ggplot(aes(x = aethnicc, y = estimate, group = outcome, color = outcome, shape = outcome)) +
   geom_point() +
   geom_line() +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  scale_shape_manual(values = c(16, 17, 15, 18, 8, 3, 4, 25, 7)) +
   scale_y_continuous(
     breaks = seq(0, 1, by = 0.1),
     labels = scales::percent_format(accuracy = 1)
@@ -893,6 +921,7 @@ all_predictions_ethnicity %>%
     x = "Ethnicity",
     y = "Predicted Probability of Participation",
     color = "Study Wave",
+    shape = "Study Wave",
     caption = "Note: Predictions calculated using logistic regression models fitted separately for each study wave.\nAll other covariates held at their observed means (continuous) or modes (categorical)."
   )
 
@@ -907,7 +936,7 @@ Total number of families with no predictor information (and are just completely 
 
 ## Participation rates at each timepoint
 
-```{r}
+```{r participation-rates}
 
 df %>%
   select(all_of(rq1y_twin1)) %>%
@@ -943,7 +972,7 @@ df %>%
 
 ### Distribution
 
-```{r}
+```{r predictor-dist}
 
 df_rq1x %>%
   select(!where(is.numeric)) %>%
@@ -965,7 +994,7 @@ df_rq1x %>%
 
 ### Missingness
 
-```{r}
+```{r predictor-missing}
 
 df_rq1x %>%
   mutate(across(everything(), ~ as.numeric(!is.na(.)))) %>%
@@ -980,7 +1009,7 @@ df_rq1x %>%
 
 ## Missing Data Patterns
 
-```{r}
+```{r missing-patterns}
 
 df_rq1x %>%
   `colnames<-`((rq1x_labels)) %>%
@@ -1008,7 +1037,7 @@ save_plot("1_rq1_misssing_data_pattern_imputed", width = 12, height = 30)
 
 [Note that at Yr16,](https://datadictionary.teds.ac.uk/studies/derived_variables/16yr_derived_variables.htm#pbhsdq) the emotion subtest was not administered to parents, so the conduct one is used instead.
 
-```{r}
+```{r sdq-data-prep}
 #| eval: true
 
 list_of_sdq_var = c(
@@ -1054,7 +1083,7 @@ missing_outcomes = df %>%
 
 ## Descriptives
 
-```{r}
+```{r sdq-descriptives}
 
 data.frame(
   var = rq1m,

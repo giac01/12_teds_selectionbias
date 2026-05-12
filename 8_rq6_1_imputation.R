@@ -1,6 +1,6 @@
-# Run using docker container: bignardig/tidyverse451:v7
-# Run using commit: vbmbnbmnb (see commit message)
-# Run date: 12-Jan-2025
+# Run using docker container: bignardig/tidyverse451:v8
+# Run using commit: 2321sdfaadfsdf (see commit message)
+# Run date: 06-05-2026
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load data --------------------------------------------------------------------
@@ -10,8 +10,8 @@ rm(list=ls())
 
 source("0_load_data.R")
 
-range_participation_outcomes = 6:8
-number_imputations           = 250                                              # Number of Imputations 250: 18.9 hours
+range_participation_outcomes = 6:9
+number_imputations           = 250     # currently takes 22 hours                                              # Number of Imputations 250: 18.9 hours
 number_iterations            = 50                                               
 n_workers                    = 16                                               # Number of parallel jobs to run (number of cores)
 
@@ -53,7 +53,7 @@ for (i in seq_along(rq1y_twin1)){
   original_datasets[[i]] = attritioned_datasets[[i]] = df %>%                   # this is kind of redundant as each element of the list is identical to each other and to original_dataset
     select("randomfamid", "twin", "random", "x3zygos","sexzyg", starts_with(rq6y_prefix), all_of(rq6z_vars))
   
-  attritioned_datasets[[i]][filter,rq6y] = NA
+  attritioned_datasets[[i]][which(filter),rq6y] = NA
   
 }
 
