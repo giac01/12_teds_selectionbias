@@ -27,7 +27,7 @@ We compare ( original ) vs ( attritioned + imputed ) results across 200 multiply
 
 ## Load Data
 
-```{r}
+```{r load-data}
 #| output: false
 
 source("0_load_data.R")
@@ -51,15 +51,8 @@ rq1y_twin_labels_clean_extrashort = rq1y_twin_labels_clean_extrashort[range_part
 
 boot_compare_results = readRDS(file.path("results",        "8_rq6_boot_compare_results.Rds"))
 imputed_mice         = readRDS(file = file.path("results", "8_1_imputed_mice.Rds"))
-all_imputations      = readRDS(file = file.path("results", "8_1_all_imputations.Rds"))
 tasks                = readRDS(file = file.path("results", "8_1_tasks.Rds")) %>%
   mutate(i = 1:nrow(.))
-
-ids_keep = tasks %>%
-  filter(imputation <=20) %>% 
-  pull(i) %>% max()
-
-all_imputations = all_imputations[1:ids_keep]
 
 gc()
 
@@ -73,7 +66,7 @@ n_imputations = length(boot_compare_results)/length(range_participation_outcomes
 
 Attrition time points
 
-```{r}
+```{r focal-vars}
 
 cbind(
   rq6y,
@@ -92,7 +85,7 @@ cbind(
 
 ### Table of all variables used in multiple imputation
 
-```{r}
+```{r imputation-vars-table}
 
 # Function to map variable prefix to study wave
 get_study_wave = function(var_name) {
@@ -178,7 +171,7 @@ gt(v_impute) %>%
 
 ### Transform Raw Results to Dataframe
 
-```{r}
+```{r transform-results}
 # Create pairwise correlation variable names (if needed for cor_resid later)
 test_correlation_matrix = matrix(
   nrow = length(rq6y),
@@ -259,7 +252,7 @@ saveRDS(imputed_comparisons_df0, file.path("results", "8_imputed_comparisons_df.
 
 ### Create Table
 
-```{r}
+```{r create-table}
 # Process the dataframe
 # Note: Variance values are already percentage change from compare_var function
 imputed_comparisons_df = imputed_comparisons_df0 %>%
@@ -277,7 +270,7 @@ imputed_comparisons_df = imputed_comparisons_df0 %>%
 
 ### GT Results Table
 
-```{r}
+```{r gt-results-table}
 
 imputed_comparisons_df %>%
   filter(stat %in% c("md", "smd", "var")) %>%
@@ -425,7 +418,7 @@ imputed_comparisons_df %>%
 
 #### Standardised Mean Differences
 
-```{r}
+```{r heatmap-smd}
 # Create circular heatmap for SMD
 heatmap_data_smd = imputed_comparisons_df %>%
   filter(stat == "smd") %>%
@@ -489,8 +482,9 @@ heatmap_data_smd = imputed_comparisons_df %>%
     labels = levels(heatmap_data_smd$outcome_labeled)
 
     lapply(seq_along(labels), function(i) {
-      annotate("text", x = 0.5, y = y_positions[i],
-               label = paste0(labels[i], " "), size = 5, hjust = 1, angle = 7, vjust = -.3, fontface = "bold")
+      annotate("label", x = 0.5, y = y_positions[i],
+               label = labels[i], size = 5, hjust = 0.5, angle = 0, vjust = -0.12, fontface = "bold",
+               fill = "white", label.size = 0)
     })
   }
 
@@ -502,7 +496,7 @@ save_plot("8_rq6_circular_heatmap_smd", width = 8, height = 8, trim = TRUE)
 
 #### Variance Differences
 
-```{r}
+```{r heatmap-var}
 # Create circular heatmap for variance differences
 heatmap_data_var = imputed_comparisons_df %>%
   filter(stat == "var") %>%
@@ -529,7 +523,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        paste0(sprintf("%.1f", y * 100), "%"), ""),
-        size = 7.5
+        size = ifelse(dataset == "Y21", 5, 7.5)
     ),
     color = "black"
   ) +
@@ -566,8 +560,9 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     labels = levels(heatmap_data_var$outcome_labeled)
 
     lapply(seq_along(labels), function(i) {
-      annotate("text", x = 0.5, y = y_positions[i],
-               label = paste0(labels[i], " "), size = 5, hjust = 1, angle = 7, vjust = -.3, fontface = "bold")
+      annotate("label", x = 0.5, y = y_positions[i],
+               label = labels[i], size = 5, hjust = 0.5, angle = 0, vjust = -0.12, fontface = "bold",
+               fill = "white", label.size = 0)
     })
   }
 
@@ -579,7 +574,7 @@ save_plot("8_rq6_circular_heatmap_var", width = 8, height = 8, trim = TRUE)
 
 ### Combine all pngs into one plot
 
-```{r}
+```{r combine-circular-plots}
 library(magick)
 gc()
 Sys.setenv(MAGICK_MEMORY_LIMIT = "8GiB")
@@ -639,7 +634,7 @@ knitr::include_graphics("plots/pngs/8_rq6_circular_plots_combined.png")
 
 ### Plot
 
-```{r}
+```{r correlations-plot}
 
 correlation_comparisons = list()
 
@@ -676,6 +671,9 @@ for(tp in seq_along(timepoint_names)){
 
 library(patchwork)
 
+rq1y_twin_labels_clean_extrashort2 = rq1y_twin_labels_clean_extrashort
+rq1y_twin_labels_clean_extrashort2[3] = "Y26 (web)"
+
 plots = lapply(1:length(correlation_comparisons), function(i) {
   plot_lower_triangular_matrix2(
     data = correlation_comparisons[[i]],
@@ -687,26 +685,27 @@ plots = lapply(1:length(correlation_comparisons), function(i) {
     p_col = "pval_adj",
     p_threshold = 0.05,
     show_values = TRUE,
-    text_size = 3,
-    title = rq1y_twin_labels_clean_extrashort[i],
+    text_size = 3.9,
+    title = rq1y_twin_labels_clean_extrashort2[i],
     caption = NULL,
     method = "none"
   ) +
   labs(tag = paste0("C", i)) +
   theme(
-    plot.title        = element_text(hjust=0),
+    plot.title        = element_text(hjust=0.5),
     axis.text         = element_text(color = "black"),
     plot.background   = element_blank(),
     panel.background  = element_blank(),
     legend.background = element_blank(),
     plot.tag          = element_text(size = 14, face = "bold"),
-    plot.tag.position = c(0, 1)
+    plot.tag.position = c(0, 1),
+    axis.text.y       = if (i > 1) element_blank() else element_text(size = 12)
   )
 })
 
 patchwork::wrap_plots(
   plots,
-  ncol = 3) +
+  ncol = 4) +
   plot_annotation(
     title = expression(Cor[attritioned + imputed] ~ - ~ ~ Cor[original]),
     theme = theme(
@@ -716,7 +715,7 @@ patchwork::wrap_plots(
   )
 
 save_plot(
-  "8_rq6_correlations", width = 11, height = 3, trim = TRUE, trim_margin = 0)
+  "8_rq6_correlations", width = 9, height = 2.7, trim = TRUE, trim_margin = 0)
 
 ```
 
@@ -724,7 +723,7 @@ save_plot(
 
 ### GT Results table
 
-```{r}
+```{r gt-correlations-table}
 
 cor_table = bind_rows(correlation_comparisons, .id = "timepoint") %>%
   mutate(
@@ -828,7 +827,7 @@ cor_table
 
 ### Combine all correlation plots into one PNG
 
-```{r}
+```{r combine-correlation-plots}
 library(magick)
 gc()
 Sys.setenv(MAGICK_MEMORY_LIMIT = "8GiB")
@@ -839,6 +838,16 @@ Sys.setenv(MAGICK_DISK_LIMIT = "16GiB")
 img1 = image_read("plots/pngs/6_rq6_correlations.png")
 img2 = image_read("plots/pngs/7_rq7_correlations.png")
 img3 = image_read("plots/pngs/8_rq6_correlations.png")
+
+# Flatten RGBA to white background (prevents black padding when stacking)
+img1 = image_flatten(img1, operator = "Over")
+img2 = image_flatten(img2, operator = "Over")
+img3 = image_flatten(img3, operator = "Over")
+
+# Pad narrower images with white on the right to match the widest
+max_width = max(image_info(img1)$width, image_info(img2)$width, image_info(img3)$width)
+img1 = image_extent(img1, paste0(max_width, "x", image_info(img1)$height), gravity = "West", color = "white")
+img2 = image_extent(img2, paste0(max_width, "x", image_info(img2)$height), gravity = "West", color = "white")
 
 # Add vertical spacing (white border) between images
 img1 = image_border(img1, "white", "0x20")  # Add 20px white space at bottom
@@ -853,9 +862,11 @@ knitr::include_graphics("plots/pngs/8_rq6_correlations_combined.png")
 
 ```
 
+[🖼️ Image #1](plots/pngs/8_rq6_correlations_combined.png)
+
 ## ACE Comparison
 
-```{r}
+```{r ace-extract}
 
 # Extract ACE estimates and differences from all datasets
 ace_estimates_list = list()
@@ -914,7 +925,7 @@ ace_differences$dataset_label = rq1y_twin_labels_clean[match(ace_differences$dat
 
 ### Table - ACE estimates
 
-```{r}
+```{r ace-estimates-table}
 
 ace_estimates %>%
   filter(par %in% c("a", "c", "e")) %>%
@@ -976,7 +987,7 @@ ace_estimates %>%
 
 ### Table - Changes in ACE Estimates
 
-```{r}
+```{r ace-differences-table}
 
 ace_differences_tbl = ace_differences  %>%
   group_by(dataset) %>%
@@ -1042,7 +1053,7 @@ ace_differences_tbl %>%
 
 ### ACE Estimates Plot
 
-```{r}
+```{r ace-estimates-plot}
 
 ace_estimates %>%
   mutate(
@@ -1090,7 +1101,7 @@ save_plot("8_rq6_ace_comparison", width = 5, height = 8)
 
 ### Combine all pngs into one plot
 
-```{r}
+```{r combine-ace-plots}
 library(magick)
 gc()
 Sys.setenv(MAGICK_MEMORY_LIMIT = "8GiB")
@@ -1120,7 +1131,7 @@ knitr::include_graphics("plots/pngs/8_rq6_ace_comparison_combined.png")
 
 ### Effect of attritioning on sample sizes
 
-```{r}
+```{r sample-sizes}
 
 imputed_ss = list()
 
@@ -1198,7 +1209,7 @@ response_statistics = bind_rows(
 
 #### Plot
 
-```{r}
+```{r sample-sizes-plot}
 
 response_statistics %>%
   mutate(
@@ -1206,7 +1217,7 @@ response_statistics %>%
     variable = factor(variable, levels = rq6y_labels),
     timepoint = factor(timepoint, levels = c("Original", rq1y_twin_labels_clean_extrashort)),
     original  = timepoint == "Original"
-  ) %>% 
+  ) %>%
   ggplot(aes(x = timepoint, y = n, group = condition,
              color = condition)) +
   geom_line() +
@@ -1239,7 +1250,7 @@ save_plot("8_attrition_imputation_numbers", width = 9, height = 4)
 
 #### Attrition Only Plot
 
-```{r}
+```{r attrition-only-plot}
 
 response_statistics %>%
   filter(condition == "Attritioned") %>%
@@ -1276,7 +1287,7 @@ save_plot("8_attrition_numbers", width = 6, height = 2)
 
 #### Sample Size Table
 
-```{r}
+```{r sample-size-table}
 
 response_statistics %>%
   mutate(
@@ -1327,7 +1338,7 @@ Here, we calculate the fraction of missing information (FMI) for each variable m
 
 Because imputation is performed separately at each attrition timepoint, the FMI differs across timepoints. FMI is higher when more data is missing at the attrition timepoint (i.e., fewer participants at that wave). 
 
-```{r}
+```{r fmi-means}
 
 timepoint_labels = rq1y_twin_labels_clean
 
@@ -1372,7 +1383,7 @@ fmi_original %>%
 
 Here we calculate the FMI for the change statistics (i.e., the difference between original and attritioned estimates), using bootstrap variance as the within-imputation variance. 
 
-```{r}
+```{r fmi-changes}
 
 simple_params = c("md", "smd", "var")
 
@@ -1438,7 +1449,14 @@ fmi_results %>%
 ### Convergence Check
 
 
-```{r}
+```{r convergence-setup}
+all_imputations      = readRDS(file = file.path("results", "8_1_all_imputations.Rds"))
+
+ids_keep = tasks %>%
+  filter(imputation <=20) %>% 
+  pull(i) %>% max()
+
+all_imputations = all_imputations[1:ids_keep]
 
 # Simple labels without spaces/special characters for plotting
 simple_labels = c("Depression", "Externalising", "Cognitive", "GCSE")
@@ -1510,7 +1528,7 @@ rename_mids = function(mids_obj,
 
 #### Timepoint: Y21 (TEDS21 phase-1 questionnaire)
 
-```{r}
+```{r convergence-y21}
 
 ids = tasks %>%
   filter(imputation == 1) %>%
@@ -1541,7 +1559,7 @@ combine_mids %>%
 
 #### Timepoint: Y26 (TEDS26 questionnaire)
 
-```{r}
+```{r convergence-y26}
 
 ids = tasks %>%
   filter(imputation == 1) %>%
@@ -1572,7 +1590,7 @@ combine_mids %>%
 
 #### Timepoint: Y26 (CATSLife web tests)
 
-```{r}
+```{r convergence-y26-cats}
 
 ids = tasks %>%
   filter(imputation == 1) %>%
