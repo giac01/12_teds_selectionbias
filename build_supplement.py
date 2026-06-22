@@ -62,7 +62,7 @@ STRUCTURE = [
     ("section", "7_rq6_2_weighting_results.html", "table---changes-in-ace-estimates"),
     ("section", "8_rq6_3_imputation_results.html", "table---changes-in-ace-estimates"),
     ("section", "8_rq6_3_imputation_results.html", "calculation-for-sample-means"),
-    ("section", "8_rq6_3_imputation_results.html", "table-of-all-variables-used-in-multiple-imputation"),
+    ("section", "8_rq6_3_imputation_results.html", "table-of-all-variables-used-in-multiple-imputation-rq3"),
 
     ("heading", "Discussion", 1),
     ("section", "11_descriptives.html", "relationship-between-maternal-education-and-child-outcomes"),
