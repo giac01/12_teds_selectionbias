@@ -92,7 +92,7 @@ Analysis code for studying selection bias in the Twins Early Development Study (
 
 | Script | Description | Output |
 |:-------|:------------|:------:|
-| [`9_rq6_combined_bias_reduction_est.qmd`](9_rq6_combined_bias_reduction_est.qmd) | Compare bias reduction across all correction methods | [HTML](9_rq6_combined_bias_reduction_est.html) |
+| [`9_rq6_combined_bias_reduction_est.qmd`](9_rq6_combined_bias_reduction_est.qmd) | Evaluate whether imputation or weighting reduces bias compared to no adjustment across all correction methods | [HTML](9_rq6_combined_bias_reduction_est.html) |
 
 ---
 

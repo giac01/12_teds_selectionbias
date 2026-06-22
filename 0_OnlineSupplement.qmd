@@ -51,6 +51,10 @@ Supplementary tables with additional information not included in the main manusc
 
 The codebase is structured so that computationally intensive analyses are run using R scripts, with results saved as .Rdata files. Extraction of results and creation of tables and plots is then done in Quarto (.qmd) scripts. The tables and figures from those scripts are linked below.
 
+The links below take you to the specific sections in each analysis script where they are calculated (in the knitted quarto) documents. 
+
+A combined html file with all the supplementary results can be found [here](0_OnlineSupplement_combined.html).
+
 <div class="note-box">
 **Note:** The research question numbering in the codebase differs from how they are presented in the paper.
 </div>
