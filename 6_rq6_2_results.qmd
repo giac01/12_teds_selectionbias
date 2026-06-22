@@ -153,7 +153,7 @@ variable_comparisons_df = variable_comparisons_df0 %>%
 
 ## Means, SMDs, Variances
 
-### GT Results Table
+### Adolescent Outcomes: Means, SMDs, and Variances
 
 ```{r}
 #| label: gt-results-table
@@ -560,7 +560,7 @@ save_plot(
 
 [📊 View Full Resolution Plot](plots/pngs/6_rq6_correlations.png)
 
-### GT Results table
+### Adolescent Outcomes: Correlations
 
 ```{r}
 #| label: cor-gt-table
@@ -818,7 +818,7 @@ ace_estimates %>%
 
 ```
 
-### Table - Changes in ACE Estimates
+### Adolescent Outcomes: Attritioned vs. Original ACE Estimates
 
 ```{r}
 #| label: ace-diff-table

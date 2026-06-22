@@ -204,7 +204,7 @@ original_dataset = df %>%
 
 # Comparison of Means, Standardized Mean Differences, and Variances 
 
-## Create GT Results table
+## Toddlerhood Outcomes: Means, SMDs, and Variances
 
 ```{r}
 
@@ -681,7 +681,7 @@ save_plot(
 [📊 View Full Resolution Correlation Plots (PNG)](plots/pngs/2_rq2_2_correlations.png)
 
 
-## Correlations results table
+## Toddlerhood Outcomes: Correlations
 
 Below is a results table for the change in correlations. 
 
@@ -956,7 +956,7 @@ bootstrap_summary_df_ace %>%
 
 ```
 
-## ACE Estimates & Differences Table (complete)
+## Toddlerhood Outcomes: ACE Estimates and Differences
 
 ```{r}
 

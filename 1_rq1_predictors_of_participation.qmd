@@ -827,7 +827,7 @@ twinmodels_results %>%
 
 ```
 
-## Plot Marginal Effects of maternal education
+## RQ1: Marginal Effects of Maternal Education on Participation
 
 ```{r marginal-meducation}
 
@@ -882,7 +882,7 @@ all_predictions %>%
 
 ```
 
-## Plot Marginal Effects of ethnicity
+## RQ1: Marginal Effects of Ethnicity on Participation
 
 ```{r marginal-ethnicity}
 

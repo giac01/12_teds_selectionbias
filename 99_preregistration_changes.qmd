@@ -45,4 +45,4 @@ Here, we describe all changes from the [pre-registration](https://osf.io/v8sgf/f
 ### Minor Changes
 
 * Instead of using IP weights fitted to model participation at a given timepoint, we used IP weights fitted to model missingness in each variable or pair of variables.
-* We increased the number of imputed datasets to 100.
+* We increased the number of imputed datasets to 250 and iterations to 75. 

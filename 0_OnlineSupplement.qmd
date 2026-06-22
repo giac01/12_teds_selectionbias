@@ -53,7 +53,7 @@ The codebase is structured so that computationally intensive analyses are run us
 
 The links below take you to the specific sections in each analysis script where they are calculated (in the knitted quarto) documents. 
 
-A combined html file with all the supplementary results can be found [here](0_OnlineSupplement_combined.html).
+A combined html file with all the supplementary results can be found [here](0_supplement.html).
 
 <div class="note-box">
 **Note:** The research question numbering in the codebase differs from how they are presented in the paper.

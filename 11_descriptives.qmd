@@ -32,7 +32,7 @@ df = df %>%
 
 ```
 
-# All measures used in study
+# Descriptive Statistics: All Study Variables
 
 ```{r}
 #| label: variable-tables
@@ -792,7 +792,7 @@ save_plot("11_participant_ages_each_timepoint", width = 12, height = 12)
 
 [View full-size plot](plots/pngs/11_participant_ages_each_timepoint.png){target="_blank"}
 
-### Age Table
+### Participant Ages at Each Timepoint
 
 ```{r}
 #| label: age-table
@@ -844,7 +844,7 @@ df_age_long %>%
 
 ```
 
-## Education
+## Maternal Education Distribution
 
 ```{r}
 #| label: education-table

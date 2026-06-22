@@ -352,7 +352,8 @@ combined_results
 ```
 
 
-### Main results - bias (not difference)
+### RQ3: Attritioned vs. Original (Means, Variances & Correlations)
+
 
 ```{r}
 
@@ -512,7 +513,9 @@ combined_results_wide
 
 
 
-#### Bias Reduction: Unadjusted vs Weighted
+#### Bias Reduction: IP Weighted vs Unadjusted Attritioned Estimates 
+
+These results test if the *weighted* attritioned estimates are significantly more or less biased that unadjusted attritioned estimates. 
 
 ```{r}
 # Prepare diffratio1 table (Unadjusted - Weighted) / Unadjusted
@@ -614,7 +617,10 @@ diffratio1_summary %>%
   opt_footnote_marks(marks = c("*", "†", "‡", "§"))
 ```
 
-#### Bias Reduction: Unadjusted vs Imputed
+#### Bias Reduction: Imputed vs Unadjusted Attritioned Estimates 
+
+These results test if the *imputed* attritioned estimates are significantly more or less biased that unadjusted attritioned estimates. 
+
 
 ```{r}
 # Prepare diffratio2 table (Unadjusted - Imputed) / Unadjusted
@@ -1167,7 +1173,7 @@ ace_diff_imput
 ```
 
 
-## Combined ACE Bias Table
+## RQ3: Comparison of Unadjusted/Weighted/Imputed Attritioned Estimates to Original Estimates
 
 ```{r}
 ace_diff_combined = bind_rows(ace_diff_unadj, ace_diff_weigh, ace_diff_imput) %>%
