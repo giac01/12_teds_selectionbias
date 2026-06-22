@@ -34,7 +34,7 @@ set.seed(1)
 df_rq1 = df %>%
   filter(twin == 1) %>%
   filter(acontact == 1) %>%
-  select(all_of(c(rq1x, rq1y_twin1, rq1y_twin2, "cohort")))
+  select(all_of(c("cohort",rq1x, rq1y_twin1, rq1y_twin2)))
 
 df_rq1x = df_rq1 %>% 
   select(all_of(rq1x)) 
@@ -70,7 +70,7 @@ daddy_issues = df_rq1 %>%
 
 df_rq1_imputed = df_rq1 %>%
   # select(-adadagetw, -afasoc2, -afahqual) %>% # removing these eliminates imputation warnings
-  mice(method = "pmm", m = 1, maxit = 50, seed = 1)
+  mice(method = "pmm", m = 1, maxit = 75, seed = 1)
 
 df_rq1_imputed$loggedEvents
 
@@ -87,7 +87,7 @@ df_rq1_imputed = df_rq1_imputed %>%
 
 ```
 
-#### Variables in imputation model
+### Full list of imputation variables (RQ1)
 
 ```{r impute-vars-table}
 
@@ -111,6 +111,7 @@ get_study_wave = function(var_name) {
     "u" = "21 Year",
     "z" = "26 Year"
   )
+  if (var_name %in% c("sex1", "zygos")) return("")
   return(wave_map[prefix])
 }
 
@@ -120,6 +121,7 @@ impute_vars_labels = var_to_label(rq1_imputation_vars) %>%
 
 # Create formatted table for imputation variables
 v_impute = data.frame(
+  `Study.Wave` = sapply(rq1_imputation_vars, get_study_wave),
   Description = impute_vars_labels,
   `Teds Code` = ifelse(rq1_imputation_vars %in% colnames(df0), rq1_imputation_vars, paste0(rq1_imputation_vars, "*")),
   `Range or Level` = sapply(rq1_imputation_vars, function(var) {
@@ -142,13 +144,16 @@ v_impute = data.frame(
     } else {
       0
     }
-  }),
-  `Study.Wave` = sapply(rq1_imputation_vars, get_study_wave)
-)
+  })
+) %>% 
+  mutate(
+    `Percent Missing` = (nrow(df)-N)/nrow(df)
+  )
 
 v_impute$Study.Wave[v_impute$Teds.Code=="cohort"]=""
 
 gt(v_impute) %>%
+  fmt_percent(`Percent Missing`) %>% 
   cols_label_with(fn = ~ gsub("\\.", " ", .x)) %>%
   tab_style(
     style = cell_text(size = px(12)),
@@ -158,9 +163,9 @@ gt(v_impute) %>%
     style = cell_text(size = px(12)),
     locations = cells_column_labels()
   ) %>%
-  cols_hide(N) %>%
+  # cols_hide(N) %>%
   tab_source_note(
-    source_note = "Note. Range or Level shows min-max values for numeric variables or factor levels for categorical variables (reference level marked with *). Variable codes with an asterisk (*) have been derived or modified from the original dataset."
+    source_note = "Note. Range or Level shows min-max values for numeric variables or factor levels for categorical variables (reference level marked with asterisk). Teds codes marked with an asterisk have been derived or modified from the original dataset. N indicate the number of non-missing observations."
   ) %>%
   tab_options(
     table.width = "70%"
@@ -219,23 +224,25 @@ df %>%
 save_plot("1_correlation_participation", width = 9, height = 9)
 
 
-# df %>% 
-#   select(randomfamid,twin,all_of(rq1y)) %>% 
+# df %>%
+#   select(randomfamid,twin,all_of(rq1y)) %>%
 #   filter(twin == 1) %>%
-#   select(-twin, -randomfamid) %>% 
+#   select(-twin, -randomfamid) %>%
 #   `colnames<-`(c(rq1y_labels)) %>%
 #   gbtoolbox::plot_correlations(
 #     sample_size = FALSE,
 #     confidence_interval = FALSE
-#   ) + 
+#   ) +
 #   labs(
 #     title = "Correlation between participation at different \ntime points",
 #     subtitle = "N = 13020 (Number of families)"
 #     )
-# 
+#
 # save_plot("1_correlation_participation", width = 9, height = 9)
 
 ```
+
+[View full-size plot](plots/pngs/1_correlation_participation.png){target="_blank"}
 
 ## List of predictor variables
 
@@ -333,6 +340,8 @@ save_plot("1_rq1_predicted_probability_plots", width = 8, height = 8)
 
 
 ```
+
+[View full-size plot](plots/pngs/1_rq1_predicted_probability_plots.png){target="_blank"}
 
 ## Significance of predictor variables
 
@@ -436,6 +445,8 @@ glm_model_comparison_results_df %>%
 save_plot("1_rq1_variable_importance_twin-level", width = 14, height = 7)
 
 ```
+
+[View full-size plot](plots/pngs/1_rq1_variable_importance_twin-level.png){target="_blank"}
 
 #### Calc variable importance for plotting
 
@@ -559,6 +570,8 @@ save_plot("1_rq1_heatmap_twinparticipationpredictors", width = 8, height = 8, tr
 
 ```
 
+[View full-size plot](plots/pngs/1_rq1_heatmap_twinparticipationpredictors.png){target="_blank"}
+
 ### AUC and Variance Explained Plots
 
 ```{r auc-r2-plot}
@@ -626,6 +639,7 @@ save_plot("1_rq1_twinlevel_prediction_accuracy", width = 5, height = 8, trim = T
 
 ```
 
+[View full-size plot](plots/pngs/1_rq1_twinlevel_prediction_accuracy.png){target="_blank"}
 
 ### Twin-Level Logistic Regression Coefficients
 
@@ -1028,6 +1042,10 @@ df_rq1_imputed %>%
 save_plot("1_rq1_misssing_data_pattern_imputed", width = 12, height = 30)
 
 ```
+
+[View full-size plot](plots/pngs/1_rq1_misssing_data_pattern.png){target="_blank"}
+
+[View full-size plot](plots/pngs/1_rq1_misssing_data_pattern_imputed.png){target="_blank"}
 
 # Predicting missingness of SDQ/MFQ data
 

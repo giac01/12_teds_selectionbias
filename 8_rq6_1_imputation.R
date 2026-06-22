@@ -1,6 +1,6 @@
 # Run using docker container: bignardig/tidyverse451:v8
 # Run using commit: 2321sdfaadfsdf (see commit message)
-# Run date: 06-05-2026
+# Run date: 15-06-2026
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load data --------------------------------------------------------------------
@@ -11,8 +11,8 @@ rm(list=ls())
 source("0_load_data.R")
 
 range_participation_outcomes = 6:9
-number_imputations           = 250     # currently takes 22 hours                                              # Number of Imputations 250: 18.9 hours
-number_iterations            = 50                                               
+number_imputations           = 250     # currently takes 1.384 days (250 imp 75 iter)
+number_iterations            = 75      # 75                                        
 n_workers                    = 16                                               # Number of parallel jobs to run (number of cores)
 
 rq1y_twin                         = rq1y_twin[range_participation_outcomes]
@@ -33,7 +33,7 @@ a = nrow(df)
 df = df %>%
   filter(!(randomfamid %in% exclude_fams_rq1x)) %>%
   filter(!(randomfamid %in% exclude_fams_onesib)) %>%
-  filter(!(randomfamid %in% exclude_fams_rq6y)) %>%
+  filter(!(randomfamid %in% exclude_fams_rq6y)) %>% # note that participants with missing data on all focal variables are NOT informative to the analyses. The aim of the analyses is to attrition -> correct for attritioning -> test if corrected estimates resample pre-attritioned estimates. Those without data pre-attritioning are not part of the focal analyses! %>% 
   filter(random == 1) 
 
 cat("Excluded", a-nrow(df), "participants ")
@@ -43,17 +43,22 @@ rm(a)
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Attrition Data ---------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+# In section, unlike the others, we attrition in the wide data format. 
+
 original_datasets    = list()
 attritioned_datasets = list()
 
 for (i in seq_along(rq1y_twin1)){
   
-  filter = as.numeric(df[[rq1y_twin1[i]]]) == 0   # (1/F = present, 0/T = NOT present)
+  filter_twin1 = as.numeric(df[[rq1y_twin1[i]]]) == 0   # (1/F = present, 0/T = NOT present)
+  filter_twin2 = as.numeric(df[[rq1y_twin2[i]]]) == 0   # (1/F = present, 0/T = NOT present)
   
   original_datasets[[i]] = attritioned_datasets[[i]] = df %>%                   # this is kind of redundant as each element of the list is identical to each other and to original_dataset
     select("randomfamid", "twin", "random", "x3zygos","sexzyg", starts_with(rq6y_prefix), all_of(rq6z_vars))
   
-  attritioned_datasets[[i]][which(filter),rq6y] = NA
+  attritioned_datasets[[i]][which(filter_twin1),paste0(rq6y_prefix,"1")] = NA # massive bug here earlier, only attritioned twin 1 - not good!
+  attritioned_datasets[[i]][which(filter_twin2),paste0(rq6y_prefix,"2")] = NA # massive bug here earlier, only attritioned twin 1 - not good!
   
 }
 
@@ -199,6 +204,7 @@ for (i in rq1y_twin) {
   imp_list = list()
 
   for (k in 1:number_imputations) {
+  
     # Get all sexzyg groups for this timepoint-imputation combination
     group_indices = which((tasks$timepoint == i) & (tasks$imputation == k))
 
@@ -218,9 +224,7 @@ for (i in rq1y_twin) {
     if(!isTRUE(all.equal(imp_list[[k]]$sexzyg,      original_dataset$sexzyg,      check.attributes = FALSE))) stop("sexzyg mismatch")
 
     # Set imputed values back to NA where they were NA in original dataset (only for outcome variables)
-    rq6y_vars = c(paste0(rq6y_prefix,1),paste0(rq6y_prefix,2))
-    
-    for (var in rq6y_vars) {
+    for (var in rq6y_all) {
       na_mask = is.na(original_dataset[[var]])
       imp_list[[k]][[var]][na_mask] = NA
     }
@@ -248,13 +252,12 @@ cat("\nmissingness after attritioning\n")
 table(is.na(attritioned_datasets[[1]]$lcg1))
 table(is.na(attritioned_datasets[[2]]$lcg1))
 table(is.na(attritioned_datasets[[3]]$lcg1))
+
+table(is.na(attritioned_datasets[[1]]$lcg2))
 cat("\nmissingness after attritioning + imputation\n")
 table(is.na(imputed_mice[[1]][[1]]$lcg1))
 table(is.na(imputed_mice[[2]][[1]]$lcg1))
 table(is.na(imputed_mice[[3]][[1]]$lcg1))
 
+table(is.na(imputed_mice[[1]][[1]]$lcg2))
 
-# all_imputations[[1]] %>% plot(layout = c(5,5), col = 6)
-# all_imputations[[100]] %>% plot(layout = c(3,3), y = c(paste0(rq6y_prefix,1),paste0(rq6y_prefix,2)))
-# 
-#                               

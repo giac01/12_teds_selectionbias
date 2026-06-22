@@ -1,6 +1,6 @@
 # Run using docker container: bignardig/tidyverse451:v8
 # Run using commit: 2321sdfaadfsdf (see commit message)
-# Run date: 06-05-2026
+# Run date: 12-06-2026
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Load data --------------------------------------------------------------------
@@ -36,7 +36,7 @@ df = df %>%
   filter(!(randomfamid %in% exclude_fams_rq6y)) %>%
   filter(random == 1) 
 
-cat("Excluded", a-nrow(df), "participants ")
+cat("Excluded", a-nrow(df), "rows ")
 
 rm(a)
 
@@ -84,9 +84,11 @@ testthat::test_that("nrows of compared datasets match",{
   testthat::expect_true(all.equal(x$random,      y$random, check.attributes = FALSE))
 })
 
+# Check that non-attritioned data matches from original to imputed datasets
+
 x = original_dataset$lcmfqt
 y = imputed_datasets_flat2[[1]]$lcmfqt
-missing = df %>%                                                                # this step attritions the variables based on whether they took part at timepoint u 
+attritioned = df %>%                                                                # this step attritions the variables based on whether they took part at timepoint u 
             select(u1cdata1, u1cdata2) %>%
             pivot_longer(
               cols = matches("\\d$"),
@@ -96,16 +98,33 @@ missing = df %>%                                                                
             ) %>% 
             pull(u1cdata) == 0
 names(imputed_datasets_flat2)[1]
-x[missing] = NA
-y[missing] = NA
+x[attritioned] = NA
+y[attritioned] = NA
 
-testthat::test_that("nrows of compared datasets match",{
-  testthat::expect_true(all.equal(x, y, check.attributes = FALSE))
+testthat::test_that("Check that non-attritioned data matches from original to imputed datasets",{
+  testthat::expect_true(all.equal(x[!attritioned], y[!attritioned], check.attributes = FALSE))
 })
+
+if (FALSE){
+  # Imputed data should mostly vary from the original
+  
+  data.frame(x,y) %>% 
+    filter(attritioned)
+  
+  table(x[attritioned] == y[attritioned])
+  
+}
+
+rm(x,y,attritioned)
+
+#  attempting another way at the test
+
+x = original_dataset
 
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 # Run Analysis -----------------------------------------------------------------
 # ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
 rm(imputed_datasets, imputed_datasets_flat, df0, df, x, y, missing, rq5_percent_complete)
 gc()
 

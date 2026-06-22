@@ -312,6 +312,7 @@ save_plot("11_participation_rates_twinlevel", width = 6, height = 4)
 
 ```
 
+[View full-size plot](plots/pngs/11_participation_rates_twinlevel.png){target="_blank"}
 
 #### Twin Concordance
 
@@ -351,8 +352,8 @@ plot_data = map_dfr(rq1y_twin, function(var){
       metric == "mean" ~ "Participation Rate",
       metric == "cor" ~ "Twin Tetrachoric Correlation"
     ),
-    time_point = rq1y_twin_labels_clean[match(.$variable, rq1y_twin)],
-    time_point = factor(time_point, levels = rq1y_twin_labels_clean)
+    time_point = rq1y_twin_labels_clean_extrashort[match(.$variable, rq1y_twin)],
+    time_point = factor(time_point, levels = rq1y_twin_labels_clean_extrashort)
   )
 
 plot_data %>%
@@ -409,6 +410,8 @@ save_plot("11_participation_rates_zygosity", width = 7, height = 6)
 
 
 ```
+
+[View full-size plot](plots/pngs/11_participation_rates_zygosity.png){target="_blank"}
 
 #### Create ACE estimates plot 
 
@@ -486,6 +489,8 @@ estimates %>%
   save_plot("11_ACE_time", width = 7, height = 3)
 
 ```
+
+[View full-size plot](plots/pngs/11_ACE_time.png){target="_blank"}
 
 #### ACE Estimates Table
 
@@ -583,6 +588,8 @@ save_plot("11_number_of_times_each_twin_participated", width = 9, height = 5)
 
 ```
 
+[View full-size plot](plots/pngs/11_number_of_times_each_twin_participated.png){target="_blank"}
+
 ## How predictive are cohort and year of birth of participation at each timepoint?
 
 I've checked there are no missing values for cohort or year of birth (aonsby)
@@ -623,6 +630,8 @@ save_plot("11_r2_participation_cohort_birthyear", width = 9, height = 5)
 
 
 ```
+
+[View full-size plot](plots/pngs/11_r2_participation_cohort_birthyear.png){target="_blank"}
 
 At the Y18 time point, we see that those in cohort 1 and those born in 1994 are less likely to participate. 
 
@@ -703,6 +712,10 @@ save_plot("11_pairwise_missingness_plot", width = 6, height = 6)
 
 ```
 
+[View full-size plot](plots/pngs/11_participation_pattern.png){target="_blank"}
+
+[View full-size plot](plots/pngs/11_pairwise_missingness_plot.png){target="_blank"}
+
 # Descriptive stats on specific variables
 
 ## Availability of genotyped data by sex/zygosity and ethnicity
@@ -777,7 +790,9 @@ save_plot("11_participant_ages_each_timepoint", width = 12, height = 12)
 
 ```
 
-### Table
+[View full-size plot](plots/pngs/11_participant_ages_each_timepoint.png){target="_blank"}
+
+### Age Table
 
 ```{r}
 #| label: age-table
@@ -909,6 +924,8 @@ save_plot("11_meducation_ks3_plot", width = 6, height = 5)
 
 ```
 
+[View full-size plot](plots/pngs/11_meducation_ks3_plot.png){target="_blank"}
+
 ### GCSE Core Subjects Grade (Age 16)
 
 ```{r}
@@ -927,6 +944,8 @@ save_plot("11_meducation_gcse_plot", width = 6, height = 5)
 
 ```
 
+[View full-size plot](plots/pngs/11_meducation_gcse_plot.png){target="_blank"}
+
 ### Cognitive Ability (Age 12)
 
 ```{r}
@@ -944,6 +963,8 @@ plot_education_effects(model_cog, "Predicted Cognitive Score (g)")
 save_plot("11_meducation_cognitive_plot", width = 6, height = 5)
 
 ```
+
+[View full-size plot](plots/pngs/11_meducation_cognitive_plot.png){target="_blank"}
 
 # Example of attritioning for presentations
 
@@ -974,4 +995,6 @@ df %>%
 save_plot("11_attritioning_example", width  = 4, height = 6)
 
 ```
+
+[View full-size plot](plots/pngs/11_attritioning_example.png){target="_blank"}
 

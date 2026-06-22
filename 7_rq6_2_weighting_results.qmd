@@ -1,5 +1,5 @@
 ---
-title: "RQ6: original vs (attritioned + IP weighted)"
+title: "S7 RQ3: original vs (attritioned + IP weighted)"
 format:
   html:
     embed-resources: true
@@ -12,8 +12,18 @@ format:
     toc: true
     grid:
       body-width: 900px
+    include-after-body:
+      text: |
+        <script>
+        document.querySelectorAll('a[href]').forEach(function(a){
+          var href = a.getAttribute('href') || '';
+          if (!href.startsWith('#') && !a.getAttribute('target')) {
+            a.setAttribute('target', '_blank');
+          }
+        });
+        </script>
 editor: source
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -29,7 +39,7 @@ Weights are created by modelling the probability of attrition (i.e., not taking 
 
 ## Load Data
 
-```{r}
+```{r load-data}
 #| output: false
 
 source("0_load_data.R")
@@ -60,7 +70,7 @@ weighted_comparisons = readRDS(file.path("results","7_weighted_comparisons.Rds")
 
 Attrition time points
 
-```{r}
+```{r focal-vars}
 
 cbind(
   rq6y,
@@ -81,7 +91,7 @@ cbind(
 
 ### Transform Raw Results to Dataframe
 
-```{r}
+```{r transform-results}
 # Load raw bootstrap results (already loaded above as weighted_comparisons)
 # weighted_comparisons = readRDS(file.path("results", "3_weighted_comparisons.Rds"))
 
@@ -150,7 +160,7 @@ rownames(weighted_comparisons_df0) = NULL
 
 ### Create Table
 
-```{r}
+```{r create-table}
 
 weighted_comparisons_df = weighted_comparisons_df0 %>%
   mutate(
@@ -167,7 +177,7 @@ weighted_comparisons_df = weighted_comparisons_df0 %>%
 
 ### GT Results Table
 
-```{r}
+```{r gt-results-table}
 
 weighted_comparisons_df %>%
   filter(stat %in% c("md", "smd", "var")) %>%
@@ -315,7 +325,7 @@ weighted_comparisons_df %>%
 
 #### Standardised Mean Differences
 
-```{r}
+```{r heatmap-smd}
 # Create circular heatmap for SMD
 heatmap_data_smd = weighted_comparisons_df %>%
   filter(stat == "smd") %>%
@@ -379,8 +389,9 @@ heatmap_data_smd = weighted_comparisons_df %>%
     labels = levels(heatmap_data_smd$outcome_labeled)
 
     lapply(seq_along(labels), function(i) {
-      annotate("text", x = 0.5, y = y_positions[i],
-               label = paste0(labels[i], " "), size = 5, hjust = 1, angle = 7, vjust = -.3, fontface = "bold")
+      annotate("label", x = 0.5, y = y_positions[i],
+               label = labels[i], size = 5, hjust = 0.5, angle = 0, vjust = -0.12, fontface = "bold",
+               fill = "white", label.size = 0)
     })
   }
 
@@ -392,7 +403,7 @@ save_plot("7_rq7_circular_heatmap_smd", width = 8, height = 8, trim = TRUE)
 
 #### Variance Differences
 
-```{r}
+```{r heatmap-var}
 # Create circular heatmap for variance differences
 heatmap_data_var = weighted_comparisons_df %>%
   filter(stat == "var") %>%
@@ -419,7 +430,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        paste0(sprintf("%.1f", y * 100), "%"), ""),
-        size = 7.5
+        size = ifelse(dataset == "Y21", 5, 7.5)
     ),
     color = "black"
   ) +
@@ -430,7 +441,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     mid = "white",
     high = "#d73027",
     midpoint = 0,
-    limits = c(-.135, .135),
+    limits = c(-.35, .35),
     na.value = "white",
     guide = "none"
   ) +
@@ -456,8 +467,9 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     labels = levels(heatmap_data_var$outcome_labeled)
 
     lapply(seq_along(labels), function(i) {
-      annotate("text", x = 0.5, y = y_positions[i],
-               label = paste0(labels[i], " "), size = 5, hjust = 1, angle = 7, vjust = -.3, fontface = "bold")
+      annotate("label", x = 0.5, y = y_positions[i],
+               label = labels[i], size = 5, hjust = 0.5, angle = 0, vjust = -0.12, fontface = "bold",
+               fill = "white", label.size = 0)
     })
   }
 
@@ -471,7 +483,7 @@ save_plot("7_rq7_circular_heatmap_var", width = 8, height = 8, trim = TRUE)
 
 ### Plot
 
-```{r}
+```{r correlations-plot}
 
 correlation_comparisons = list()
 
@@ -495,6 +507,9 @@ for(i in seq_along(weighted_comparisons)){
 
 library(patchwork)
 
+rq1y_twin_labels_clean_extrashort2 = rq1y_twin_labels_clean_extrashort
+rq1y_twin_labels_clean_extrashort2[3] = "Y26 (web)"
+
 plots = lapply(1:length(correlation_comparisons), function(i) {
   plot_lower_triangular_matrix2(
     data = correlation_comparisons[[i]],
@@ -506,26 +521,28 @@ plots = lapply(1:length(correlation_comparisons), function(i) {
     p_col = "pval_adj",
     p_threshold = 0.05,
     show_values = TRUE,
-    text_size = 3,
-    title = rq1y_twin_labels_clean_extrashort[i],
+    text_size = 4.2,
+    title = rq1y_twin_labels_clean_extrashort2[i],
     caption = NULL,
     method = "none"
   ) +
   labs(tag = paste0("B", i)) +
   theme(
-    plot.title        = element_text(hjust=0),
+    plot.title        = element_text(hjust=0.5),
     axis.text         = element_text(color = "black"),
     plot.background   = element_blank(),
     panel.background  = element_blank(),
     legend.background = element_blank(),
     plot.tag          = element_text(size = 14, face = "bold"),
-    plot.tag.position = c(0, 1)
+    plot.tag.position = c(0, 1),
+    axis.text.y       = if (i > 1) element_blank() else element_text(size = 12),
+    axis.text.x       = element_blank()
   )
 })
 
 patchwork::wrap_plots(
   plots,
-  ncol = 2) +
+  ncol = 4) +
   plot_annotation(
     title = expression(Cor[attritioned + weighted] ~ - ~ ~ Cor[original]),
     theme = theme(
@@ -535,17 +552,17 @@ patchwork::wrap_plots(
   )
 
 save_plot(
-  "7_rq7_correlations", width = 11, height = 3, trim = TRUE, trim_margin = 0)
+  "7_rq7_correlations", width = 9, height = NA, trim = TRUE, trim_margin = 0)
 
 
 
 ```
 
-[📊 View Full Resolution Correlation Plots (PDF)](plots/pdfs/7_rq7_correlations.pdf)
+[📊 View Full Resolution Correlation Plots (PNG)](plots/pngs/7_rq7_correlations.png)
 
 ### GT Results table
 
-```{r}
+```{r gt-correlations-table}
 
 cor_table = bind_rows(correlation_comparisons, .id = "timepoint") %>%
   mutate(
@@ -649,7 +666,7 @@ cor_table
 
 ## ACE Comparison
 
-```{r}
+```{r ace-extract}
 
 # Extract ACE estimates and differences from all datasets
 ace_estimates_list = list()
@@ -699,7 +716,7 @@ ace_differences$dataset_label = rq1y_twin_labels_clean[match(ace_differences$dat
 
 ### Table - ACE estimates
 
-```{r}
+```{r ace-estimates-table}
 
 ace_estimates %>%
   filter(par %in% c("a", "c", "e")) %>%
@@ -757,7 +774,7 @@ ace_estimates %>%
 
 ### Table - Changes in ACE Estimates
 
-```{r}
+```{r ace-differences-table}
 
 ace_differences_tbl = ace_differences  %>%
   group_by(dataset) %>%
@@ -823,7 +840,7 @@ ace_differences_tbl %>%
 
 ### ACE Estimates Plot
 
-```{r}
+```{r ace-estimates-plot}
 
 ace_estimates %>%
   mutate(

@@ -1,5 +1,5 @@
 ---
-title: "RQ6: original vs (attritioned + imputed)"
+title: "S8 RQ3: original vs (attritioned + imputed)"
 format:
   html:
     embed-resources: true
@@ -12,8 +12,18 @@ format:
     toc: true
     grid:
       body-width: 900px
+    include-after-body:
+      text: |
+        <script>
+        document.querySelectorAll('a[href]').forEach(function(a){
+          var href = a.getAttribute('href') || '';
+          if (!href.startsWith('#') && !a.getAttribute('target')) {
+            a.setAttribute('target', '_blank');
+          }
+        });
+        </script>
 editor: source
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -83,7 +93,11 @@ cbind(
 ```
 
 
-### Table of all variables used in multiple imputation
+### Table of all variables used in multiple imputation (RQ3)
+
+Note that imputation was performed separately across zygosity-sex groups (i.e., MZ males, MZ females, DZ males, ...) therefore sex and zygosity are omitted from imputation models. 
+
+Because imputations were performed separetely for each attriitoning time point, we calculate FMI for each timepoint and average across. 
 
 ```{r imputation-vars-table}
 
@@ -114,6 +128,38 @@ rq6_imputation_vars = c(rq6y_all, rq6z_vars)
 impute_vars_labels = var_to_label(rq6_imputation_vars) %>%
   sapply(., function(x) ifelse(is.null(x[1]), "", x[1]))
 
+# % missing cases in original df
+pct_missing = sapply(rq6_imputation_vars, function(var) {
+  if (var %in% colnames(df)) {
+    round(100 * mean(is.na(df[[var]])), 1)
+  } else {
+    NA_real_
+  }
+})
+
+# Fraction of Missing Information (FMI) for sample means across attrition timepoints (numeric vars only)
+fmi_by_var = sapply(rq6_imputation_vars, function(v) {
+  # Only compute for numeric variables; factors have no meaningful mean FMI
+  if (!v %in% colnames(df) || !is.numeric(df[[v]])) return(NA_real_)
+  # Calculate FMI for each attritioning timepoint (imputations were run separately for each attritioning timepoint)
+  fmi_vals = sapply(seq_along(imputed_mice), function(tp) {
+    # browser()
+    imp_list = imputed_mice[[tp]]
+    if (!v %in% colnames(imp_list[[1]])) return(NA_real_)
+    Q = sapply(imp_list, function(d) mean(d[[v]], na.rm = TRUE))
+    U = sapply(imp_list, function(d) {
+      n_obs = sum(!is.na(d[[v]]))
+      if (n_obs < 2) return(NA_real_)
+      stats::var(d[[v]], na.rm = TRUE) / n_obs
+    })
+    tryCatch(
+      mice::pool.scalar(Q = Q, U = U)$fmi,
+      error = function(e) NA_real_
+    )
+  })
+  mean(fmi_vals, na.rm = TRUE)
+})
+
 # Create formatted table for imputation variables
 v_impute = data.frame(
   Description = impute_vars_labels,
@@ -139,7 +185,10 @@ v_impute = data.frame(
       0
     }
   }),
-  `Study.Wave` = sapply(rq6_imputation_vars, get_study_wave)
+  `Missing (%)` = pct_missing,
+  `FMI (mean)` = round(fmi_by_var, 4),
+  `Study.Wave` = sapply(rq6_imputation_vars, get_study_wave),
+  check.names = FALSE
 )
 
 gt(v_impute) %>%
@@ -153,8 +202,10 @@ gt(v_impute) %>%
     locations = cells_column_labels()
   ) %>%
   cols_hide(N) %>%
+  fmt_percent(columns = `FMI (mean)`, decimals = 0) %>%
+  fmt_number(columns = `Missing (%)`, decimals = 0, pattern = "{x}%") %>%
   tab_source_note(
-    source_note = "Note: Range or Level shows min-max values for numeric variables or factor levels for categorical variables (reference level marked with *). Variable codes with an asterisk (*) have been derived or modified from the original dataset."
+    source_note = "Note: Range or Level shows min-max values for numeric variables or factor levels for categorical variables (reference level marked with *). Variable codes with an asterisk (*) have been derived or modified from the original dataset. Missing (%) is the percentage of missing cases in the original sample. FMI (mean) is the fraction of missing information for the sample mean, averaged across attrition timepoints; NA for factor variables."
   ) %>%
   tab_options(
     table.width = "70%"
@@ -534,7 +585,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     mid = "white",
     high = "#d73027",
     midpoint = 0,
-    limits = c(-.135, .135),
+    limits = c(-.35, .35),
     na.value = "white",
     guide = "none"
   ) +
@@ -685,7 +736,7 @@ plots = lapply(1:length(correlation_comparisons), function(i) {
     p_col = "pval_adj",
     p_threshold = 0.05,
     show_values = TRUE,
-    text_size = 3.9,
+    text_size = 4.2,
     title = rq1y_twin_labels_clean_extrashort2[i],
     caption = NULL,
     method = "none"
@@ -699,7 +750,8 @@ plots = lapply(1:length(correlation_comparisons), function(i) {
     legend.background = element_blank(),
     plot.tag          = element_text(size = 14, face = "bold"),
     plot.tag.position = c(0, 1),
-    axis.text.y       = if (i > 1) element_blank() else element_text(size = 12)
+    axis.text.y       = if (i > 1) element_blank() else element_text(size = 12),
+    axis.text.x       = element_text(size = 12)
   )
 })
 
@@ -715,11 +767,11 @@ patchwork::wrap_plots(
   )
 
 save_plot(
-  "8_rq6_correlations", width = 9, height = 2.7, trim = TRUE, trim_margin = 0)
+  "8_rq6_correlations", width = 9, height = NA, trim = TRUE, trim_margin = 0)
 
 ```
 
-[📊 View Full Resolution Correlation Plots (PDF)](plots/pdfs/8_rq6_correlations.pdf)
+[📊 View Full Resolution Correlation Plots (PNG)](plots/pngs/8_rq6_correlations.png)
 
 ### GT Results table
 
@@ -838,20 +890,6 @@ Sys.setenv(MAGICK_DISK_LIMIT = "16GiB")
 img1 = image_read("plots/pngs/6_rq6_correlations.png")
 img2 = image_read("plots/pngs/7_rq7_correlations.png")
 img3 = image_read("plots/pngs/8_rq6_correlations.png")
-
-# Flatten RGBA to white background (prevents black padding when stacking)
-img1 = image_flatten(img1, operator = "Over")
-img2 = image_flatten(img2, operator = "Over")
-img3 = image_flatten(img3, operator = "Over")
-
-# Pad narrower images with white on the right to match the widest
-max_width = max(image_info(img1)$width, image_info(img2)$width, image_info(img3)$width)
-img1 = image_extent(img1, paste0(max_width, "x", image_info(img1)$height), gravity = "West", color = "white")
-img2 = image_extent(img2, paste0(max_width, "x", image_info(img2)$height), gravity = "West", color = "white")
-
-# Add vertical spacing (white border) between images
-img1 = image_border(img1, "white", "0x20")  # Add 20px white space at bottom
-img2 = image_border(img2, "white", "0x20")  # Add 20px white space at bottom
 
 # Stack all plots vertically
 combined = image_append(c(img1, img2, img3), stack = TRUE)

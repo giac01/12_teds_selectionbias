@@ -12,8 +12,18 @@ format:
     toc: true
     grid:
       body-width: 900px
+    include-after-body:
+      text: |
+        <script>
+        document.querySelectorAll('a[href]').forEach(function(a){
+          var href = a.getAttribute('href') || '';
+          if (!href.startsWith('#') && !a.getAttribute('target')) {
+            a.setAttribute('target', '_blank');
+          }
+        });
+        </script>
 editor: source
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -396,7 +406,7 @@ variable_comparisons_df %>%
     ) +
     labs(
       subtitle = expression(frac(bar(X)[attritioned] - bar(X)[original], SD[original])),
-      tag = "A1"
+      tag = "A"
     ) +
     theme_minimal() +
     theme(
@@ -427,7 +437,7 @@ variable_comparisons_df %>%
 
 ```
 
-[📊 View Full Resolution SMD Heatmap (PNG)](plots/pngs/2_rq2_circular_heatmap_smd.png)
+[📊 View Full Resolution SMD Heatmap (PNG)](plots/pngs/2_rq2_circular_heatmap_smd2.png)
 
 ### Variance Differences
 
@@ -475,7 +485,7 @@ variable_comparisons_df %>%
     ) +
     labs(
       subtitle = expression(frac(Var[attritioned] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
-      tag = "B1"
+      tag = "B"
     ) +
     theme_minimal() +
     theme(
@@ -506,7 +516,7 @@ variable_comparisons_df %>%
 
 ```
 
-[📊 View Full Resolution Variance Heatmap (PNG)](plots/pngs/2_rq2_circular_heatmap_var.png)
+[📊 View Full Resolution Variance Heatmap (PNG)](plots/pngs/2_rq2_circular_heatmap_var2.png)
 
 ## Plot data distributions
 
@@ -1152,6 +1162,8 @@ bootstrap_summary_df_ace %>%
 
 save_plot("2_rq2_ace_forest", width = 8, height = 7)
 ```
+
+[View full-size plot](plots/pngs/2_rq2_ace_forest.png){target="_blank"}
 
 ## ACE Stacked Bar Plot
 

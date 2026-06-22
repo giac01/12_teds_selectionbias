@@ -1,6 +1,6 @@
 ---
-title: "RQ6: Combined Analysis of Bias Across Conditions"
-format: 
+title: "S9 RQ3: Combined Analysis of Bias Across Conditions"
+format:
   html:
     embed-resources: true
     fig-width: 8
@@ -12,6 +12,16 @@ format:
     toc: true
     grid:
       body-width: 900px
+    include-after-body:
+      text: |
+        <script>
+        document.querySelectorAll('a[href]').forEach(function(a){
+          var href = a.getAttribute('href') || '';
+          if (!href.startsWith('#') && !a.getAttribute('target')) {
+            a.setAttribute('target', '_blank');
+          }
+        });
+        </script>
 editor: source
 editor_options: 
   chunk_output_type: console
@@ -22,7 +32,7 @@ editor_options:
 ```{r}
 #| output: false
 
-source("0_load_data.R")
+source("0_load_data.R") 
 
 df = df %>%
   filter(!(randomfamid %in% exclude_fams_rq1x)) %>%
@@ -31,7 +41,7 @@ df = df %>%
 
 ## range of participation outcomes to use for attrition
 
-range_participation_outcomes = 6:8
+range_participation_outcomes = 6:9
 
 # Subset vectors to only include participation outcomes in range
 rq1y_twin                         = rq1y_twin[range_participation_outcomes]
@@ -40,10 +50,6 @@ rq1y_twin2                        = rq1y_twin2[range_participation_outcomes]
 rq1y_twin_labels                  = rq1y_twin_labels[range_participation_outcomes]
 rq1y_twin_labels_clean            = rq1y_twin_labels_clean[range_participation_outcomes]
 rq1y_twin_labels_clean_extrashort = rq1y_twin_labels_clean_extrashort[range_participation_outcomes]
-
-## range of participation outcomes to use for attiritioning 
-
-range_participation_outcomes = 6:8
 
 res_unadj = readRDS(file = file.path("results", "6_variable_comparisons.Rds"))
 res_weigh = readRDS(file = file.path("results", "7_weighted_comparisons.Rds"))
@@ -66,7 +72,7 @@ res_weigh[[1]][[2]]$md # second iteration
 res_imput$u1cdata1$md # first imputed dataset (has 40 bootstrap iterations in each)
 res_imput$u1cdata2$md # second imputed dataset
 
-res_unadj$u1cdata1$bootstrap_iter$smd #all  mean differences for attritioning on u1cdata1 time point
+res_unadj$u1cdata1$bootstrap_iter$smd #all SMDs for attritioning on u1cdata1 time point
 res_weigh[[1]][[1]]$smd # each iteration is stored in different i
 res_weigh[[1]][[2]]$smd # second iteration
 res_imput$u1cdata1$smd # first imputed dataset (has 40 bootstrap iterations in each)
@@ -79,7 +85,7 @@ res_weigh[[1]][[1]]$cor_resid
 
 ```
 
-## Create Cleaned Datasets
+## Create Correlation Indicators
 
 ```{r}
 # Correlation pair names (6 unique pairs from 4 variables)
@@ -286,16 +292,16 @@ colnames(df_imput)
 
 # Check dimensions
 cat("Unadjusted dataset:\n")
-cat("  Rows:", nrow(df_unadj), "(expected: 30,000 = 10,000 × 3 timepoints)\n")
+cat("  Rows:", nrow(df_unadj), "(expected: 40,000 = 10,000 × 4 timepoints)\n")
 cat("  Cols:", ncol(df_unadj), "\n\n")
 
 cat("Weighted dataset:\n
 ")
-cat("  Rows:", nrow(df_weigh), "(expected: 30,000 = 10,000 × 3 timepoints)\n")
+cat("  Rows:", nrow(df_weigh), "(expected: 40,000 = 10,000 × 4 timepoints)\n")
 cat("  Cols:", ncol(df_weigh), "\n\n")
 
 cat("Imputed dataset:\n")
-cat("  Rows:", nrow(df_imput), "(expected: 30,000 = 250 × 40 × 3 timepoints)\n")
+cat("  Rows:", nrow(df_imput), "(expected: 40,000 = 250 × 40 × 4 timepoints)\n")
 cat("  Cols:", ncol(df_imput), "\n\n")
 
 # Preview column names
@@ -330,9 +336,8 @@ test_that("Timepoint columns are identical across dataframes", {
 
 ## Data Wrangling
 
-### Main results - bias (not difference)
-
 ```{r}
+
 shared_var = Reduce(intersect, list(colnames(df_unadj), colnames(df_weigh), colnames(df_imput)))
 
 combined_results = rbind(df_unadj[shared_var],df_weigh[shared_var],df_imput[shared_var]) %>%  
@@ -341,6 +346,15 @@ combined_results = rbind(df_unadj[shared_var],df_weigh[shared_var],df_imput[shar
     cols    = c(-timepoint, -iteration, -condition),
     names_to = "stat"
   )
+
+combined_results
+
+```
+
+
+### Main results - bias (not difference)
+
+```{r}
 
 bias_summary = combined_results %>%
   group_by(condition, timepoint, stat) %>%
@@ -537,7 +551,7 @@ diffratio1_summary = combined_results_wide %>%
   select(param, timepoint, variable_label, y, ymin, ymax, pbetter1) %>%
   mutate(p_val = bayestestR::pd_to_p(pmax(pbetter1, 1 - pbetter1))) %>%
   group_by(param, timepoint) %>%
-  mutate(p_adj = p.adjust(p_val, method = "bonferroni")) %>%
+  mutate(p_adj = p.adjust(p_val, method = "holm")) %>%
   ungroup()
 
 diffratio1_summary %>%
@@ -593,7 +607,7 @@ diffratio1_summary %>%
     placement = "right"
   ) %>%
   tab_footnote(
-    footnote = "p_adj = Bonferroni-corrected p-value within each timepoint.",
+    footnote = "p_adj = Holm-corrected p-value within each parameter type × timepoint group.",
     locations = cells_column_labels(columns = p_adj),
     placement = "right"
   ) %>%
@@ -639,7 +653,7 @@ diffratio2_summary = combined_results_wide %>%
   select(param, timepoint, variable_label, y, ymin, ymax, pbetter2) %>%
   mutate(p_val = bayestestR::pd_to_p(pmax(pbetter2, 1 - pbetter2))) %>%
   group_by(param, timepoint) %>%
-  mutate(p_adj = p.adjust(p_val, method = "bonferroni")) %>%
+  mutate(p_adj = p.adjust(p_val, method = "holm")) %>%
   ungroup()
 
 diffratio2_summary %>%
@@ -695,7 +709,7 @@ diffratio2_summary %>%
     placement = "right"
   ) %>%
   tab_footnote(
-    footnote = "p_adj = Bonferroni-corrected p-value within each timepoint.",
+    footnote = "p_adj = Holm-corrected p-value within each parameter type × timepoint group.",
     locations = cells_column_labels(columns = p_adj),
     placement = "right"
   ) %>%
@@ -789,7 +803,7 @@ mse_consistency %>%
       param == "cor" ~ "Correlation"
     ),
     param = factor(param, levels = c("SMD", "Variance", "Correlation")),
-    timepoint = factor(timepoint, levels = c("Y21", "Y26 (q'aire)", "Y26 (web test)"))
+    timepoint = factor(timepoint, levels = c("Y21", "Y26 (q'aire)", "Y26 (web test)", "Genotyped"))
   ) %>%
   ggplot(aes(x = timepoint, y = variable, fill = best_method)) +
   geom_tile(color = "grey50", linewidth = 0.5) +
@@ -817,6 +831,8 @@ save_plot("9_lowest_mse_method", width = 8, height = 8)
 
 ```
 
+[📊 View Plot (PNG)](plots/pngs/9_lowest_mse_method.png)
+
 #### Proportion of Iterations Each Method is Most Accurate (Stacked Bar)
 
 ```{r}
@@ -838,7 +854,7 @@ mse_consistency_long = mse_consistency %>%
       param == "cor" ~ "Correlation"
     ),
     param = factor(param, levels = c("SMD", "Variance", "Correlation")),
-    timepoint = factor(timepoint, levels = c("Y21", "Y26 (q'aire)", "Y26 (web test)"))
+    timepoint = factor(timepoint, levels = c("Y21", "Y26 (q'aire)", "Y26 (web test)", "Genotyped"))
   )
 
 mse_consistency_long %>%
@@ -868,6 +884,8 @@ mse_consistency_long %>%
 save_plot("9_lowest_mse_method_stacked", width = 9, height = 6)
 
 ```
+
+[📊 View Plot (PNG)](plots/pngs/9_lowest_mse_method_stacked.png)
 
 # Extra Plots
 
@@ -924,7 +942,7 @@ plot_data_cor %>%
 ```
 
 
-### Complex Plot
+### Density Plot of Correlation Bias
 
 ```{r}
 
@@ -949,7 +967,7 @@ plot_data_cor %>%
     data = filter(panel_labels, condition == "Imputed"),
     aes(x = -Inf, y = Inf, label = label),
     color = "#1a7040", hjust = -0.05, vjust = 4.3,
-    size = 1.8big, family = "mono", inherit.aes = FALSE
+    size = 1.8, family = "mono", inherit.aes = FALSE
   ) +
   facet_grid(pair_label ~ timepoint, scales = "free_y") +
   scale_fill_manual(
@@ -985,7 +1003,81 @@ plot_data_cor %>%
 save_plot("9_extra_correlation_densities", width = 8, height = 9)
 ```
 
-# ACE Estimates
+[📊 View Plot (PNG)](plots/pngs/9_extra_correlation_densities.png)
+
+### Density Plot of Absolute Correlation Bias
+
+```{r}
+
+panel_labels_abs = plot_data_cor %>%
+  group_by(condition, pair_label, timepoint) %>%
+  summarise(
+    est = mean(abs(value)),
+    lo  = quantile(abs(value), 0.025),
+    hi  = quantile(abs(value), 0.975),
+    .groups = "drop"
+  ) %>%
+  mutate(label = sprintf("%+.3f [%+.3f, %+.3f]", est, lo, hi))
+
+plot_data_cor %>%
+  ggplot(aes(x = abs(value), fill = condition, color = condition)) +
+  geom_density(alpha = 0.25, linewidth = 0.6) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey30", linewidth = 0.5) +
+  geom_text(
+    data = filter(panel_labels_abs, condition == "Unadjusted"),
+    aes(x = -Inf, y = Inf, label = label),
+    color = "#b07800", hjust = -0.05, vjust = 1.3,
+    size = 1.8, family = "mono", inherit.aes = FALSE
+  ) +
+  geom_text(
+    data = filter(panel_labels_abs, condition == "Weighted"),
+    aes(x = -Inf, y = Inf, label = label),
+    color = "#7b241c", hjust = -0.05, vjust = 2.8,
+    size = 1.8, family = "mono", inherit.aes = FALSE
+  ) +
+  geom_text(
+    data = filter(panel_labels_abs, condition == "Imputed"),
+    aes(x = -Inf, y = Inf, label = label),
+    color = "#1a7040", hjust = -0.05, vjust = 4.3,
+    size = 1.8, family = "mono", inherit.aes = FALSE
+  ) +
+  facet_grid(pair_label ~ timepoint, scales = "free_y") +
+  scale_fill_manual(
+    values = c("Unadjusted" = "#f0a500", "Weighted" = "#c0392b", "Imputed" = "#27ae60"),
+    labels = c("Unadjusted" = "Attritioned (Unadjusted)", "Weighted" = "Attritioned + Weighted", "Imputed" = "Attritioned + Imputed"),
+    name = "Method"
+  ) +
+  scale_color_manual(
+    values = c("Unadjusted" = "#b07800", "Weighted" = "#7b241c", "Imputed" = "#1a7040"),
+    labels = c("Unadjusted" = "Attritioned (Unadjusted)", "Weighted" = "Attritioned + Weighted", "Imputed" = "Attritioned + Imputed"),
+    name = "Method"
+  ) +
+  labs(
+    title    = "Bootstrap Distribution of Absolute Correlation Bias by Method and Timepoint",
+    subtitle = "Dashed line at zero = no bias relative to full-participation sample",
+    x        = expression("Absolute correlation bias (|" * r[attritioned] * " - " * r[original] * "|)"),
+    y        = "Density"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x        = element_text(angle = 30, hjust = 1, size = 8),
+    axis.text.y        = element_blank(),
+    axis.ticks.y       = element_blank(),
+    strip.text.x       = element_text(face = "bold", size = 9),
+    strip.text.y       = element_text(size = 9, angle = 0, hjust = 0),
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.y = element_blank(),
+    legend.position    = "bottom",
+    plot.title         = element_text(size = 11, face = "bold"),
+    plot.subtitle      = element_text(size = 9, color = "grey40")
+  )
+
+save_plot("9_extra_correlation_densities_abs", width = 8, height = 9)
+```
+
+[📊 View Plot (PNG)](plots/pngs/9_extra_correlation_densities_abs.png)
+
+# ACE Summary Estimates
 
 ## Extract ACE Differences from All Conditions
 
@@ -993,8 +1085,9 @@ save_plot("9_extra_correlation_densities", width = 8, height = 9)
 
 ```{r}
 # Unadjusted: use pre-computed bootstrap summaries already stored in res_unadj
+# differences between full-sample and attritioned (unadjusted) ACE estimates
 ace_diff_unadj = lapply(seq_along(rq1y_twin1), function(i) {
-  res_unadj[[rq1y_twin1[i]]]$ace_diff_summary %>%
+  res_unadj[[rq1y_twin1[i]]]$ace_diff_summary %>%                               
     mutate(
       timepoint  = rq1y_twin_labels_clean_extrashort[i],
       condition  = "Unadjusted",
@@ -1073,7 +1166,8 @@ ace_diff_imput = bind_rows(ace_diff_imput_list)
 ace_diff_imput
 ```
 
-## Combined ACE Differences Table
+
+## Combined ACE Bias Table
 
 ```{r}
 ace_diff_combined = bind_rows(ace_diff_unadj, ace_diff_weigh, ace_diff_imput) %>%
@@ -1130,27 +1224,30 @@ ace_diff_combined %>%
   )
 ```
 
-## ACE Bias Reduction Plot
+## ACE Bias Plot
 
 ```{r}
 ace_diff_combined %>%
+  mutate(condition = fct_rev(condition)) %>%
   ggplot(aes(
     x     = y,
     xmin  = ymin,
     xmax  = ymax,
     y     = condition,
-    color = condition
+    color = condition,
+    alpha = pval_adj < 0.05
   )) +
   geom_pointrange(size = 0.3, linewidth = 0.6) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey40", linewidth = 0.4) +
-  facet_grid(name_clean + sex ~ par + timepoint, scales = "free_x") +
+  facet_grid(name_clean + sex ~ par + timepoint, scales = "fixed") +
   scale_color_manual(
     values = c("Unadjusted" = "#f0a500", "Weighted" = "#c0392b", "Imputed" = "#27ae60")
   ) +
+  scale_alpha_manual(values = c("TRUE" = 1, "FALSE" = 0.15), guide = "none") +
   labs(
     title    = "ACE Bias Across Conditions",
-    subtitle = "Difference = Attritioned − Original (95% CI). Dashed line = no bias.",
-    x        = "ACE Difference",
+    subtitle = "Bias = Attritioned − Original estimate (95% CI). Dashed line = no bias (0).",
+    x        = "Bias",
     y        = NULL,
     color    = "Condition"
   ) +
@@ -1159,11 +1256,123 @@ ace_diff_combined %>%
     strip.text.x     = element_text(size = 7, face = "bold"),
     strip.text.y     = element_text(size = 7, angle = 0),
     axis.text.y      = element_text(size = 8),
-    axis.text.x      = element_text(size = 7),
+    axis.text.x      = element_text(size = 7, angle = 90, vjust = 0.5, hjust = 1),
     panel.grid.minor = element_blank(),
     legend.position  = "bottom"
   )
 
-save_plot("9_ace_bias_conditions", width = 10, height = 12)
+save_plot("9_ace_bias_conditions", width = 13, height = 4.8)
+
 ```
 
+[📊 View Plot (PNG)](plots/pngs/9_ace_bias_conditions.png)
+
+# Calculate Bias Reduction - ACE
+
+
+## Clean Data
+
+```{r}
+#| eval: false
+#| include: false
+
+ace_diff_unadj_draws = lapply(rq1y_twin1, function(i) {
+  browser()
+  res_unadj[[i]]$bootstrap_iter %>%                               
+    mutate(
+      timepoint  = rq1y_twin_labels_clean_extrashort[i],
+      condition  = "Unadjusted",
+      name_clean = rq6y_labels[match(name, rq6y)]
+    )
+}) %>%
+  bind_rows()
+
+ace_diff_unadj
+
+
+# Unadjusted: use pre-computed bootstrap summaries already stored in res_unadj
+# differences between full-sample and attritioned (unadjusted) ACE estimates
+ace_diff_unadj = lapply(seq_along(rq1y_twin1), function(i) {
+  res_unadj[[rq1y_twin1[i]]]$ace_diff_summary %>%                               
+    mutate(
+      timepoint  = rq1y_twin_labels_clean_extrashort[i],
+      condition  = "Unadjusted",
+      name_clean = rq6y_labels[match(name, rq6y)]
+    )
+}) %>%
+  bind_rows()
+
+ace_diff_unadj
+```
+
+### Weighted
+
+```{r}
+#| eval: false
+#| include: false
+# Weighted: summarise raw bootstrap iterations
+ace_diff_weigh_list = vector("list", length(rq1y_twin1))
+
+for (i in seq_along(rq1y_twin1)) {
+  browser()
+  ace_results = lapply(res_weigh[[i]], function(x) x$ace)
+  ace_results = lapply(ace_results, function(x) {
+    x[[2]]$group = "difference"
+    x[[4]]$group = "difference"
+    return(x)
+  })
+  ace_results = lapply(ace_results, function(x) do.call(rbind, x))
+  ace_results = do.call(rbind, ace_results) %>%
+    filter(par %in% c("a", "c", "e"))
+
+  ace_diff_weigh_list[[i]] = ace_results %>%
+    filter(group == "difference") %>%
+    group_by(par, name, sex) %>%
+    summarise(.mean_qi_pd(value), .groups = "drop") %>%
+    mutate(
+      timepoint  = rq1y_twin_labels_clean_extrashort[i],
+      condition  = "Weighted",
+      name_clean = rq6y_labels[match(name, rq6y)]
+    )
+}
+
+ace_diff_weigh = bind_rows(ace_diff_weigh_list)
+ace_diff_weigh
+```
+
+### Imputed
+
+```{r}
+#| eval: false
+#| include: false
+# Imputed: summarise across bootstrap iterations × imputed datasets
+n_imputed_ace = 250
+
+ace_diff_imput_list = vector("list", length(rq1y_twin1))
+
+for (tp in seq_along(rq1y_twin1)) {
+  timepoint_prefix = gsub("1$", "", rq1y_twin1[tp])
+
+  all_ace = vector("list", n_imputed_ace)
+  for (m in seq_len(n_imputed_ace)) {
+    dataset_name = paste0(timepoint_prefix, m)
+    imp_data     = res_imput[[dataset_name]]
+    # imp_data$ace: list of bootstrap iterations, each a list of dataframes
+    ace_iter     = lapply(imp_data$ace, function(x) do.call(rbind, x))
+    all_ace[[m]] = do.call(rbind, ace_iter)
+  }
+
+  ace_diff_imput_list[[tp]] = bind_rows(all_ace) %>%
+    filter(par %in% c("a", "c", "e"), group == "diff") %>%
+    group_by(par, name, sex) %>%
+    summarise(.mean_qi_pd(value), .groups = "drop") %>%
+    mutate(
+      timepoint  = rq1y_twin_labels_clean_extrashort[tp],
+      condition  = "Imputed",
+      name_clean = rq6y_labels[match(name, rq6y_prefix)]
+    )
+}
+
+ace_diff_imput = bind_rows(ace_diff_imput_list)
+ace_diff_imput
+```

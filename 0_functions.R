@@ -430,7 +430,7 @@ plot_lower_triangular_matrix2 <- function(
     title = "plot title",
     caption = "plot subtitle",
     method = "holm",
-    col_limits = c(-.12,.12)
+    col_limits = c(-.22,.22)
 ) {
   
   # Apply p-value adjustment if method is specified
@@ -486,15 +486,15 @@ plot_lower_triangular_matrix2 <- function(
   
   # Format numbers without leading zero
   plot_data$formatted_value <- ifelse(plot_data$value >= 0,
-                                      sub("^0", "", sprintf("%.3f", plot_data$value)),
-                                      sub("^-0", "-", sprintf("%.3f", plot_data$value)))
+                                      sub("^0", "", sprintf("%.2f", plot_data$value)),
+                                      sub("^-0", "-", sprintf("%.2f", plot_data$value)))
   
   if (length(which(!is.na(plot_data$fill_value)))==0) { plot_data$fill_value = 0 }
   # browser()
   # Create the plot
   p <- ggplot(plot_data, aes(x = x, y = y, fill = fill_value)) +
     geom_tile(color = "white", linewidth = 0.5) +
-    scale_fill_gradient2(low = "#d73027", mid = "white", high = "darkgreen", 
+    scale_fill_gradient2(low = "#2166ac", mid = "white", high = "#d73027", 
                          midpoint = 0, name = "Correlation", 
                          limits = col_limits,
                          na.value = "white"

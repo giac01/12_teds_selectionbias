@@ -116,6 +116,7 @@ quarto render 2_rq2_results.qmd
 quarto render 6_rq6_2_results.qmd
 quarto render 7_rq6_2_weighting_results.qmd
 quarto render 8_rq6_3_imputation_results.qmd
+quarto render 9_rq6_combined_bias_reduction_est.qmd
 ```
 
 ---

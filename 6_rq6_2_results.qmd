@@ -1,5 +1,5 @@
 ---
-title: "RQ6: original vs attritioned"
+title: "S6 RQ2: original vs attritioned"
 format: 
   html:
     embed-resources: true
@@ -12,8 +12,18 @@ format:
     toc: true
     grid:
       body-width: 900px
+    include-after-body:
+      text: |
+        <script>
+        document.querySelectorAll('a[href]').forEach(function(a){
+          var href = a.getAttribute('href') || '';
+          if (!href.startsWith('#') && !a.getAttribute('target')) {
+            a.setAttribute('target', '_blank');
+          }
+        });
+        </script>
 editor: source
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -359,10 +369,12 @@ ggplot(heatmap_data_smd, aes(x = Variables_wrapped, y = outcome_labeled)) +
     labels = levels(heatmap_data_smd$outcome_labeled)
 
     lapply(seq_along(labels), function(i) {
-      annotate("text", x = 0.5, y = y_positions[i],
-               label = paste0(labels[i], " "), size = 5, hjust = 1, angle = 7, vjust = -.3, fontface = "bold")
+      annotate("label", x = 0.5, y = y_positions[i],
+               label = labels[i], size = 5, hjust = 0.5, angle = 0, vjust = -0.12, fontface = "bold",
+               fill = "white", label.size = 0)
     })
   }
+
 
 save_plot("6_rq6_circular_heatmap_smd", width = 8, height = 8, trim = TRUE)
 
@@ -400,7 +412,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_text(
     aes(label = ifelse(pval_adj < 0.05,
                        paste0(sprintf("%.1f", y * 100), "%"), ""),
-        size = 7.5
+        size = ifelse(dataset == "Y21", 5, 7.5)
     ),
     color = "black"
   ) +
@@ -411,7 +423,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     mid = "white",
     high = "#d73027",
     midpoint = 0,
-    limits = c(-.135, .135),
+    limits = c(-.35, .35),
     na.value = "white",
     guide = "none"
   ) +
@@ -437,8 +449,9 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     labels = levels(heatmap_data_var$outcome_labeled)
 
     lapply(seq_along(labels), function(i) {
-      annotate("text", x = 0.5, y = y_positions[i],
-               label = paste0(labels[i], " "), size = 5, hjust = 1, angle = 7, vjust = -.3, fontface = "bold")
+      annotate("label", x = 0.5, y = y_positions[i],
+               label = labels[i], size = 5, hjust = 0.5, angle = 0, vjust = -0.12, fontface = "bold",
+               fill = "white", label.size = 0)
     })
   }
 
@@ -493,6 +506,9 @@ correlation_comparisons = lapply(correlation_comparisons, function(x) {
 
 library(patchwork)
 
+rq1y_twin_labels_clean_extrashort2 = rq1y_twin_labels_clean_extrashort
+rq1y_twin_labels_clean_extrashort2[8] = "Y26 (web)"
+
 plots = lapply(1:length(correlation_comparisons), function(i) {
   plot_lower_triangular_matrix2(
     data = correlation_comparisons[[i]],
@@ -504,26 +520,28 @@ plots = lapply(1:length(correlation_comparisons), function(i) {
     p_col = "pval_adj",
     p_threshold = 0.05,
     show_values = TRUE,
-    text_size = 3,
-    title = rq1y_twin_labels_clean_extrashort[range_participation_outcomes[i]],
+    text_size = 4.2,
+    title = rq1y_twin_labels_clean_extrashort2[range_participation_outcomes[i]],
     caption = NULL,
     method = "none"
   ) +
   labs(tag = paste0("A", i)) +
   theme(
-    plot.title        = element_text(hjust=0),
+    plot.title        = element_text(hjust=0.5),
     axis.text         = element_text(color = "black"),
     plot.background   = element_blank(),
     panel.background  = element_blank(),
     legend.background = element_blank(),
     plot.tag          = element_text(size = 14, face = "bold"),
-    plot.tag.position = c(0, 1)
+    plot.tag.position = c(0, 1),
+    axis.text.y       = if (i > 1) element_blank() else element_text(size = 12),
+    axis.text.x       = element_blank()
   )
 })
 
 patchwork::wrap_plots(
   plots,
-  ncol = 2) +
+  ncol = 4) +
   plot_annotation(
     title = expression(Cor[attritioned] ~ - ~ ~ Cor[original]),
     theme = theme(
@@ -533,14 +551,14 @@ patchwork::wrap_plots(
   )
 
 save_plot(
-  "6_rq6_correlations", width = 11, height = 3, trim = TRUE, trim_margin = 0
+  "6_rq6_correlations", width = 9, height = NA, trim = TRUE, trim_margin = 0
   )
 
 
 
 ```
 
-[📊 View Full Resolution Plot](plots/pdfs/6_rq6_correlations.png)
+[📊 View Full Resolution Plot](plots/pngs/6_rq6_correlations.png)
 
 ### GT Results table
 
@@ -714,7 +732,7 @@ df %>%
 save_plot("6_rq6_original_correlations", height = 5.2, width = 5.2)
 ```
 
-[View Plot](/plots/pngs/6_rq6_original_correlations.png)
+[View Plot](plots/pngs/6_rq6_original_correlations.png)
 
 ## ACE Comparison
 
@@ -1002,6 +1020,8 @@ ace_differences_tbl %>%
 
 save_plot("6_rq6_ace_forest", width = 7, height = 5)
 ```
+
+[View full-size plot](plots/pngs/6_rq6_ace_forest.png){target="_blank"}
 
 ### ACE Estimates Plot
 
