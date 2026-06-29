@@ -40,7 +40,6 @@ STRUCTURE = [
     ("section", "2_rq2_results.html", "toddlerhood-outcomes-means-smds-and-variances", "Means and Variances"),
     ("section", "2_rq2_results.html", "toddlerhood-outcomes-correlations", "Correlations"),
     ("section", "2_rq2_results.html", "toddlerhood-outcomes-ace-estimates-and-differences", "ACE Estimates"),
-    ("section", "2_rq2_results.html", "distribution-of-maternal-education-full-sample-vs.-y26-webtest-participants", "Maternal Education Distribution"),
 
     ("heading", "Adolescent Outcomes - Attritioned vs Original Estimates (Bias)", 2),
     ("section", "6_rq6_2_results.html", "adolescent-outcomes-means-smds-and-variances", "Means and Variances"),
@@ -58,6 +57,7 @@ STRUCTURE = [
 
     ("heading", "Discussion", 1),
     ("section", "11_descriptives.html", "relationship-between-maternal-education-and-child-outcomes", "Maternal Education & Child Outcomes"),
+    ("section", "2_rq2_results.html", "distribution-of-maternal-education-full-sample-vs.-y26-webtest-participants", "Maternal Education Distribution"),
 ]
 
 # ---------------------------------------------------------------------------
