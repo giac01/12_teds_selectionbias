@@ -173,12 +173,21 @@ A complete list of variables used for multiple imputation can be found in the [f
 </div>
 
 ## Means & Variances
+These tables compare bias the weighted/imputed attritioned estimates to the original estimates. 
 
 | Comparison | Link |
 |:-----------|:-----|
 | Attritioned vs. Original | [Results Table](6_rq6_2_results.html#means-smds-variances) |
 | Attritioned + Weighting vs. Original | [Results Table](7_rq6_2_weighting_results.html#gt-results-table) |
 | Attritioned + Imputation vs. Original | [Results Table](8_rq6_3_imputation_results.html#gt-results-table) |
+
+## Means, Variances & Correlations
+These tables compare bias in the weighted/imputed attritioned estimates to the unadjusted attritioned estimates.
+
+| Comparison | Link |
+|:-----------|:-----|
+| Weighted vs. Unadjusted | [Results Table](9_rq6_combined_bias_reduction_est.html#bias-reduction-ip-weighted-vs-unadjusted-attritioned-estimates) |
+| Imputed vs. Unadjusted | [Results Table](9_rq6_combined_bias_reduction_est.html#bias-reduction-imputed-vs-unadjusted-attritioned-estimates) |
 
 ## Correlations
 

@@ -13,21 +13,23 @@ editor: source
 
 Here, we describe all changes from the [pre-registration](https://osf.io/v8sgf/files/tp8h3) to the manuscript. Note that the pre-registration is available as a PDF in the "files" section of the OSF registration.
 
+It is worth noting some changes to the numbering of research questions from the pre-registration to the manuscript. Pre-registration research question 3 has been moved to the descriptive statistics section. Pre-registration questions 4 and 5 have been merged into manuscript research question 3.
+
 ## All Research Questions
 
 ### Major Changes
 
 * Participation time points 2, 7, and 14 were dropped from all analyses because not all participants were eligible to participate at these time points.
-* We dropped RQ5 from the final report because it was not sufficiently informative and to reduce the length of the manuscript.
+* To shorten the manuscript and reduce the number of analyses, for research questions 4–5 we focused only on the four adolescence measures and did not analyse the toddlerhood measures.
+* The pre-registration did not specify exclusion criteria; we therefore applied the standard TEDS exclusion criteria provided in the online documentation.
 
 ## RQ1
 
 ### Major Changes
 
-* Hellinger's distance was dropped from the analyses as testing found that results were highly sensitive to the choice of kernel density estimator.
-* The standardised root mean squared residual (SRMR) was dropped from the analyses — instead, we present differences between each pairwise correlation.
-* We compare correlations between variables instead of covariances.
-
+* Instead of fitting multivariate logistic regression models, we used univariate (single outcome) logistic regression with cluster-robust standard errors and Wald tests.
+* McFadden's R^2 was added as a measure of prediction accuracy.
+* Participation in web tests and questionnaires at the same time point was modelled separately.
 
 ### Minor Changes
 
@@ -38,11 +40,20 @@ Here, we describe all changes from the [pre-registration](https://osf.io/v8sgf/f
 ### Major Changes
 
 * We added baseline maternal education as an outcome variable.
-* We added four adolescent outcomes (depression, externalising, cognitive ability and GCSE scores) as outcome variables.
-* As with RQ1, we omitted Hellinger's distance and SRMR from the models, and compared correlations instead of covariances.
+* We dropped anxiety symptoms (GAD-D) as an outcome variable.
+* As with RQ1, we omitted Hellinger's distance and SRMR from the models, and compared variances and correlations instead of covariances.
+* Outcomes were narrowed to single time points. Where the pre-registration specified each phenotype across multiple ages (e.g., depression at ages 12, 16, 21, and 26), the manuscript analyses each outcome at a single age (Cognitive Y12, GCSE Y16, Depression Y12, Externalising Y12).
+* Twin models were fitted separately by sex.
 
+## RQ3
+
+### Major Changes
+
+* Instead of generating time-point-specific weights, we created individualised weights for each variable and pair of variables, as several variables showed uneven missingness even within the same time point.
+* IP-weight truncation at the 1st and 99th percentiles was added (not pre-specified).
+* We increased the number of imputations from 100 to 250.
 
 ### Minor Changes
 
 * Instead of using IP weights fitted to model participation at a given timepoint, we used IP weights fitted to model missingness in each variable or pair of variables.
-* We increased the number of imputed datasets to 250 and iterations to 75. 
+* We increased the number of imputed datasets to 250 and iterations to 75.

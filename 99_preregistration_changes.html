@@ -3065,6 +3065,10 @@ vertical-align: -.125em;
   <li><a href="#rq2" id="toc-rq2" class="nav-link" data-scroll-target="#rq2">RQ2</a>
   <ul class="collapse">
   <li><a href="#major-changes-2" id="toc-major-changes-2" class="nav-link" data-scroll-target="#major-changes-2">Major Changes</a></li>
+  </ul></li>
+  <li><a href="#rq3" id="toc-rq3" class="nav-link" data-scroll-target="#rq3">RQ3</a>
+  <ul class="collapse">
+  <li><a href="#major-changes-3" id="toc-major-changes-3" class="nav-link" data-scroll-target="#major-changes-3">Major Changes</a></li>
   <li><a href="#minor-changes-1" id="toc-minor-changes-1" class="nav-link" data-scroll-target="#minor-changes-1">Minor Changes</a></li>
   </ul></li>
   </ul>
@@ -3091,14 +3095,17 @@ vertical-align: -.125em;
 </header>
 
 
+<p>← <a href="0_OnlineSupplement.html">Back to Online Supplement</a></p>
 <p>Here, we describe all changes from the <a href="https://osf.io/v8sgf/files/tp8h3">pre-registration</a> to the manuscript. Note that the pre-registration is available as a PDF in the “files” section of the OSF registration.</p>
+<p>It is worth noting some changes to the numbering of research questions from the pre-registration to the manuscript. Pre-registration research question 3 has been moved to the descriptive statistics section. Pre-registration questions 4 and 5 have been merged into manuscript research question 3.</p>
 <section id="all-research-questions" class="level2">
 <h2 class="anchored" data-anchor-id="all-research-questions">All Research Questions</h2>
 <section id="major-changes" class="level3">
 <h3 class="anchored" data-anchor-id="major-changes">Major Changes</h3>
 <ul>
 <li>Participation time points 2, 7, and 14 were dropped from all analyses because not all participants were eligible to participate at these time points.</li>
-<li>We dropped RQ5 from the final report because it was not sufficiently informative and to reduce the length of the manuscript.</li>
+<li>To shorten the manuscript and reduce the number of analyses, for research questions 4–5 we focused only on the four adolescence measures and did not analyse the toddlerhood measures.</li>
+<li>The pre-registration did not specify exclusion criteria; we therefore applied the standard TEDS exclusion criteria provided in the online documentation.</li>
 </ul>
 </section>
 </section>
@@ -3107,9 +3114,9 @@ vertical-align: -.125em;
 <section id="major-changes-1" class="level3">
 <h3 class="anchored" data-anchor-id="major-changes-1">Major Changes</h3>
 <ul>
-<li>Hellinger’s distance was dropped from the analyses as testing found that results were highly sensitive to the choice of kernel density estimator.</li>
-<li>The standardised root mean squared residual (SRMR) was dropped from the analyses — instead, we present differences between each pairwise correlation.</li>
-<li>We compare correlations between variables instead of covariances.</li>
+<li>Instead of fitting multivariate logistic regression models, we used univariate (single outcome) logistic regression with cluster-robust standard errors and Wald tests.</li>
+<li>McFadden’s R^2 was added as a measure of prediction accuracy.</li>
+<li>Participation in web tests and questionnaires at the same time point was modelled separately.</li>
 </ul>
 </section>
 <section id="minor-changes" class="level3">
@@ -3125,15 +3132,28 @@ vertical-align: -.125em;
 <h3 class="anchored" data-anchor-id="major-changes-2">Major Changes</h3>
 <ul>
 <li>We added baseline maternal education as an outcome variable.</li>
-<li>We added four adolescent outcomes (depression, externalising, cognitive ability and GCSE scores) as outcome variables.</li>
-<li>As with RQ1, we omitted Hellinger’s distance and SRMR from the models, and compared correlations instead of covariances.</li>
+<li>We dropped anxiety symptoms (GAD-D) as an outcome variable.</li>
+<li>As with RQ1, we omitted Hellinger’s distance and SRMR from the models, and compared variances and correlations instead of covariances.</li>
+<li>Outcomes were narrowed to single time points. Where the pre-registration specified each phenotype across multiple ages (e.g., depression at ages 12, 16, 21, and 26), the manuscript analyses each outcome at a single age (Cognitive Y12, GCSE Y16, Depression Y12, Externalising Y12).</li>
+<li>Twin models were fitted separately by sex.</li>
+</ul>
+</section>
+</section>
+<section id="rq3" class="level2">
+<h2 class="anchored" data-anchor-id="rq3">RQ3</h2>
+<section id="major-changes-3" class="level3">
+<h3 class="anchored" data-anchor-id="major-changes-3">Major Changes</h3>
+<ul>
+<li>Instead of generating time-point-specific weights, we created individualised weights for each variable and pair of variables, as several variables showed uneven missingness even within the same time point.</li>
+<li>IP-weight truncation at the 1st and 99th percentiles was added (not pre-specified).</li>
+<li>We increased the number of imputations from 100 to 250.</li>
 </ul>
 </section>
 <section id="minor-changes-1" class="level3">
 <h3 class="anchored" data-anchor-id="minor-changes-1">Minor Changes</h3>
 <ul>
 <li>Instead of using IP weights fitted to model participation at a given timepoint, we used IP weights fitted to model missingness in each variable or pair of variables.</li>
-<li>We increased the number of imputed datasets to 100.</li>
+<li>We increased the number of imputed datasets to 250 and iterations to 75.</li>
 </ul>
 </section>
 </section>
