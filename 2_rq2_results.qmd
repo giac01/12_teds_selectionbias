@@ -206,9 +206,11 @@ original_dataset = df %>%
 
 ## Toddlerhood Outcomes: Means, SMDs, and Variances
 
+For each toddlerhood outcome, the table below compares the "original" (full) sample to the "attritioned" sample created by setting that outcome to missing for participants who did not take part in a given wave. Row groups correspond to each attritioned wave. Reported for each outcome are the raw mean difference, the standardized mean difference (SMD), and the percentage change in variance (attritioned relative to original), each with bootstrap 95% CIs and Bonferroni-Holm adjusted p-values; statistically significant increases are shaded red and decreases blue.
+
 ```{r}
 
-variable_comparisons_df %>% 
+variable_comparisons_df %>%
   select(-starts_with("."),-pd, -pval) %>%
   pivot_wider(
     names_from = "stat",
@@ -287,55 +289,55 @@ variable_comparisons_df %>%
     locations = cells_footnotes()
   ) %>%
   
-  # Highlight significant results - positive effects (light green)
+  # Highlight significant results - positive effects (light red)
   tab_style(
-    style = cell_fill(color = "#d5e8d4"),  # Light green for positive effects
+    style = cell_fill(color = "#ffd9d1"),  # Light red for positive effects
     locations = cells_body(
       columns = c(y_md, ymin_md, ymax_md, pval_adj_md),
       rows = pval_adj_md < 0.05 & y_md > 0
     )
   ) %>%
   tab_style(
-    style = cell_fill(color = "#d5e8d4"),  # Light green for positive effects
+    style = cell_fill(color = "#ffd9d1"),  # Light red for positive effects
     locations = cells_body(
       columns = c(y_smd, ymin_smd, ymax_smd, pval_adj_smd),
       rows = pval_adj_smd < 0.05 & y_smd > 0
     )
   ) %>%
   tab_style(
-    style = cell_fill(color = "#d5e8d4"),  # Light green for positive effects
+    style = cell_fill(color = "#ffd9d1"),  # Light red for positive effects
     locations = cells_body(
       columns = c(y_var, ymin_var, ymax_var, pval_adj_var),
       rows = pval_adj_var < 0.05 & y_var > 0
     )
   ) %>%
-  
-  # Highlight significant results - negative effects (light red)
+
+  # Highlight significant results - negative effects (light blue)
   tab_style(
-    style = cell_fill(color = "#f8cecc"),  # Light red for negative effects
+    style = cell_fill(color = "#b6c3e0"),  # Light blue for negative effects
     locations = cells_body(
       columns = c(y_md, ymin_md, ymax_md, pval_adj_md),
       rows = pval_adj_md < 0.05 & y_md < 0
     )
   ) %>%
   tab_style(
-    style = cell_fill(color = "#f8cecc"),  # Light red for negative effects
+    style = cell_fill(color = "#b6c3e0"),  # Light blue for negative effects
     locations = cells_body(
       columns = c(y_smd, ymin_smd, ymax_smd, pval_adj_smd),
       rows = pval_adj_smd < 0.05 & y_smd < 0
     )
   ) %>%
   tab_style(
-    style = cell_fill(color = "#f8cecc"),  # Light red for negative effects
+    style = cell_fill(color = "#b6c3e0"),  # Light blue for negative effects
     locations = cells_body(
       columns = c(y_var, ymin_var, ymax_var, pval_adj_var),
       rows = pval_adj_var < 0.05 & y_var < 0
     )
   ) %>%
-  
+
   # Add footnotes
   tab_footnote(
-    footnote = md("<em>Note.</em> Est = Estimate, LB = Lower Bound 95% Confidence Interval, UB = Upper Bound 95% Confidence Interval. Significant (p<sub>Bonferroni-Holm</sub>) effects are highlighted in green (increases) or red (decreases)."),
+    footnote = md("<em>Note.</em> Est = Estimate, LB = Lower Bound 95% Confidence Interval, UB = Upper Bound 95% Confidence Interval. Significant (p<sub>Bonferroni-Holm</sub>) effects are highlighted in red (increases) or blue (decreases)."),
     # locations = cells_column_spanners(),
     placement = "right"
   ) %>%
@@ -683,7 +685,7 @@ save_plot(
 
 ## Toddlerhood Outcomes: Correlations
 
-Below is a results table for the change in correlations. 
+Below is a results table for the change in correlations. For every pair of toddlerhood outcomes, we compare the correlation in the attritioned sample to the correlation in the original sample (row groups = attrition timepoint), reporting the difference with bootstrap 95% CIs and unadjusted/Bonferroni-Holm adjusted p-values; significant increases are shaded green and decreases red.
 
 ```{r}
 
@@ -957,6 +959,8 @@ bootstrap_summary_df_ace %>%
 ```
 
 ## Toddlerhood Outcomes: ACE Estimates and Differences
+
+The table below compares the ACE (Additive genetic, shared environment, non-shared environment) variance component estimates from twin models fitted to the original vs. attritioned toddlerhood samples, separately by sex and attrition timepoint. For each outcome and component (A, C, E) it shows the original and attritioned estimates, their difference with bootstrap 95% CI, and a Bonferroni-Holm adjusted p-value (adjusted within each sex/parameter/timepoint group); significant differences are highlighted green.
 
 ```{r}
 

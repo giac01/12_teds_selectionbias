@@ -155,6 +155,8 @@ variable_comparisons_df = variable_comparisons_df0 %>%
 
 ### Adolescent Outcomes: Means, SMDs, and Variances
 
+For each adolescent outcome, the table below compares the original (full) sample to the attritioned sample created by setting the outcome to missing for participants who did not take part in a given wave, analogous to the toddlerhood comparison. Row groups correspond to each attrition timepoint. Reported for each outcome are the raw mean difference, standardized mean difference (SMD), and percentage change in variance (attritioned relative to original), each with bootstrap 95% CIs and Bonferroni-Holm adjusted p-values; significant increases are shaded green and decreases red.
+
 ```{r}
 #| label: gt-results-table
 
@@ -562,6 +564,8 @@ save_plot(
 
 ### Adolescent Outcomes: Correlations
 
+The table below shows, for each pair of adolescent outcomes, the difference between the correlation in the attritioned sample and the correlation in the original sample (row groups = attrition timepoint), with bootstrap 95% CIs and unadjusted/Bonferroni-Holm adjusted p-values; significant increases are shaded green and decreases red.
+
 ```{r}
 #| label: cor-gt-table
 
@@ -820,6 +824,8 @@ ace_estimates %>%
 
 ### Adolescent Outcomes: Attritioned vs. Original ACE Estimates
 
+The table below compares the ACE (Additive genetic, shared environment, non-shared environment) variance component estimates from twin models fitted to the original vs. attritioned adolescent samples, separately by sex and attrition timepoint. For each outcome and component (A, C, E) it shows the original and attritioned estimates, their difference with bootstrap 95% CI, and a Bonferroni-Holm adjusted p-value (adjusted within each dataset group); significant differences are highlighted green. This mirrors the format of the [Toddlerhood Outcomes ACE Estimates and Differences table](2_rq2_results.html#toddlerhood-outcomes-ace-estimates-and-differences).
+
 ```{r}
 #| label: ace-diff-table
 
@@ -830,10 +836,31 @@ ace_differences_tbl = ace_differences  %>%
   ) %>%
   ungroup()
 
+ace_estimates_wide = ace_estimates %>%
+  filter(par %in% c("a", "c", "e")) %>%
+  mutate(
+    name_clean = rq6y_labels[match(name, rq6y)],
+    group = ifelse(group == "df1", "Attritioned", "Original")
+  ) %>%
+  select(dataset_label, name_clean, par, sex, group, y) %>%
+  pivot_wider(
+    id_cols = c(dataset_label, name_clean, par, sex),
+    names_from = group,
+    values_from = y,
+    names_prefix = "y_"
+  )
+
 ace_differences_tbl %>%
-  select(-starts_with("."), -n, -pd) %>%
   mutate(name_clean = rq6y_labels[match(name, rq6y)]) %>%
-  select(dataset_label, name_clean, par, sex, y, ymin, ymax, pval, pval_adj) %>%
+  select(dataset_label, name_clean, par, sex, y, ymin, ymax, pval_adj) %>%
+  left_join(
+    ace_estimates_wide,
+    by = c("dataset_label", "name_clean", "par", "sex")
+  ) %>%
+  select(dataset_label, name_clean, par, y_Original, y_Attritioned, y, ymin, ymax, pval_adj, sex) %>%
+  mutate(
+    name_clean = factor(name_clean, levels = rq6y_labels)
+    ) %>%
   arrange(sex, dataset_label, name_clean, par) %>%
   mutate(par = toupper(par)) %>%
   gt(groupname_col = "sex") %>%
@@ -851,32 +878,30 @@ ace_differences_tbl %>%
     dataset_label = "Dataset",
     name_clean = "Variable",
     par = "",
+    y_Original = "Original",
+    y_Attritioned = "Attritioned",
     y = "Diff",
     ymin = "Lower",
     ymax = "Upper",
-    pval = md("p<sub>unadj</sub>"),
-    pval_adj = md("p<sub>adj</sub>")
+    pval_adj = "p"
   ) %>%
   tab_spanner(
     label = "95% CI",
     columns = c(ymin, ymax)
   ) %>%
-  tab_style(
-    style = cell_fill(color = "#d5e8d4"),
-    locations = cells_body(
-      columns = everything(),
-      rows = pval_adj < 0.05 & y > 0
-    )
+  tab_spanner(
+    label = "Estimates",
+    columns = c(y_Attritioned, y_Original)
   ) %>%
   tab_style(
-    style = cell_fill(color = "#f8cecc"),
+    style = cell_fill(color = "lightgreen"),
     locations = cells_body(
       columns = everything(),
-      rows = pval_adj < 0.05 & y < 0
+      rows = pval_adj < 0.05
     )
   ) %>%
   tab_footnote(
-    footnote = "Difference = Attritioned − Original. Adjusted P values are Bonferroni-Holm corrected within each sex, dataset, and parameter (A, C or E) group",
+    footnote = "Difference = Attritioned − Original. P values are Bonferroni-Holm adjusted within each dataset group",
     locations = cells_column_labels(columns = pval_adj)
   ) %>%
   tab_options(

@@ -34,6 +34,8 @@ df = df %>%
 
 # Descriptive Statistics: All Study Variables
 
+The table below lists every variable used across the analyses, grouped into four panels: (A) baseline variables used to predict later participation and for IP weighting, (B) participation indicators at each wave (1 = participated, 0 = did not), (C) toddlerhood outcome measures (RQ2), and (D) adolescent outcome measures (RQ2-3). For each variable we report a short label, a description, the TEDS variable code (an asterisk denotes a code that was recoded/renamed from the raw TEDS data), the observed range or factor levels, the number of non-missing observations, and the study wave at which it was collected.
+
 ```{r}
 #| label: variable-tables
 
@@ -922,6 +924,8 @@ save_plot("11_participant_ages_each_timepoint", width = 12, height = 12)
 
 ### Participant Ages at Each Timepoint
 
+The table below summarises the age distribution (in years) at each assessment wave, reporting sample size, mean, SD, minimum, 10th/90th percentiles, and maximum.
+
 ```{r}
 #| label: age-table
 
@@ -973,6 +977,8 @@ df_age_long %>%
 ```
 
 ## Maternal Education Distribution
+
+The table below shows the distribution of maternal educational qualification (amohqual) among participants at first contact, reporting the numeric code used in analyses, the education level label, the count, and the percentage of the sample in each category.
 
 ```{r}
 #| label: education-table

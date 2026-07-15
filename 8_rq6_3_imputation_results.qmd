@@ -97,7 +97,9 @@ cbind(
 
 Note that imputation was performed separately across zygosity-sex groups (i.e., MZ males, MZ females, DZ males, ...) therefore sex and zygosity are omitted from imputation models. 
 
-Because imputations were performed separetely for each attriitoning time point, we calculate FMI for each timepoint and average across. 
+Because imputations were performed separetely for each attriitoning time point, we calculate FMI for each timepoint and average across.
+
+The table below lists every variable included in the multiple imputation models for RQ3, with its description, TEDS code, observed range/levels, percentage missing in the original sample, mean fraction of missing information (FMI) across timepoints, and study wave.
 
 ```{r imputation-vars-table}
 

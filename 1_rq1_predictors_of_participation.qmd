@@ -89,6 +89,8 @@ df_rq1_imputed = df_rq1_imputed %>%
 
 ### Full list of imputation variables (RQ1)
 
+The table below lists every variable included in the single imputation of baseline/predictor data used for RQ1 (see [Singly Impute Missing Predictor/Baseline Data]), showing the study wave, description, TEDS variable code, observed range or factor levels, number of non-missing observations, and percent missing prior to imputation.
+
 ```{r impute-vars-table}
 
 # Function to map variable prefix to study wave
@@ -643,6 +645,8 @@ save_plot("1_rq1_twinlevel_prediction_accuracy", width = 5, height = 8, trim = T
 
 ### Twin-Level Logistic Regression Coefficients
 
+The table below reports coefficients (with 95% CIs and cluster-robust Wald p-values, clustered by family) from the univariate logistic regressions predicting participation at each study wave from each baseline predictor, one model per outcome column. Cells shaded green indicate a statistically significant predictor (Wald p < .05) for that wave.
+
 ```{r coef-table}
 
 # Extract all coefficients from twin models and combine
@@ -829,6 +833,8 @@ twinmodels_results %>%
 
 ## RQ1: Marginal Effects of Maternal Education on Participation
 
+The plot below shows, for each study wave, the model-predicted probability of participation at each level of maternal education (with 95% CIs), holding all other predictors at their observed means/modes. This illustrates how strongly and consistently maternal education predicts later participation across timepoints.
+
 ```{r marginal-meducation}
 
 # Calculate average predictions for maternal education variables
@@ -883,6 +889,8 @@ all_predictions %>%
 ```
 
 ## RQ1: Marginal Effects of Ethnicity on Participation
+
+The plot below shows, for each study wave, the model-predicted probability of participation at each level of ethnic origin (with 95% CIs), holding all other predictors at their observed means/modes. This illustrates how strongly and consistently ethnicity predicts later participation across timepoints.
 
 ```{r marginal-ethnicity}
 

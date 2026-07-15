@@ -354,6 +354,7 @@ combined_results
 
 ### RQ3: Attritioned vs. Original (Means, Variances & Correlations)
 
+The table below shows, for each adolescent outcome and attrition timepoint, the standardized mean difference, variance % change, and correlation change between each bias-correction condition (Unadjusted, IP-Weighted, Imputed) and the original full sample, with 95% CIs and Bonferroni-Holm adjusted p-values (adjusted within each condition × timepoint × parameter group). Significant increases relative to the original sample are shaded orange and decreases blue.
 
 ```{r}
 
@@ -513,9 +514,9 @@ combined_results_wide
 
 
 
-#### Bias Reduction: IP Weighted vs Unadjusted Attritioned Estimates 
+#### Bias Reduction: IP Weighted vs Unadjusted Attritioned Estimates
 
-These results test if the *weighted* attritioned estimates are significantly more or less biased that unadjusted attritioned estimates. 
+These results test if the *weighted* attritioned estimates are significantly more or less biased than unadjusted attritioned estimates. For each outcome/parameter and timepoint, the table reports the proportional change in bias, (Bias<sub>Unadjusted</sub> − Bias<sub>Weighted</sub>) / Bias<sub>Unadjusted</sub>, the proportion of bootstrap iterations where weighting reduced bias (P<sub>better</sub>), and a Holm-adjusted p-value; blue shading indicates weighting significantly reduced bias, red indicates it significantly increased bias.
 
 ```{r}
 # Prepare diffratio1 table (Unadjusted - Weighted) / Unadjusted
@@ -617,10 +618,9 @@ diffratio1_summary %>%
   opt_footnote_marks(marks = c("*", "†", "‡", "§"))
 ```
 
-#### Bias Reduction: Imputed vs Unadjusted Attritioned Estimates 
+#### Bias Reduction: Imputed vs Unadjusted Attritioned Estimates
 
-These results test if the *imputed* attritioned estimates are significantly more or less biased that unadjusted attritioned estimates. 
-
+These results test if the *imputed* attritioned estimates are significantly more or less biased than unadjusted attritioned estimates. As above, the table reports the proportional change in bias, (Bias<sub>Unadjusted</sub> − Bias<sub>Imputed</sub>) / Bias<sub>Unadjusted</sub>, the proportion of bootstrap iterations where imputation reduced bias (P<sub>better</sub>), and a Holm-adjusted p-value; blue shading indicates imputation significantly reduced bias, red indicates it significantly increased bias.
 
 ```{r}
 # Prepare diffratio2 table (Unadjusted - Imputed) / Unadjusted
@@ -1175,6 +1175,8 @@ ace_diff_imput
 
 ## RQ3: Comparison of Unadjusted/Weighted/Imputed Attritioned Estimates to Original Estimates
 
+The table below compares the ACE (Additive genetic, shared environment, non-shared environment) variance component estimates from the Unadjusted, IP-Weighted, and Imputed attritioned samples to the original full-sample estimates, separately by sex, outcome, and attrition timepoint. It reports the difference (attritioned condition − original) with 95% CIs and Bonferroni-Holm adjusted p-values (adjusted within each condition × timepoint × sex group); significant increases are shaded orange and decreases blue.
+
 ```{r}
 ace_diff_combined = bind_rows(ace_diff_unadj, ace_diff_weigh, ace_diff_imput) %>%
   mutate(
@@ -1231,6 +1233,8 @@ ace_diff_combined %>%
 ```
 
 ## ACE Bias Plot
+
+The plot below visualises the same ACE differences as the table above (bias = attritioned − original estimate, with 95% CI), faceted by outcome/sex (rows) and ACE parameter/timepoint (columns), and coloured by bias-correction condition (Unadjusted, Weighted, Imputed). Faded points are not statistically significant; a dashed line marks zero bias.
 
 ```{r}
 ace_diff_combined %>%
