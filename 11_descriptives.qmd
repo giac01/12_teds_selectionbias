@@ -669,6 +669,126 @@ As we can see below, nobody in cohort 4 took part in Y2, Y3, Y10 data collection
 
 ## Participation Patterns
 
+New plot for manuscript:
+
+```{r}
+
+pps_times = c(
+  "btwdata", # removed because not all twins were eligible
+  "ctwdata", # removed because not all twins were eligible
+  "dtwdata",
+  "gcdata",  # removed because not all twins were eligible
+  "icdata",  # removed because not all twins were eligible
+  "jcdata",  # removed because not all twins were eligible
+  "lcwdata",
+  "lcqdata",
+  "pcwebdata", # removed because not all twins were eligible
+  "pcbhdata",
+  # removed more niche data collections:
+  "pcl2data",  # Child LEAP-2 booklet data present at 16, 1Y 0N
+  # "rcfdata",   # Fashion, Food and Music Preferences (FFMP) web study 
+  # "rckdata",   # Kings Challenge web study. A battery of 10 twin activities to test spatial abilities.
+  "rcqdata",
+  "u1cdata",
+  "zmhdata",
+  "zcdata"
+  # "hasgeno" # excluded from alluvial plot for now
+  )
+
+pps_times1 = paste0(pps_times, "1")
+
+var_to_label(pps_times1)
+
+pps_times_labels = c(
+  "Y2 Booklet",         # btwdata
+  "Y3 Booklet",         # ctwdata
+  "Y4 Booklet",         # dtwdata
+  "Y7 Phone",           # gcdata
+  "Y9 Booklet",         # icdata
+  "Y10 Web",            # jcdata
+  "Y12 Web",            # lcwdata
+  "Y12 Questionnaire",  # lcqdata
+  "Y16 Web",            # pcwebdata
+  "Y16 Booklet",        # pcbhdata
+  "Y16 LEAP-2",         # pcl2data
+  "Y18 Questionnaire",  # rcqdata
+  "Y21 Questionnaire",  # u1cdata
+  "Y26 MHQ",            # zmhdata
+  "CATSLife Web"        # zcdata
+  # "Genotype"          # hasgeno - excluded from alluvial plot for now
+  )
+
+names(pps_times_labels) = pps_times1
+
+
+```
+
+```{r}
+#| label: participation-pattern-grouped
+#| warning: false
+
+df %>%
+  select(all_of(pps_times1)) %>%
+  mutate_all(~ tidyr::replace_na(., 0) == 1) %>%
+  rowwise() %>%
+  mutate(
+    `Year 2 - 10 present`  = any(btwdata1, ctwdata1, dtwdata1, gcdata1, icdata1, jcdata1),
+    `Year 12 - 16 present` = any(lcwdata1, lcqdata1, pcwebdata1, pcbhdata1, pcl2data1),
+    `Year 18 - 26 present` = any(rcqdata1, u1cdata1, zmhdata1, zcdata1)
+  ) %>%
+  select(ends_with("present")) %>%
+  mutate_all(~ na_if(., FALSE)) %>%
+  ggmice::plot_pattern(rotate = TRUE) +
+  scale_x_discrete(limits = c("Year 2 - 10 present", "Year 12 - 16 present", "Year 18 - 26 present")) +
+  theme(
+    axis.text   = element_text(color = "black"),
+    axis.text.y = element_text(vjust = .5),
+    axis.text.x = element_text(vjust = .5)
+    ) +
+  labs(x = NULL) +
+  coord_flip()
+
+save_plot("11_participation_pattern_grouped", width = 7, height = 3)
+
+```
+
+```{r}
+#| label: participation-alluvial
+
+
+# library(ggplot2)
+# library(ggalluvial)
+# 
+# alluvial_data = df %>%
+#   select(all_of(pps_times1)) %>%
+#   mutate(across(everything(), ~tidyr::replace_na(.x, 0))) %>%
+#   mutate(across(everything(), ~factor(ifelse(.x == 1, "Participated", "Not Participated"),
+#                                        levels = c("Not Participated", "Participated")))) %>%
+#   rename_with(~pps_times_labels[.x], all_of(pps_times1))
+# 
+# alluvial_long = to_lodes_form(alluvial_data, axes = seq_along(alluvial_data), id = "id")
+# alluvial_long$x = factor(alluvial_long$x, levels = colnames(alluvial_data))
+# 
+# ggplot(alluvial_long,
+#        aes(x = x, stratum = stratum, alluvium = id, y = 1, fill = stratum)) +
+#   geom_flow(width = 1/8, alpha = .7) +
+#   geom_stratum(width = 1/8, color = "white") +
+#   scale_fill_manual(values = c("Participated" = "#2a78d6", "Not Participated" = "#b3b3b3")) +
+#   labs(x = NULL, y = "Number of Twins", fill = "Participation") +
+#   theme_minimal(base_size = 11) +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1),
+#     panel.grid = element_blank()
+#     )
+# 
+# save_plot("11_participation_alluvial", width = 12, height = 6)
+
+```
+
+
+
+Old Plots:
+
 ```{r}
 #| label: participation-patterns
 
@@ -678,13 +798,18 @@ df %>%
   mutate_all(~na_if(., 0)) %>%
   ggmice::plot_pattern(npat = 70, rotate = TRUE) + 
   scale_x_discrete(limits = (var_to_label(rq1y_twin1))) + 
+  theme(
+    axis.text.y = element_text(vjust = .5),
+    axis.text.x = element_text(vjust = .5)
+    ) +
   coord_flip()
 
 save_plot("11_participation_pattern", width = 19, height = 6)
 
+rq1y_twin %in% colnames(df0)
 
 # df %>%
-#   select(all_of(rq1y_twin1)) %>%
+#   select(all_of(rq1)) %>%
 #   mutate_all(~ .==1) %>%
 #   rowwise() %>%
 #   mutate(
@@ -695,8 +820,8 @@ save_plot("11_participation_pattern", width = 19, height = 6)
 #   ) %>%
 #   select(ends_with("present")) %>%
 #   mutate_all(~ na_if(., FALSE)) %>%
-#   ggmice::plot_pattern(rotate = TRUE) + 
-#   scale_x_discrete(limits = c("Year 2 - 4 present", "Year 7 - 12 present", "Year 14 - 16 present", "Year 18 - 26 present")) + 
+#   ggmice::plot_pattern(rotate = TRUE) +
+#   scale_x_discrete(limits = c("Year 2 - 4 present", "Year 7 - 12 present", "Year 14 - 16 present", "Year 18 - 26 present")) +
 #   coord_flip()
 # 
 # save_plot("11_participation_pattern_grouped", width = 19, height = 6)
@@ -715,6 +840,9 @@ save_plot("11_pairwise_missingness_plot", width = 6, height = 6)
 [View full-size plot](plots/pngs/11_participation_pattern.png){target="_blank"}
 
 [View full-size plot](plots/pngs/11_pairwise_missingness_plot.png){target="_blank"}
+
+
+
 
 # Descriptive stats on specific variables
 

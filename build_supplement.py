@@ -29,13 +29,13 @@ STRUCTURE = [
     ("section", "11_descriptives.html", "participant-ages-at-each-timepoint", "Participant Ages"),
     ("section", "11_descriptives.html", "maternal-education-distribution", "Maternal Education"),
 
-    ("heading", "Research Question 1: Predictors of Participation", 1),
+    ("heading", "Research Question 1: Predictors of Attrition", 1),
     ("section", "1_rq1_predictors_of_participation.html", "full-list-of-imputation-variables-rq1", "Variables in Imputation Model"),
     ("section", "1_rq1_predictors_of_participation.html", "twin-level-logistic-regression-coefficients", "Logistic Regression Coefficients"),
     ("section", "1_rq1_predictors_of_participation.html", "rq1-marginal-effects-of-maternal-education-on-participation", "Education Marginal Effects Plot"),
     ("section", "1_rq1_predictors_of_participation.html", "rq1-marginal-effects-of-ethnicity-on-participation", "Ethnicity Marginal Effects Plot"),
 
-    ("heading", "Research Question 2: Effects of Attritioning", 1),
+    ("heading", "Research Question 2: Effects of Attrition(ing)", 1),
     ("heading", "Toddlerhood Outcomes - Attritioned vs Original Estimates (Bias)", 2),
     ("section", "2_rq2_results.html", "toddlerhood-outcomes-means-smds-and-variances", "Means and Variances"),
     ("section", "2_rq2_results.html", "toddlerhood-outcomes-correlations", "Correlations"),
@@ -46,7 +46,7 @@ STRUCTURE = [
     ("section", "6_rq6_2_results.html", "adolescent-outcomes-correlations", "Correlations"),
     ("section", "6_rq6_2_results.html", "adolescent-outcomes-attritioned-vs.-original-ace-estimates", "ACE Estimates"),
 
-    ("heading", "Research Question 3: Evaluating Correction Methods", 1),
+    ("heading", "Research Question 3: Evaluating methods for correcting attrition bias", 1),
     ("section", "8_rq6_3_imputation_results.html", "table-of-all-variables-used-in-multiple-imputation-rq3", "Imputation Variables & FMI"),
     ("heading", "Means, Variances & Correlations", 2),
     ("section", "9_rq6_combined_bias_reduction_est.html", "rq3-attritioned-vs.-original-means-variances-correlations", "Unadjusted/Weighted/Imputed vs. Original"),
