@@ -765,6 +765,7 @@ save_plot("11_participation_pattern_grouped", width = 7, height = 3)
 ```
 
 ```{r}
+#| include: false
 #| label: participation-alluvial
 
 
@@ -797,9 +798,7 @@ save_plot("11_participation_pattern_grouped", width = 7, height = 3)
 
 ```
 
-
-
-Old Plots:
+### Old Plots:
 
 ```{r}
 #| label: participation-patterns
