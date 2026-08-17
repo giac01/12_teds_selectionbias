@@ -1659,3 +1659,43 @@ combine_mids %>%
 
 ```
 
+## Correlation Matrix of Imputation Model Variables
+
+Correlation matrix (Pearson, pairwise complete observations) of all numeric variables included in the RQ3 multiple imputation models (see [Table of all variables used in multiple imputation (RQ3)]). Categorical/factor variables are not correlation-compatible and are excluded from the matrix below.
+
+```{r imputation-vars-correlation-matrix}
+#| fig-width: 26
+#| fig-height: 26
+
+numeric_impute_vars = rq6_imputation_vars[sapply(rq6_imputation_vars, function(v) is.numeric(df[[v]]))]
+
+nonnumeric_impute_vars = rq6_imputation_vars[sapply(rq6_imputation_vars, function(v) !is.numeric(df[[v]]))]
+
+df %>% 
+  select(all_of(nonnumeric_impute_vars)) %>% 
+  apply(.,2,table)
+
+cor_dat = df %>%
+  select(all_of(numeric_impute_vars),"asmoke","atwclub") %>% 
+  mutate(
+    asmoke = as.numeric(asmoke),
+    atwclub = as.numeric(atwclub)
+  ) %>% 
+  select(-ends_with("2")) %>% 
+  `colnames<-`(var_to_label(colnames(.)))
+
+gbtoolbox::plot_correlations(
+  cor_dat,
+  text_size_r         = 1.8,
+  text_size_axis      = 6,
+  sample_size         = FALSE,
+  confidence_interval = FALSE,
+  suppress_warning_message = TRUE
+)
+
+save_plot("8_rq6_imputation_vars_correlation_matrix", width = 18, height = 18, trim = FALSE)
+
+```
+
+[📊 View Full Resolution Correlation Matrix (PNG)](plots/pngs/8_rq6_imputation_vars_correlation_matrix.png)
+

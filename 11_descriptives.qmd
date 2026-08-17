@@ -671,7 +671,7 @@ As we can see below, nobody in cohort 4 took part in Y2, Y3, Y10 data collection
 
 ## Participation Patterns
 
-New plot for manuscript:
+### New plot for manuscript:
 
 ```{r}
 
@@ -725,9 +725,19 @@ names(pps_times_labels) = pps_times1
 
 ```
 
+### Longitudinal patterns of participation in TEDS 
+
+For each twin, we computed whether they participated in each of three periods, each comprising multiple waves of data collection: Years 2-10, 12-16, and 18-26. A twin who participated at least once within a period was classified as "observed" for that period; otherwise, they were classified as "missing".
+
+The plot below shows the number of participants with data at each combination of these periods. For example, 11,825 twins have data across all three periods, and 2,234 have data across Years 2-16 only, but not between 18-26.
+
+The plot clearly shows that attrition is not monotonic: participants who do not take part in one period often re-participate in a later one. For example, 205 twins did not participate between Years 2-16 but returned between Years 18-26, and 936 twins participated only between Years 12-16, not before or after.
+
 ```{r}
 #| label: participation-pattern-grouped
 #| warning: false
+#| fig-width: 7
+#| fig-height: 3
 
 df %>%
   select(all_of(pps_times1)) %>%

@@ -28,6 +28,7 @@ STRUCTURE = [
     ("section", "11_descriptives.html", "descriptive-statistics-all-study-variables", "Study Variables"),
     ("section", "11_descriptives.html", "participant-ages-at-each-timepoint", "Participant Ages"),
     ("section", "11_descriptives.html", "maternal-education-distribution", "Maternal Education"),
+    ("section", "11_descriptives.html", "longitudinal-patterns-of-participation-in-teds", "Longitudinal Participation Patterns"),
 
     ("heading", "Research Question 1: Predictors of Attrition", 1),
     ("section", "1_rq1_predictors_of_participation.html", "full-list-of-imputation-variables-rq1", "Variables in Imputation Model"),

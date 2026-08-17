@@ -76,6 +76,7 @@ A combined html file with all the supplementary results can be found [here](0_su
 | [Study Variables](11_descriptives.html#all-measures-used-in-study) | Complete list of all study variables organised by research question |
 | [Participant Ages](11_descriptives.html#age-table) | Distribution of age at each timepoint |
 | [Maternal Education](11_descriptives.html#education) | Distribution of maternal education levels |
+| [Longitudinal Participation Patterns](11_descriptives.html#longitudinal-patterns-of-participation-in-teds) | Number of twins observed/missing across the Years 2-10, 12-16, and 18-26 periods, and evidence of non-monotonic attrition |
 
 ---
 
