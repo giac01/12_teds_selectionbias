@@ -34,7 +34,7 @@ df = df %>%
 
 # Descriptive Statistics: All Study Variables
 
-The table below lists every variable used across the analyses, grouped into four panels: (A) baseline variables used to predict later participation and for IP weighting, (B) participation indicators at each wave (1 = participated, 0 = did not), (C) toddlerhood outcome measures (RQ2), and (D) adolescent outcome measures (RQ2-3). For each variable we report a short label, a description, the TEDS variable code (an asterisk denotes a code that was recoded/renamed from the raw TEDS data), the observed range or factor levels, the number of non-missing observations, and the study wave at which it was collected.
+The table below lists every variable used across the analyses, grouped into four panels: (A) baseline variables used to predict later participation and for IP weighting, (B) participation indicators at each wave (1 = participated, 0 = did not), (C) toddlerhood outcome measures (RQ2), and (D) adolescent outcome measures (RQ2-3). For each variable we report a short label, a description, the TEDS variable code (an asterisk denotes a code that was recoded/renamed from the raw TEDS data), the observed range or factor levels, the mean and variance, the number of non-missing observations, and the study wave at which it was collected.
 
 ```{r}
 #| label: variable-tables
@@ -81,7 +81,51 @@ clean_description = function(x) {
     str_squish()
 }
 
-v_rq1x = 
+# Nominal (unordered) factors: no meaningful mean, excluded from Mean/Variance columns
+nominal_vars = c("afasoc2", "amosoc2", "aethnicc", "alang")
+
+# Factors whose level order does not follow the intended ordinal scale (mother/father
+# qualification codes come from different underlying SPSS numeric codes), so we map
+# them onto a common, substantively-ordered scale instead of using the raw level order
+quals_vars = c("afahqual", "amohqual")
+quals_order = c(
+  "no qualifications",
+  "CSE grade 2-5 or O-level/GCSE grade D-G",
+  "CSE grade 1 or O-level/GCSE grade A-C",
+  "A-level or S-level",
+  "HNC",
+  "HND",
+  "undergraduate degree",
+  "postgraduate qualification"
+)
+
+# Returns a numeric vector suitable for mean()/var(), or NULL for nominal variables.
+# Dichotomous/ordinal factors are recoded using their level order (reference/lowest
+# level, marked with "*" in the Range/Level column, = 0), matching the existing table convention.
+numeric_for_stats = function(var, df, nominal_vars = character(0), quals_vars = character(0), quals_order = NULL) {
+  if (var %in% nominal_vars) return(NULL)
+  x = df[[var]]
+  if (var %in% quals_vars) return(match(as.character(x), quals_order))
+  if (is.factor(x)) return(as.numeric(x) - 1)
+  if (is.numeric(x)) return(as.numeric(x))
+  NULL
+}
+
+get_mean_col = function(vars, df, nominal_vars = character(0), quals_vars = character(0), quals_order = NULL) {
+  sapply(vars, function(var) {
+    x = numeric_for_stats(var, df, nominal_vars, quals_vars, quals_order)
+    if (is.null(x)) NA_real_ else mean(x, na.rm = TRUE)
+  })
+}
+
+get_var_col = function(vars, df, nominal_vars = character(0), quals_vars = character(0), quals_order = NULL) {
+  sapply(vars, function(var) {
+    x = numeric_for_stats(var, df, nominal_vars, quals_vars, quals_order)
+    if (is.null(x)) NA_real_ else stats::var(x, na.rm = TRUE)
+  })
+}
+
+v_rq1x =
   data.frame(
     `Short Label` = rq1x_labels_clean,
     Description = rq1x_labels,
@@ -96,6 +140,8 @@ v_rq1x =
         paste(unique(df[[var]]), collapse = ", ")
       }
     }),
+    Mean = get_mean_col(rq1x, df, nominal_vars, quals_vars, quals_order),
+    Variance = get_var_col(rq1x, df, nominal_vars, quals_vars, quals_order),
     N = sapply(rq1x, function(var) {
       sum(!is.na(df[[var]]))
     }),
@@ -137,6 +183,8 @@ v_rq1y =
         paste(unique(df[[var]]), collapse = ", ")
       }
     }),
+    Mean = get_mean_col(rq1y_twin1, df),
+    Variance = get_var_col(rq1y_twin1, df),
     N = sapply(rq1y_twin1, function(var) {
       sum(!is.na(df[[var]]))
     }),
@@ -157,6 +205,8 @@ v_rq2 = data.frame(
       paste(unique(df[[var]]), collapse = ", ")
     }
   }),
+  Mean = get_mean_col(rq2y, df),
+  Variance = get_var_col(rq2y, df),
   N = sapply(rq2y, function(var) {
     sum(!is.na(df[[var]]))
   }),
@@ -179,6 +229,8 @@ v_rq3 = data.frame(
       paste(unique(df[[var]]), collapse = ", ")
     }
   }),
+  Mean = get_mean_col(rq6y, df),
+  Variance = get_var_col(rq6y, df),
   N = sapply(rq6y, function(var) {
     sum(!is.na(df[[var]]))
   }),
@@ -212,7 +264,17 @@ gt(v_rq_combined) %>%
   ) %>%
   cols_hide(c(row_group, row_id)) %>%
   cols_width(
-    `Range.or.Level` ~ px(100)
+    `Range.or.Level` ~ px(100),
+    Mean ~ px(70),
+    Variance ~ px(70)
+  ) %>%
+  fmt_number(
+    columns = c(Mean, Variance),
+    decimals = 2
+  ) %>%
+  sub_missing(
+    columns = c(Mean, Variance),
+    missing_text = "—"
   ) %>%
   cols_label_with(fn = ~ gsub("\\.", " ", .x)) %>%
   tab_style(
