@@ -1631,7 +1631,13 @@ df %>%
 
 ```
 
-## Effect of attritioning maternal education removing HNC and HND
+## Effect of attrition on the variance of maternal education
+
+Unlike the other outcomes, the variance of maternal education increased after attrition in our main analyses. The tables below show that this depends on how maternal education is coded.
+
+In the original 8-level coding used in our main analyses, the higher qualifications are spread over a wide range of codes (A-levels = 4 to postgraduate = 8), far from the most common category (GCSE grades A–C = 3; see the [maternal education distribution](11_descriptives.html#maternal-education-distribution)). Attrition mainly removed families with lower maternal education, so more of the remaining sample fell into these distant upper categories, increasing variance (e.g., by 10% in the Year 26 web test sample). However, this coding does not appear to reflect equal steps: child outcomes were similar for mothers with A-levels, HNC and HND qualifications (see [descriptives](11_descriptives.html#relationship-between-maternal-education-and-child-outcomes)). When these three categories are merged into a 6-level coding, variance instead decreased slightly in every attritioned sample (by 1–5%), consistent with the other outcomes.
+
+When maternal education is dichotomised into degree vs. no degree, variance increased after attrition (e.g., by 32% in the Year 26 web test sample). This is expected for a binary variable: its variance, *p*(1 − *p*), increases as *p* moves towards .5, and the proportion of mothers with a degree rose from .18 in the full sample to .26 in the Year 26 web test sample.
 
 ### Original Coding
 
@@ -1681,7 +1687,7 @@ summary_stats %>%
 
 ### Combining HNC and HND with A-levels
 
-HNC and HND qualifications are vocational and sit ambiguously between A-levels and undergraduate degrees in the original ordinal coding. Here they are collapsed into the A-level category to create a cleaner ordinal scale. The table shows the mean, variance, and entropy of the recoded maternal education variable for participants at each study timepoint and for the full sample. Higher entropy indicates a more evenly distributed education profile among participants; a decline in entropy relative to the full sample would indicate that attrition is concentrating the sample toward certain education levels.
+HNC and HND qualifications are vocational and sit ambiguously between A-levels and undergraduate degrees in the original ordinal coding. Here they are collapsed into the A-level category to create a cleaner 6-level ordinal scale. The table shows the mean, variance, and entropy of the recoded maternal education variable for participants at each study timepoint and for the full sample. Higher entropy indicates a more evenly distributed education profile among participants; a decline in entropy relative to the full sample would indicate that attrition is concentrating the sample toward certain education levels.
 
 ```{r}
 # table(df$amohqualn1,  df$amohqual)
@@ -1692,8 +1698,8 @@ df3 = df %>%
       .default = amohqualn1,
       amohqualn1 == 5 ~ 4,  # HNC -> A level
       amohqualn1 == 6 ~ 4,  # HND -> A level
-      amohqualn1 == 7 ~ 5   #undergraduate degree
-
+      amohqualn1 == 7 ~ 5,  # undergraduate degree
+      amohqualn1 == 8 ~ 6   # postgraduate qualification
     )
   ) %>% 
   select(all_of(rq1y_twin1),mat_edu)

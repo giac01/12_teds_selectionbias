@@ -526,7 +526,7 @@ plots = lapply(1:length(correlation_comparisons), function(i) {
     caption = NULL,
     method = "none"
   ) +
-  labs(tag = paste0("B", i)) +
+  labs(tag = if (i == 1) "b" else NULL) + # one panel letter per row
   theme(
     plot.title        = element_text(hjust=0.5),
     axis.text         = element_text(color = "black"),

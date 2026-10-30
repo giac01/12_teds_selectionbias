@@ -432,7 +432,10 @@ plot_data %>%
   vjust = 2,
   size = 2,
   show.legend = FALSE) +
-  facet_wrap(~metric_label, scales = "free_y", ncol = 1) +
+  # Panel labels are placed as y-axis titles (strips on the left, outside the
+  # axis) rather than as panel titles, per Behavior Genetics figure guidelines
+  # ("do not include titles or captions within your illustrations").
+  facet_wrap(~metric_label, scales = "free_y", ncol = 1, strip.position = "left") +
   scale_color_manual(
     values = c(
       "MZ male" = "#d7191c",
@@ -456,7 +459,8 @@ plot_data %>%
   theme(
     # plot.title = element_text(size = 14, face = "bold"),
     # plot.subtitle = element_text(size = 12),
-    # strip.text = element_text(size = 11, face = "bold"),
+    strip.placement = "outside",
+    strip.text.y.left = element_text(size = 10, angle = 90),
     legend.spacing.y = unit(0, "pt"),
     legend.background = element_rect(fill = alpha("white",.5), color = NA),
     legend.key.height = unit(0.6, "pt"),

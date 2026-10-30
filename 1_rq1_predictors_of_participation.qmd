@@ -519,9 +519,11 @@ heatmap_data = bind_rows(heatmap_data, ethnicity_hasgeno_row) %>%
   )
 
 ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
-  geom_tile(aes(fill = Delta_AUC_fill, 
-                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1","anyngsib", "alookels", "afasoc2"), "azure2", "black")), 
+  geom_tile(aes(fill = Delta_AUC_fill,
+                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1","anyngsib", "alookels", "afasoc2"), "azure2", "black")),
             size = .5) +
+  # Grey placeholder for ethnicity x genotyped (ethnicity was not in that model)
+  geom_tile(data = ethnicity_hasgeno_row, fill = "grey75", color = "black", size = .5) +
   scale_color_identity() +
   geom_text(
     aes(label = ifelse(Wald_p < 0.05, 
@@ -541,10 +543,12 @@ ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
     limits = c(0, max(heatmap_data$Delta_AUC_fill, na.rm = TRUE)),
     guide = "none"
   ) +
+  # No in-figure title/subtitle (Behavior Genetics guidelines): the meaning of
+  # the values (change in AUC when the variable is removed; red = significant)
+  # is given in the manuscript figure caption instead. Panel letter is lowercase
+  # as required by the journal.
   labs(
-    tag = "B",
-    title = "Variable Importance Heatmap",
-    subtitle = "Values indicate change in AUC when variable is removed from model\nRed cells are statistically significant"
+    tag = "b"
   ) +
   theme_minimal() +
   theme(
@@ -553,9 +557,7 @@ ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
     axis.title = element_blank(),
     panel.grid = element_blank(),
     plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
-    plot.tag.position = "topleft",
-    plot.title = element_text(hjust = 0.5, size = 16),
-    plot.subtitle = element_text(hjust = 0.5, size = 13.5, margin = margin(b = 0))
+    plot.tag.position = "topleft"
   ) +
   {
     y_positions = seq_along(levels(heatmap_data$outcome_labeled))
@@ -613,10 +615,10 @@ ggplot(plot_data, aes(y = outcome, x = value_scaled, fill = metric_label)) +
             hjust = ifelse(plot_data$metric == "AUC_scaled", 1.1, -0.1),
             size = 2.9) +
   scale_fill_manual(values = c("AUC" = "#5e3c99", "McFadden's R²" = "#e66101")) +
+  # No in-figure title (Behavior Genetics guidelines); described in the
+  # manuscript caption instead. Panel letter is lowercase as required.
   labs(
-    tag = "A",
-    title = "Participation Prediction Accuracy",
-    # subtitle = "Accuracy in predicting \nparticipation at each Time Point",
+    tag = "a",
     x = NULL,
     y = NULL,
     fill = NULL
@@ -631,8 +633,7 @@ ggplot(plot_data, aes(y = outcome, x = value_scaled, fill = metric_label)) +
     plot.margin = margin(t = 20, r = 20, b = 50, l = 20, unit = "pt"),
     axis.text.x = element_blank(),
     plot.tag = element_text(hjust = 0, vjust = 0, size = 30, face = "bold"),
-    plot.tag.position = "topleft",
-    plot.title = element_text(hjust = 0.5, size = 16)
+    plot.tag.position = "topleft"
   ) +
   geom_vline(xintercept = 0, color = "black", size = 0.5)
 
