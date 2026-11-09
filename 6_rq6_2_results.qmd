@@ -351,7 +351,7 @@ ggplot(heatmap_data_smd, aes(x = Variables_wrapped, y = outcome_labeled)) +
   ) +
   labs(
     subtitle = expression(frac(bar(X)[attritioned] - bar(X)[original], SD[original])),
-    tag = "A1"
+    tag = "a1"
   ) +
   theme_minimal() +
   theme(
@@ -431,7 +431,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   ) +
   labs(
     subtitle = expression(frac(Var[attritioned] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
-    tag = "B1"
+    tag = "b1"
   ) +
   theme_minimal() +
   theme(

@@ -369,7 +369,7 @@ heatmap_data_smd = weighted_comparisons_df %>%
   ) +
   labs(
     subtitle = expression(frac(bar(X)[attritioned + weighted] - bar(X)[original], SD[original])),
-    tag = "A2"
+    tag = "a2"
   ) +
   theme_minimal() +
   theme(
@@ -447,7 +447,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   ) +
   labs(
     subtitle = expression(frac(Var[attritioned + weighted] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
-    tag = "B2"
+    tag = "b2"
   ) +
   theme_minimal() +
   theme(

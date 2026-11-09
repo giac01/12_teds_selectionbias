@@ -515,7 +515,7 @@ heatmap_data_smd = imputed_comparisons_df %>%
   ) +
   labs(
     subtitle = expression(frac(bar(X)[attritioned + imputed] - bar(X)[original], SD[original])),
-    tag = "A3"
+    tag = "a3"
   ) +
   theme_minimal() +
   theme(
@@ -593,7 +593,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
   ) +
   labs(
     subtitle = expression(frac(Var[attritioned + imputed] - Var[original], Var[original]) ~ "\u00D7" ~ 100),
-    tag = "B3"
+    tag = "b3"
   ) +
   theme_minimal() +
   theme(
@@ -645,8 +645,8 @@ img6 = image_read("plots/pngs/8_rq6_circular_heatmap_var.png") %>% image_scale("
 
 
 # Combine into rows
-row1 = image_append(c(img1, img2, img3))  # SMD plots (A1, A2, A3)
-row2 = image_append(c(img4, img5, img6))  # Variance plots (B1, B2, B3)
+row1 = image_append(c(img1, img2, img3))  # SMD plots (a1, a2, a3)
+row2 = image_append(c(img4, img5, img6))  # Variance plots (b1, b2, b3)
 
 # Stack rows vertically
 combined = image_append(c(row1, row2), stack = TRUE)
