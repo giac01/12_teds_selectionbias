@@ -645,8 +645,13 @@ baseline_imp = c(
 
 # rq6 imputation vars ----------------------------------------------------------
 
+# NB: the 12 polygenic scores (twin and co-twin versions) are also used as
+# imputation variables. They are not listed here because they come from the
+# newer data file and are PC-residualised first: see rq6z_pgs_vars, created by
+# 0_load_data_with_pgs.R.
+
 rq6z_vars = c(
-  
+
   ## Problematic variables that are commended out temporarily but we might want to add back!!
   
   "cohort",

@@ -468,7 +468,7 @@ variable_comparisons_df %>%
     scale_color_identity() +
     geom_text(
       aes(label = ifelse(pval_adj < 0.05,
-                         paste0(sprintf("%.1f", y * 100), ""), ""), # ADD THE PERCENTAGE SYMBOL TO THE FIRST EMPTY "" IF NEEDED AAIN
+                         paste0(sprintf("%.0f", y * 100), "%"), ""), # 0 d.p. with % symbol, matching Fig 3d (14_pgs_B_results.qmd)
           size = ifelse(outcome_labeled == "Y4", 2, 4.2)
       ),
       color = "black"
@@ -1672,7 +1672,7 @@ summary_stats %>%
       .default = name
     )
   ) %>% 
-  arrange(var) %>% 
+  arrange(factor(name, levels = c("Full Sample", rq1y_twin_labels_clean_extrashort))) %>% # longitudinal order, full sample first
   ungroup() %>% 
   select(-value) %>% 
   gt() %>% 
@@ -1724,7 +1724,7 @@ summary_stats %>%
       .default = name
     )
   ) %>% 
-  arrange(var) %>% 
+  arrange(factor(name, levels = c("Full Sample", rq1y_twin_labels_clean_extrashort))) %>% # longitudinal order, full sample first
   ungroup() %>% 
   select(-value) %>% 
   gt() %>% 
@@ -1774,7 +1774,7 @@ summary_stats_degree %>%
       .default = name
     )
   ) %>%
-  arrange(var) %>%
+  arrange(factor(name, levels = c("Full Sample", rq1y_twin_labels_clean_extrashort))) %>% # longitudinal order, full sample first
   ungroup() %>%
   select(-value) %>%
   gt() %>%

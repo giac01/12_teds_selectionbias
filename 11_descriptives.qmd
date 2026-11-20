@@ -495,8 +495,10 @@ estimates %>%
         par == "c1" ~ "C",
         par == "e1" ~ "E"
       ),
-      time_point = rq1y_twin_labels_clean[match(name, rq1y_twin)],
-      time_point = factor(time_point, levels = rq1y_twin_labels_clean)
+      # Use the same extra-short wave labels as the participation-rate plot
+      # (11_participation_rates_zygosity) so Figure 1 panels a-c match
+      time_point = rq1y_twin_labels_clean_extrashort[match(name, rq1y_twin)],
+      time_point = factor(time_point, levels = rq1y_twin_labels_clean_extrashort)
     ) %>%
     ggplot(aes(x = time_point, y = value, color = par_clean, group = interaction(sex, par_clean))) +
     geom_line(linewidth = .5, alpha = 0.8, aes(linetype = sex)) +

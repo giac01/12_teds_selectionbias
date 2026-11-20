@@ -39,6 +39,7 @@ STRUCTURE = [
     ("heading", "Research Question 2: Effects of Attrition(ing)", 1),
     ("heading", "Toddlerhood Outcomes - Attritioned vs Original Estimates (Bias)", 2),
     ("section", "2_rq2_results.html", "toddlerhood-outcomes-means-smds-and-variances", "Means and Variances"),
+    ("section", "2_rq2_results.html", "effect-of-attrition-on-the-variance-of-maternal-education", "Variance of Maternal Education"),
     ("section", "2_rq2_results.html", "toddlerhood-outcomes-correlations", "Correlations"),
     ("section", "2_rq2_results.html", "toddlerhood-outcomes-ace-estimates-and-differences", "ACE Estimates"),
 

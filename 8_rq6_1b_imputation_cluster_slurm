@@ -1,0 +1,129 @@
+#!/bin/bash -l
+#!
+#! SLURM ARRAY job script for King's College London CREATE HPC cluster
+#! Docs: https://docs.er.kcl.ac.uk/CREATE/running_jobs/
+#!
+#! Runs the RQ6 multiple imputation (with the PGS as
+#! auxiliary variables) on the cluster. Each array task runs ONE imputation
+#! (task id = imputation number, 1-250): 20 sequential mice runs (4 time points
+#! x 5 sex-zygosity groups), 75 iterations each. Only the imputation runs on the
+#! cluster; data preparation and combining happen locally.
+#!
+#! The original local run (without PGS) took 1.384 days on 16 cores, i.e.
+#! about 2 core-hours per imputation, so expect ~2-4 h per task with the PGS
+#! added. --time is set generously; check the pilot task with `seff` and adjust.
+#!
+#! WORKFLOW --------------------------------------------------------------------
+#!
+#! 1. LOCAL: prepare the imputation input (in the project folder):
+#!
+#!      docker run --rm -v /home/giaco:/home/rstudio -w /home/rstudio/Dropbox/Work/projects/12_teds_selectionbias \
+#!        -u 1000:1000 bignardig/tidyverse451:v8 Rscript 8_rq6_1a_imputation_prepare.R
+#!
+#!    This writes results/8_1_cluster_input.Rds (and 8_1_combine_input.Rds,
+#!    8_1_tasks.Rds, 8_1_imputation_variables.Rds, which stay local). NB: the input file holds individual-level
+#!    TEDS data (the imputation variables only) - keep it on the cluster only for
+#!    as long as needed (step 6), in line with the TEDS data agreement.
+#!
+#! 2. LOCAL: copy the scripts and the input file to the cluster:
+#!
+#!      ssh k2583181@hpc.create.kcl.ac.uk "mkdir -p /users/k2583181/12_teds_selectionbias/results /users/k2583181/12_teds_selectionbias/logs"
+#!      rsync -av 8_rq6_1b_imputation_cluster_slurm 8_rq6_1b_imputation_cluster_task.R \
+#!        k2583181@hpc.create.kcl.ac.uk:/users/k2583181/12_teds_selectionbias/
+#!      rsync -av results/8_1_cluster_input.Rds \
+#!        k2583181@hpc.create.kcl.ac.uk:/users/k2583181/12_teds_selectionbias/results/
+#!
+#! 3. LOCAL (once): build the Singularity image from the local Docker image and
+#!    copy it over. Singularity isn't installed locally, so it is run from its
+#!    own Docker image. (Built 09-11-2026: 1.2 GB, R 4.5.1, mice 3.18.0,
+#!    sha256 fb5aff4df73603a058a2c08d5e7ad29ab0931c31391f924bc6a712502719d936.)
+#!
+#!      mkdir -p /home/giaco/singularity_images && cd /home/giaco/singularity_images
+#!      docker save bignardig/tidyverse451:v8 -o tidyverse451_v8.tar
+#!      docker run --rm --privileged -v $PWD:/work -w /work quay.io/singularity/singularity:v3.11.4 \
+#!        build tidyverse451_v8.sif docker-archive:///work/tidyverse451_v8.tar
+#!      rm tidyverse451_v8.tar
+#!      rsync -av --progress tidyverse451_v8.sif \
+#!        k2583181@hpc.create.kcl.ac.uk:/users/k2583181/12_teds_selectionbias/
+#!
+#!    Check it on the cluster (in an interactive job, not the login node):
+#!
+#!      srun -p cpu --time 20 --mem 4G --pty /bin/bash -l
+#!      cd /users/k2583181/12_teds_selectionbias
+#!      singularity exec tidyverse451_v8.sif Rscript -e 'packageVersion("mice")'
+#!      exit
+#!
+#!    (Alternatively, pull it directly on the cluster in an interactive job:
+#!    `singularity pull tidyverse451_v8.sif docker://bignardig/tidyverse451:v8`,
+#!    with SINGULARITY_CACHEDIR and SINGULARITY_TMPDIR set to folders on /scratch.)
+#!
+#! 4. CLUSTER: run a pilot task, check its run time and memory, then the rest:
+#!
+#!      cd /users/k2583181/12_teds_selectionbias
+#!      sbatch --array=1 8_rq6_1b_imputation_cluster_slurm
+#!      seff <jobid>                                   # after it finishes; per-group times are in the .out log
+#!      sbatch --array=2-250%100 8_rq6_1b_imputation_cluster_slurm  # %100 caps concurrently running tasks
+#!
+#!    Tasks skip imputations whose output already exists, so failed or
+#!    timed-out tasks can simply be resubmitted, e.g. sbatch --array=17,52 ...
+#!    Check progress with: ls results/8_1_cluster | wc -l
+#!
+#! 5. LOCAL: copy the outputs back and combine them:
+#!
+#!      rsync -av k2583181@hpc.create.kcl.ac.uk:/users/k2583181/12_teds_selectionbias/results/8_1_cluster/ \
+#!        results/8_1_cluster/
+#!      docker run --rm -v /home/giaco:/home/rstudio -w /home/rstudio/Dropbox/Work/projects/12_teds_selectionbias \
+#!        -u 1000:1000 bignardig/tidyverse451:v8 Rscript 8_rq6_1c_imputation_combine.R
+#!
+#!    This writes results/8_1_imputed_mice.Rds and 8_1_all_imputations.Rds; then
+#!    run 8_rq6_2_run_bootstrapping.R and render 8_rq6_3 / 9_ as usual.
+#!
+#! 6. CLUSTER: delete the TEDS data (and the .sif, if no longer needed) once the outputs are safely copied back:
+#!
+#!      rm /users/k2583181/12_teds_selectionbias/results/8_1_cluster_input.Rds
+#!      rm -r /users/k2583181/12_teds_selectionbias/results/8_1_cluster
+#!
+#! -----------------------------------------------------------------------------
+
+#SBATCH --job-name=teds_rq6_imputation
+#SBATCH --partition=cpu
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#! Pilot (task 1, 10-11-2026): 2 h 56 min, 1.08 GB peak memory, 99% CPU efficiency
+#SBATCH --mem=2G
+#SBATCH --time=6:00:00
+#! Task 1 was the pilot (done); tasks that already have output are skipped anyway
+#SBATCH --array=2-250
+#! Array jobs with BEGIN/END mail-type would send far too many emails - FAIL only:
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=k2583181@kcl.ac.uk
+#SBATCH --output=logs/teds_rq6_imputation_%A_%a.out
+
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export VECLIB_MAXIMUM_THREADS=1
+
+#! One array task = one imputation
+export IMPUTATION_K=$SLURM_ARRAY_TASK_ID
+export IMPUTATION_TAG=""
+
+#! Path to the singularity image (lives alongside this script):
+SIF="$SLURM_SUBMIT_DIR/tidyverse451_v8.sif"
+
+#! sbatch's default working directory is the one it was submitted from:
+workdir="$SLURM_SUBMIT_DIR"
+cd "$workdir" || exit 1
+
+echo -e "JobID: $SLURM_JOB_ID (array task $SLURM_ARRAY_TASK_ID of $SLURM_ARRAY_TASK_COUNT)\n======"
+echo "Time: $(date)"
+echo "Running on node: $(hostname)"
+echo "Working directory: $(pwd)"
+echo "IMPUTATION_K: $IMPUTATION_K  IMPUTATION_TAG: $IMPUTATION_TAG"
+
+echo -e "\nExecuting command:\n==================\nsingularity exec $SIF Rscript 8_rq6_1b_imputation_cluster_task.R\n"
+
+singularity exec "$SIF" Rscript 8_rq6_1b_imputation_cluster_task.R
+
+echo "Finished: $(date)"

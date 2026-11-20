@@ -1,4 +1,12 @@
 # Load Libraries and Data ------------------------------------------------------
+
+# NOTE: The data/ and results/ folders (which contain TEDS participant-level
+# data, including imputed datasets) are set to be ignored by Dropbox, so they
+# are not synced to the cloud. This was done with:
+#   attr -s com.dropbox.ignored -V 1 data
+#   attr -s com.dropbox.ignored -V 1 results
+# To check the flag:  attr -g com.dropbox.ignored data
+# To undo (re-enable syncing):  attr -r com.dropbox.ignored data
 Sys.setenv(MAGICK_MEMORY_LIMIT = "18GiB")
 Sys.setenv(MAGICK_MAP_LIMIT = "18GiB")
 Sys.setenv(MAGICK_AREA_LIMIT = "250MB")

@@ -512,16 +512,26 @@ ethnicity_hasgeno_row = heatmap_data %>%
     Wald_p          = 1
   )
 
+# Predictors that are never significant (Holm-adjusted p >= .05 for every
+# outcome) get faded tile borders. Derived from the data rather than hardcoded.
+never_significant_vars = variable_importance %>%
+  filter(n_significant_05 == 0) %>%
+  pull(Variables_full) %>%
+  as.character()
+
 heatmap_data = bind_rows(heatmap_data, ethnicity_hasgeno_row) %>%
   mutate(
     outcome_labeled   = factor(outcome_labeled, levels = levels(heatmap_data$outcome_labeled)),
-    Variables_wrapped = factor(Variables_wrapped, levels = levels(heatmap_data$Variables_wrapped))
-  )
+    Variables_wrapped = factor(Variables_wrapped, levels = levels(heatmap_data$Variables_wrapped)),
+    border_colour     = ifelse(as.character(Variables_full) %in% never_significant_vars, "azure2", "black")
+  ) %>%
+  # Draw faded tiles first so that black borders of neighbouring tiles are drawn
+  # on top of any shared edge (otherwise draw order decides which colour shows)
+  arrange(border_colour != "azure2")
 
 ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
-  geom_tile(aes(fill = Delta_AUC_fill,
-                color = ifelse(Variables_Dropped %in% c("astress", "atwmed1","anyngsib", "alookels", "afasoc2"), "azure2", "black")),
-            size = .5) +
+  geom_tile(aes(fill = Delta_AUC_fill, color = border_colour),
+            linewidth = .5) +
   # Grey placeholder for ethnicity x genotyped (ethnicity was not in that model)
   geom_tile(data = ethnicity_hasgeno_row, fill = "grey75", color = "black", size = .5) +
   scale_color_identity() +
@@ -565,7 +575,7 @@ ggplot(heatmap_data, aes(x = Variables_wrapped, y = outcome_labeled)) +
     
     lapply(seq_along(labels), function(i) {
       annotate("text", x = 0.5, y = y_positions[i],
-               label = labels[i], size = 2.8, hjust = 1, angle = 7)
+               label = labels[i], size = 3.4, hjust = 1, angle = 7)
     })
   }
 

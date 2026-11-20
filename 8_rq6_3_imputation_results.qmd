@@ -35,12 +35,14 @@ This analysis examines the impact of multiple imputation to correct for attritio
 
 We compare ( original ) vs ( attritioned + imputed ) results across 200 multiply imputed datasets.
 
+Imputation diagnostics (proportion of usable cases, fraction of missing information, convergence, correlations between the imputation variables) are in `8_rq6_4_imputation_diagnostics.qmd`.
+
 ## Load Data
 
 ```{r load-data}
 #| output: false
 
-source("0_load_data.R")
+source("0_load_data_with_pgs.R")                                                # 0_load_data.R + the 12 PGS used as auxiliary variables (rq6z_pgs_vars)
 
 df = df %>%
   filter(!(randomfamid %in% exclude_fams_rq1x)) %>%
@@ -105,6 +107,7 @@ The table below lists every variable included in the multiple imputation models 
 
 # Function to map variable prefix to study wave
 get_study_wave = function(var_name) {
+  if (str_detect(var_name, "^pgs_")) return("Genotyping")                      # polygenic scores
   prefix = substr(var_name, 1, 1)
   wave_map = c(
     "a" = "1st Contact",
@@ -126,7 +129,7 @@ get_study_wave = function(var_name) {
   return(wave_map[prefix])
 }
 
-rq6_imputation_vars = c(rq6y_all, rq6z_vars)
+rq6_imputation_vars = c(rq6y_all, rq6z_vars, rq6z_pgs_vars)
 impute_vars_labels = var_to_label(rq6_imputation_vars) %>%
   sapply(., function(x) ifelse(is.null(x[1]), "", x[1]))
 
@@ -509,7 +512,7 @@ heatmap_data_smd = imputed_comparisons_df %>%
     mid = "white",
     high = "#d73027",
     midpoint = 0,
-    limits = c(-0.3, 0.3),
+    limits = c(-0.4, 0.4),
     na.value = "white",
     guide = "none"
   ) +
@@ -569,7 +572,7 @@ heatmap_data_var = imputed_comparisons_df %>%
     Variables_wrapped = factor(Variables_wrapped, levels = str_wrap(rq6y_labels, width = 8))
   )
 
-ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
+ggplot(heatmap_data_var,aes(x = Variables_wrapped, y = outcome_labeled)) +
   geom_tile(aes(fill = fill_value),
             color = "black",
             size = 0.5) +
@@ -587,7 +590,7 @@ ggplot(heatmap_data_var, aes(x = Variables_wrapped, y = outcome_labeled)) +
     mid = "white",
     high = "#d73027",
     midpoint = 0,
-    limits = c(-.35, .35),
+    limits = c(-0.6, 0.6),
     na.value = "white",
     guide = "none"
   ) +
@@ -973,8 +976,8 @@ ace_estimates %>%
   mutate(
     name_clean = rq6y_labels[match(name, rq6y_prefix)],
     group = case_when(
-      group == "df1" ~ "Original",
-      group == "df2" ~ "Imputed",
+      group == "df1" ~ "Imputed",                                             # .boot_compare_df(df1 = attritioned + imputed, df2 = original) in 8_rq6_2
+      group == "df2" ~ "Original",
       TRUE ~ group
     )
   ) %>%
@@ -1100,8 +1103,8 @@ ace_estimates %>%
     name_clean = rq6y_labels[match(name, rq6y_prefix)],
     name_clean = factor(name_clean, levels = rq6y_labels),
     group = case_when(
-      group == "df1" ~ "O",
-      group == "df2" ~ "I",
+      group == "df1" ~ "I",                                                   # .boot_compare_df(df1 = attritioned + imputed, df2 = original) in 8_rq6_2
+      group == "df2" ~ "O",
       TRUE ~ group
     ),
     group = factor(group, levels = c("I", "O")),
@@ -1369,333 +1372,4 @@ response_statistics %>%
   ) 
 
 ```
-
-### Fraction of Missing Information 
-
-#### Calculation for **sample means**
-
-Here, we calculate the fraction of missing information (FMI) for each variable mean.
-
-Because imputation is performed separately at each attrition timepoint, the FMI differs across timepoints. FMI is higher when more data is missing at the attrition timepoint (i.e., fewer participants at that wave). 
-
-```{r fmi-means}
-
-timepoint_labels = rq1y_twin_labels_clean
-
-fmi_original = map_dfr(seq_along(imputed_mice), function(tp) {
-  map_dfr(rq6y, function(v) {                                                                                      # starts loop for each 
-    # browser()                                                                                                    # For checking this code...
-
-    Q = sapply(imputed_mice[[tp]], function(df) mean(df[[v]], na.rm = TRUE))                                       # For variable v, this is a vector of K imputed means 
-    U = sapply(imputed_mice[[tp]], function(df) stats::var(df[[v]], na.rm = TRUE) / sum(!is.na(df[[v]])))          # For variable v, this is a vector of K sample mean variances (imputed variance of variable)/(imputed sample size)
-
-    result = mice::pool.scalar(Q = Q, U = U)
-
-    tibble(
-      timepoint = timepoint_labels[tp],
-      variable  = v,
-      estimate  = result$qbar,
-      se        = sqrt(result$t),
-      fmi       = result$fmi
-    )
-  })
-})
-
-fmi_original %>%
-  mutate(variable = rq6y_labels[match(variable, rq6y)]) %>%
-  gt(groupname_col = "timepoint") %>%
-  fmt_number(decimals = 3) %>%
-  cols_label(
-    variable = "Variable",
-    estimate = "Estimate",
-    se       = "SE",
-    fmi      = "FMI"
-  ) %>%
-  cols_hide(c("estimate", "se")) %>% 
-  tab_style(
-    style    = cell_text(size = px(12)),
-    locations = cells_body()
-  )
-
-```
-
-#### Calculation for **change statistics**
-
-Here we calculate the FMI for the change statistics (i.e., the difference between original and attritioned estimates), using bootstrap variance as the within-imputation variance. 
-
-```{r fmi-changes}
-
-simple_params = c("md", "smd", "var")
-
-df_long = boot_compare_results %>%
-  imap_dfr(function(imp_data, imp_name) {
-    imap_dfr(imp_data[simple_params], function(boot_list, param_name) {
-      imap_dfr(boot_list, function(values, boot_idx) {
-        tibble(
-          imputation_name = imp_name,
-          bootstrap = boot_idx,
-          parameter = param_name,
-          variable = rq6y_labels,
-          value = values
-        )
-      })
-    })
-  }) %>%
-  mutate(
-    # Extract timepoint prefix (everything before trailing digits)
-    timepoint_code = str_extract(imputation_name, "^[a-z0-9]+data"),
-    imp_num = as.numeric(str_extract(imputation_name, "\\d+$")),
-    # Map to readable timepoint labels
-    timepoint = case_when(
-      timepoint_code == "u1cdata" ~ "Y21",
-      timepoint_code == "zmhdata" ~ "Y26",
-      timepoint_code == "zcdata"  ~ "Y26 CATSLife"
-    )
-  ) %>%
-  select(timepoint, imp_num, bootstrap, parameter, variable, value)
-
-fmi_results = df_long %>%
-  # Step 1: Get point estimate and within-imputation variance for each imputation
-  group_by(timepoint, parameter, variable, imp_num) %>%
-  summarise(
-    Q_m          = mean(value),       # Point estimate for this imputation
-    U_m          = stats::var(value), # Within-imputation variance (from bootstrap)
-    n_bootstraps = dplyr::n(),
-    .groups      = "drop"
-  ) %>%
-  # Step 2: Pool across imputations using Rubin's rules
-  group_by(timepoint, parameter, variable) %>%
-  summarise(
-    m       = dplyr::n(),          # Number of imputations
-    Q_bar   = mean(Q_m),           # Pooled point estimate
-    W       = mean(U_m),           # Within-imputation variance (average)
-    B       = stats::var(Q_m),     # Between-imputation variance
-    .groups = "drop"
-  ) %>%
-  mutate(
-    T          = W + B + B/m,                # Total variance
-    r          = (1 + 1/m) * B / W,          # Relative increase in variance due to missingness
-    df         = (m - 1) * (1 + 1/r)^2,      # Degrees of freedom (Barnard-Rubin adjusted)
-    FMI        = (r + 2/(df + 3)) / (r + 1), # Fraction of Missing Information
-    FMI_simple = (B + B/m) / T               # Simpler FMI approximation (lambda)
-  )   
-
-fmi_results %>%
-  gt(groupname_col = "timepoint") %>%
-  fmt_number(decimals = 3, columns = !m)
-
-```
-
-### Convergence Check
-
-
-```{r convergence-setup}
-all_imputations      = readRDS(file = file.path("results", "8_1_all_imputations.Rds"))
-
-ids_keep = tasks %>%
-  filter(imputation <=20) %>% 
-  pull(i) %>% max()
-
-all_imputations = all_imputations[1:ids_keep]
-
-# Simple labels without spaces/special characters for plotting
-simple_labels = c("Depression", "Externalising", "Cognitive", "GCSE")
-new_names = c(paste0(simple_labels, "1"), paste0(simple_labels, "2"))
-
-rename_mids = function(mids_obj,
-                       old_names = rq6y_all,
-                       new_names = c(paste0(simple_labels, "1"), paste0(simple_labels, "2"))) {
-  for (i in seq_along(old_names)) {
-    old = old_names[i]
-    new = new_names[i]
-
-    # Rename in data
-    names(mids_obj$data)[names(mids_obj$data) == old] = new
-
-    # Rename in imp list
-    names(mids_obj$imp)[names(mids_obj$imp) == old] = new
-
-    # Rename in method vector
-    names(mids_obj$method)[names(mids_obj$method) == old] = new
-
-    # Rename in predictorMatrix (both rows and columns)
-    rownames(mids_obj$predictorMatrix)[rownames(mids_obj$predictorMatrix) == old] = new
-    colnames(mids_obj$predictorMatrix)[colnames(mids_obj$predictorMatrix) == old] = new
-
-    # Rename in where matrix
-    if (!is.null(mids_obj$where)) {
-      colnames(mids_obj$where)[colnames(mids_obj$where) == old] = new
-    }
-
-    # Rename in nmis (number of missing)
-    if (!is.null(mids_obj$nmis)) {
-      names(mids_obj$nmis)[names(mids_obj$nmis) == old] = new
-    }
-
-    # Rename in chainMean (first dimension) - used by plot()
-    if (!is.null(mids_obj$chainMean)) {
-      dn = dimnames(mids_obj$chainMean)
-      dn[[1]][dn[[1]] == old] = new
-      dimnames(mids_obj$chainMean) = dn
-    }
-
-    # Rename in chainVar (first dimension) - used by plot()
-    if (!is.null(mids_obj$chainVar)) {
-      dn = dimnames(mids_obj$chainVar)
-      dn[[1]][dn[[1]] == old] = new
-      dimnames(mids_obj$chainVar) = dn
-    }
-
-    # Rename in visitSequence
-    if (!is.null(mids_obj$visitSequence)) {
-      names(mids_obj$visitSequence)[names(mids_obj$visitSequence) == old] = new
-      mids_obj$visitSequence[mids_obj$visitSequence == old] = new
-    }
-
-    # Rename in blocks
-    if (!is.null(mids_obj$blocks)) {
-      names(mids_obj$blocks)[names(mids_obj$blocks) == old] = new
-      mids_obj$blocks = lapply(mids_obj$blocks, function(b) {
-        b[b == old] = new
-        b
-      })
-    }
-  }
-  return(mids_obj)
-}                
-
-```
-
-#### Timepoint: Y21 (TEDS21 phase-1 questionnaire)
-
-```{r convergence-y21}
-
-ids = tasks %>%
-  filter(imputation == 1) %>%
-  filter(timepoint == rq1y_twin[1]) %>%
-  pull(i)
-
-combine_mids = Reduce(mice::rbind, all_imputations[ids])
-
-all_imputations[[ids[1]]] %>%
-  rename_mids() %>%
-  plot(y = new_names, layout = c(4, 4), main = "Single Imputation (MZ males only)")
-combine_mids %>%
-  rename_mids() %>%
-  plot(y = new_names, layout = c(4, 4), main = "Combined Across Sex-Zygosity Groups (1 Imputation)")
-
-ids = tasks %>%
-  filter(imputation <= 10) %>%
-  filter(timepoint == rq1y_twin[1]) %>%
-  pull(i)
-
-combine_mids = Reduce(mice::rbind, all_imputations[ids])
-
-combine_mids %>%
-  rename_mids() %>%
-  plot(y = new_names, layout = c(4, 4), main = "Combined Across Sex-Zygosity Groups (10 Imputations)")
-
-```
-
-#### Timepoint: Y26 (TEDS26 questionnaire)
-
-```{r convergence-y26}
-
-ids = tasks %>%
-  filter(imputation == 1) %>%
-  filter(timepoint == rq1y_twin[2]) %>%
-  pull(i)
-
-combine_mids = Reduce(mice::rbind, all_imputations[ids])
-
-all_imputations[[ids[1]]] %>%
-  rename_mids() %>%
-  plot(y = new_names, layout = c(4, 4), main = "Single Imputation (MZ males only)")
-combine_mids %>%
-  rename_mids() %>%
-  plot(y = new_names, layout = c(4, 4), main = "Combined Across Sex-Zygosity Groups (1 Imputation)")
-
-ids = tasks %>%
-  filter(imputation <= 10) %>%
-  filter(timepoint == rq1y_twin[2]) %>%
-  pull(i)
-
-combine_mids = Reduce(mice::rbind, all_imputations[ids])
-
-combine_mids %>%
-  rename_mids() %>%
-  plot(y = new_names, layout = c(4, 4), main = "Combined Across Sex-Zygosity Groups (10 Imputations)")
-
-```
-
-#### Timepoint: Y26 (CATSLife web tests)
-
-```{r convergence-y26-cats}
-
-ids = tasks %>%
-  filter(imputation == 1) %>%
-  filter(timepoint == rq1y_twin[3]) %>%
-  pull(i)
-
-combine_mids = Reduce(mice::rbind, all_imputations[ids])
-
-all_imputations[[ids[1]]] %>%
-  rename_mids() %>%
-  plot(y = new_names, layout = c(4, 4), main = "Single Imputation (MZ males only)")
-combine_mids %>%
-  rename_mids() %>%
-  plot(y = new_names, layout = c(4, 4), main = "Combined Across Sex-Zygosity Groups (1 Imputation)")
-
-ids = tasks %>%
-  filter(imputation <= 10) %>%
-  filter(timepoint == rq1y_twin[3]) %>%
-  pull(i)
-
-combine_mids = Reduce(mice::rbind, all_imputations[ids])
-
-combine_mids %>%
-  rename_mids() %>%
-  plot(y = new_names, layout = c(4, 4), main = "Combined Across Sex-Zygosity Groups (10 Imputations)")
-
-```
-
-## Correlation Matrix of Imputation Model Variables
-
-Correlation matrix (Pearson, pairwise complete observations) of all numeric variables included in the RQ3 multiple imputation models (see [Table of all variables used in multiple imputation (RQ3)]). Categorical/factor variables are not correlation-compatible and are excluded from the matrix below.
-
-```{r imputation-vars-correlation-matrix}
-#| fig-width: 26
-#| fig-height: 26
-
-numeric_impute_vars = rq6_imputation_vars[sapply(rq6_imputation_vars, function(v) is.numeric(df[[v]]))]
-
-nonnumeric_impute_vars = rq6_imputation_vars[sapply(rq6_imputation_vars, function(v) !is.numeric(df[[v]]))]
-
-df %>% 
-  select(all_of(nonnumeric_impute_vars)) %>% 
-  apply(.,2,table)
-
-cor_dat = df %>%
-  select(all_of(numeric_impute_vars),"asmoke","atwclub") %>% 
-  mutate(
-    asmoke = as.numeric(asmoke),
-    atwclub = as.numeric(atwclub)
-  ) %>% 
-  select(-ends_with("2")) %>% 
-  `colnames<-`(var_to_label(colnames(.)))
-
-gbtoolbox::plot_correlations(
-  cor_dat,
-  text_size_r         = 1.8,
-  text_size_axis      = 6,
-  sample_size         = FALSE,
-  confidence_interval = FALSE,
-  suppress_warning_message = TRUE
-)
-
-save_plot("8_rq6_imputation_vars_correlation_matrix", width = 18, height = 18, trim = FALSE)
-
-```
-
-[📊 View Full Resolution Correlation Matrix (PNG)](plots/pngs/8_rq6_imputation_vars_correlation_matrix.png)
 
